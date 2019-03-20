@@ -8,6 +8,12 @@ You can either install quickly from the source repository using Python's `pip`
 package manager, or you can clone the source first which has the advantage of 
 getting the examples and tests.
 
+### System Requirements
+
+- Python 2.7 or 3.6+
+- [Deriva-Py](https://github.com/informatics-isi-edu/deriva-py) library
+- Dependencies listed in [setup.py](./setup.py)
+
 ### Quick install
 
 Install the library directly from its source code repository. You will 
