@@ -48,7 +48,7 @@ def connect(url, credentials=None):
 class ERMrestCatalog (base.AbstractCatalog):
     """Database catalog backed by a remote ERMrest catalog service."""
     def __init__(self, ermrest_catalog):
-        super(ERMrestCatalog, self).__init__()
+        super(ERMrestCatalog, self).__init__(ermrest_catalog.getCatalogSchema())
         self.ermrest_catalog = ermrest_catalog # TODO: consider making private
         # super(ERMrestCatalog, self).__init__(model_doc, **_kwargs(**kwargs))
         # self.ermrest_catalog = kwargs['ermrest_catalog'] if 'ermrest_catalog' in kwargs else None
