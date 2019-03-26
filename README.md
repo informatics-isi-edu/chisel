@@ -10,8 +10,8 @@ getting the examples and tests.
 
 ### System Requirements
 
-- Python 2.7 or 3.6+
-- [Deriva-Py](https://github.com/informatics-isi-edu/deriva-py) library
+- Python 3.5+
+- [setuptools](https://pypi.org/project/setuptools/)
 - Dependencies listed in [setup.py](./setup.py)
 
 ### Quick install
