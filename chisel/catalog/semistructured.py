@@ -33,7 +33,7 @@ def connect(url, credentials=None):
     parsed_url = util.urlparse(url)
     if credentials:
         logger.warning('Credentials not supported by semistructured catalog')
-    return from_semistructured_files(parsed_url.path)
+    return SemistructuredCatalog(parsed_url.path)
 
 
 def from_semistructured_files(path):
@@ -79,12 +79,14 @@ def from_semistructured_files(path):
     return SemistructuredCatalog(model_doc, path=path)
 
 
-class SemistructuredCatalog(base.AbstractCatalog):
+class SemistructuredCatalog (base.AbstractCatalog):
     """Database catalog backed by semistructured files."""
-    def __init__(self, model_doc, **kwargs):
-        super(SemistructuredCatalog, self).__init__(model_doc, **_kwargs(**kwargs))
-        assert 'path' in kwargs, "required argument 'path' missing"
-        self.path = kwargs['path']
+    def __init__(self, path):
+        super(SemistructuredCatalog, self).__init__()
+        self.path = path
+        # TODO delete me
+        # assert 'path' in kwargs, "required argument 'path' missing"
+        # self.path = kwargs['path']
 
     def _materialize_relation(self, schema, plan):
         """Materializes a relation from a physical plan.

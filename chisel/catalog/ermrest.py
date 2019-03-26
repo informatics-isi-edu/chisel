@@ -32,23 +32,26 @@ def connect(url, credentials=None):
     if not credentials:
         credentials = _deriva_core.get_credential(parsed_url.netloc)
     ec = _deriva_core.ErmrestCatalog(parsed_url.scheme, parsed_url.netloc, parsed_url.path.split('/')[-1], credentials)
-    return from_ermrest_catalog(ec)
+    return ERMrestCatalog(ec)
 
 
-def from_ermrest_catalog(ermrest_catalog):
-    """Returns a database catalog instance backed by a remote ERMrest catalog service.
+# TODO: remove me
+# def from_ermrest_catalog(ermrest_catalog):
+#     """Returns a database catalog instance backed by a remote ERMrest catalog service.
+#
+#     :param ermrest_catalog: `ErmrestCatalog` instance from the deriva-py package
+#     :return: a database catalog instance from the chisel package
+#     """
+#     return ERMrestCatalog(ermrest_catalog.getCatalogSchema(), ermrest_catalog=ermrest_catalog)
 
-    :param ermrest_catalog: `ErmrestCatalog` instance from the deriva-py package
-    :return: a database catalog instance from the chisel package
-    """
-    return ERMrestCatalog(ermrest_catalog.getCatalogSchema(), ermrest_catalog=ermrest_catalog)
 
-
-class ERMrestCatalog(base.AbstractCatalog):
+class ERMrestCatalog (base.AbstractCatalog):
     """Database catalog backed by a remote ERMrest catalog service."""
-    def __init__(self, model_doc, **kwargs):
-        super(ERMrestCatalog, self).__init__(model_doc, **_kwargs(**kwargs))
-        self.ermrest_catalog = kwargs['ermrest_catalog'] if 'ermrest_catalog' in kwargs else None
+    def __init__(self, ermrest_catalog):
+        super(ERMrestCatalog, self).__init__()
+        self.ermrest_catalog = ermrest_catalog # TODO: consider making private
+        # super(ERMrestCatalog, self).__init__(model_doc, **_kwargs(**kwargs))
+        # self.ermrest_catalog = kwargs['ermrest_catalog'] if 'ermrest_catalog' in kwargs else None
 
     def _materialize_relation(self, schema, plan):
         """Materializes a relation from a physical plan.

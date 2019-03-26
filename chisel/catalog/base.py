@@ -11,21 +11,31 @@ from .. import optimizer as _op, operators, util
 logger = logging.getLogger(__name__)
 
 
-def _kwargs(**kwargs):
-    """Helper for extending module with sub-types for the whole model tree."""
-    kwargs2 = {
-        'schema_class': Schema,
-        'table_class': AbstractTable,
-        'column_class': Column
-    }
-    kwargs2.update(kwargs)
-    return kwargs2
+# def _kwargs(**kwargs):
+#     """Helper for extending module with sub-types for the whole model tree."""
+#     kwargs2 = {
+#         'schema_class': Schema,
+#         'table_class': AbstractTable,
+#         'column_class': Column
+#     }
+#     kwargs2.update(kwargs)
+#     return kwargs2
 
 
-class AbstractCatalog (_em.Model):
-    """Abstract base class for database catalogs."""
-    def __init__(self, model_doc, **kwargs):
-        super(AbstractCatalog, self).__init__(model_doc, **_kwargs(**kwargs, model=self))
+class AbstractCatalog (object):
+    """Abstract base class for catalogs."""
+    def __init__(self):
+        super(AbstractCatalog, self).__init__()
+        self.mutable = False
+
+    @property
+    def schemas(self):
+        """Map of schema names to schema model objects."""
+        raise NotImplementedError()
+
+    def __getitem__(self, item):
+        """Maps a schema name to a schema model object."""
+        return self.schemas[item]
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -174,7 +184,7 @@ class SchemaTablesContainer (_abc.MutableMapping):
         elif key in self._pending_assignments:
             raise ValueError('Table assignment already pending.')
         else:
-            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._parent_schema, key), **_kwargs(schema=self._parent_schema))
+            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._parent_schema, key))  # TODO fixme
 
     def __delitem__(self, key):
         if key in self._base_tables:
@@ -191,12 +201,13 @@ class SchemaTablesContainer (_abc.MutableMapping):
         return self._base_tables
 
 
-class Schema (_em.Schema):
+class Schema (object):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
-    def __init__(self, sname, schema_doc, **kwargs):
-        super(Schema, self).__init__(sname, schema_doc, **_kwargs(**kwargs, schema=self))
-        self.model = kwargs['model']
+    def __init__(self, catalog):
+        super(Schema, self).__init__()
+        self._catalog = catalog
         self.tables = SchemaTablesContainer(self)
+        self.name = None  # TODO
 
     def describe(self):
         """Returns a text (markdown) description."""
