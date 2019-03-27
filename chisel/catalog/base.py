@@ -126,10 +126,9 @@ class AbstractCatalog (object):
 
         return dot
 
-    def _materialize_relation(self, schema, plan):
+    def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
-        :param schema: a `Schema` in which to materialize the relation
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
@@ -175,7 +174,7 @@ class AbstractCatalog (object):
             else:
                 # Materialize the planned relation
                 logging.info('Materializing "{name}"...'.format(name=computed_relation.name))
-                self._materialize_relation(self.schemas[computed_relation.sname], physical_plan)
+                self._materialize_relation(physical_plan)
 
 
 class Schema (object):

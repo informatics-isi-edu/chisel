@@ -34,10 +34,9 @@ class ERMrestCatalog (base.AbstractCatalog):
     def _new_schema_instance(self, schema_doc):
         return ERMrestSchema(self, schema_doc)
 
-    def _materialize_relation(self, schema, plan):
+    def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
-        :param schema: a `Schema` in which to materialize the relation
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
@@ -55,10 +54,12 @@ class ERMrestCatalog (base.AbstractCatalog):
             provide_system=ERMrestCatalog.provide_system
         )
         # Create table
-        schema.create_table(self.ermrest_catalog, tab_def)  # TODO: this won't work anymore
+        # TODO: the following needs testing after changes :: also should improve efficiency here
+        schema = self.ermrest_catalog.getCatalogSchema().schemas[plan.description['schema_name']]
+        schema.create_table(self.ermrest_catalog, tab_def)
         # Unfortunately, the 'paths' interface must be rebuilt for every relation to be materialized because the remote
         # schema itself is changing (by definition) throughout the `commit` process.
-        paths = self.ermrest_catalog.getPathBuilder()
+        paths = self.ermrest_catalog.getPathBuilder()  # TODO: also look to improve efficiency here too
         new_table = paths.schemas[schema.name].tables[plan.description['table_name']]
         # Insert data
         new_table.insert(plan)

@@ -77,14 +77,13 @@ class SemistructuredCatalog (base.AbstractCatalog):
     def _new_schema_instance(self, schema_doc):
         return SemistructuredSchema(self, schema_doc)
 
-    def _materialize_relation(self, schema, plan):
+    def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
-        :param schema: a `Schema` in which to materialize the relation
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
-        filename = os.path.join(self.path, schema.name, plan.description['table_name'])
+        filename = os.path.join(self.path, plan.description['schema_name'], plan.description['table_name'])
         if filename.endswith('.json'):
             with open(filename, 'w') as jsonfile:
                 json.dump(list(plan), jsonfile, indent=2)
