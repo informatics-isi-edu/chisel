@@ -71,7 +71,7 @@ class AbstractCatalog (object):
         :param schema_doc: the schema document
         :return: schema model object
         """
-        return Schema(self, schema_doc)
+        return Schema(schema_doc, self)
 
     def __getitem__(self, item):
         """Maps a schema name to a schema model object.
@@ -182,7 +182,7 @@ class AbstractCatalog (object):
 class Schema (object):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
 
-    def __init__(self, catalog, schema_doc):
+    def __init__(self, schema_doc, catalog):
         super(Schema, self).__init__()
         self.catalog = catalog
         self.name = schema_doc['schema_name']
@@ -333,9 +333,10 @@ class SchemaTables (collections.abc.MutableMapping):
 class AbstractTable (object):
     """Abstract base class for database tables."""
 
-    def __init__(self, table_doc):
+    def __init__(self, table_doc, schema=None):
         super(AbstractTable, self).__init__()
         self._table_doc = table_doc
+        self.schema = schema
         self.name = table_doc['table_name']
         self.comment = table_doc['comment']
         self.sname = table_doc.get('schema_name')  # not present in computed relation
@@ -360,7 +361,7 @@ class AbstractTable (object):
         :param column_doc: the column document
         :return: column model object
         """
-        return Column(self, column_doc)
+        return Column(column_doc, self)
 
     def prejson(self):
         """Returns a JSON-ready representation of this table model object.
@@ -545,7 +546,7 @@ class ComputedRelation (AbstractTable):
 class Column (object):
     """Table column."""
 
-    def __init__(self, table, column_doc):
+    def __init__(self, column_doc, table):
         super(Column, self).__init__()
         self.table = table
         self.name = column_doc['name']

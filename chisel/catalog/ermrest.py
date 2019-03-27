@@ -32,7 +32,7 @@ class ERMrestCatalog (base.AbstractCatalog):
         self.ermrest_catalog = ermrest_catalog
 
     def _new_schema_instance(self, schema_doc):
-        return ERMrestSchema(self, schema_doc)
+        return ERMrestSchema(schema_doc, self)
 
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
@@ -67,18 +67,13 @@ class ERMrestCatalog (base.AbstractCatalog):
 
 class ERMrestSchema (base.Schema):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
-    def __init__(self, catalog, schema_doc):
-        super(ERMrestSchema, self).__init__(catalog, schema_doc)
 
     def _new_table_instance(self, table_doc):
-        return ERMrestTable(self, table_doc)
+        return ERMrestTable(table_doc, self)
 
 
 class ERMrestTable (base.AbstractTable):
     """Extant table in an ERMrest catalog."""
-    def __init__(self, schema, table_doc):
-        super(ERMrestTable, self).__init__(table_doc)
-        self.schema = schema
 
     @property
     def logical_plan(self):

@@ -75,7 +75,7 @@ class SemistructuredCatalog (base.AbstractCatalog):
         self.path = path
 
     def _new_schema_instance(self, schema_doc):
-        return SemistructuredSchema(self, schema_doc)
+        return SemistructuredSchema(schema_doc, self)
 
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
@@ -101,18 +101,13 @@ class SemistructuredCatalog (base.AbstractCatalog):
 
 class SemistructuredSchema (base.Schema):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
-    def __init__(self, catalog, schema_doc):
-        super(SemistructuredSchema, self).__init__(catalog, schema_doc)
 
     def _new_table_instance(self, table_doc):
-        return SemistructuredTable(self, table_doc)
+        return SemistructuredTable(table_doc, self)
 
 
 class SemistructuredTable (base.AbstractTable):
     """Extant table in a semistructured catalog."""
-    def __init__(self, schema, table_doc):
-        super(SemistructuredTable, self).__init__(table_doc)
-        self.schema = schema
 
     @property
     def logical_plan(self):
