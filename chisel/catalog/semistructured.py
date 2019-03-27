@@ -12,17 +12,6 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def _kwargs(**kwargs):
-    """Helper for extending module with sub-types for the whole model tree."""
-    kwargs2 = {
-        'schema_class': base.Schema,
-        'table_class': SemistructuredTable,
-        'column_class': base.Column
-    }
-    kwargs2.update(kwargs)
-    return kwargs2
-
-
 def connect(url, credentials=None):
     """Connect to a local, semi-structured (i.e., CSV, JSON) data source.
 
@@ -129,7 +118,7 @@ class SemistructuredTable (base.AbstractTable):
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
-        filename = os.path.join(self.schema._catalog.path, self.sname, self.name)
+        filename = os.path.join(self.schema.catalog.path, self.sname, self.name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
             return optimizer.Scan(filename=filename)
         elif filename.endswith('.json'):

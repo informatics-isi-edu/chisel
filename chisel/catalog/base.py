@@ -182,7 +182,7 @@ class Schema (object):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
     def __init__(self, catalog, schema_doc):
         super(Schema, self).__init__()
-        self._catalog = catalog
+        self.catalog = catalog
         self.name = schema_doc['schema_name']
         self.comment = schema_doc['comment']
         self._tables = {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}

@@ -6,20 +6,6 @@ from .. import optimizer
 from .. import util
 from . import base
 
-#: instance wide setting for providing system columns when creating new tables (default: True)
-provide_system = True
-
-
-def _kwargs(**kwargs):
-    """Helper for extending module with sub-types for the whole model tree."""
-    kwargs2 = {
-        'schema_class': base.Schema,
-        'table_class': ERMrestTable,
-        'column_class': base.Column
-    }
-    kwargs2.update(kwargs)
-    return kwargs2
-
 
 def connect(url, credentials=None):
     """Connect to an ERMrest data source.
@@ -35,23 +21,18 @@ def connect(url, credentials=None):
     return ERMrestCatalog(ec)
 
 
-# TODO: remove me
-# def from_ermrest_catalog(ermrest_catalog):
-#     """Returns a database catalog instance backed by a remote ERMrest catalog service.
-#
-#     :param ermrest_catalog: `ErmrestCatalog` instance from the deriva-py package
-#     :return: a database catalog instance from the chisel package
-#     """
-#     return ERMrestCatalog(ermrest_catalog.getCatalogSchema(), ermrest_catalog=ermrest_catalog)
-
-
 class ERMrestCatalog (base.AbstractCatalog):
     """Database catalog backed by a remote ERMrest catalog service."""
+
+    """instance wide setting for providing system columns when creating new tables (default: True)"""
+    provide_system = True
+
     def __init__(self, ermrest_catalog):
         super(ERMrestCatalog, self).__init__(ermrest_catalog.getCatalogSchema())
-        self.ermrest_catalog = ermrest_catalog # TODO: consider making private
-        # super(ERMrestCatalog, self).__init__(model_doc, **_kwargs(**kwargs))
-        # self.ermrest_catalog = kwargs['ermrest_catalog'] if 'ermrest_catalog' in kwargs else None
+        self.ermrest_catalog = ermrest_catalog
+
+    def _new_schema_instance(self, schema_doc):
+        return ERMrestSchema(self, schema_doc)
 
     def _materialize_relation(self, schema, plan):
         """Materializes a relation from a physical plan.
@@ -71,10 +52,10 @@ class ERMrestCatalog (base.AbstractCatalog):
             acls=desc['acls'] if 'acls' in desc else {},
             acl_bindings=desc['acl_bindings'] if 'acl_bindings' in desc else {},
             annotations=desc['annotations'] if 'annotations' in desc else {},
-            provide_system=provide_system
+            provide_system=ERMrestCatalog.provide_system
         )
         # Create table
-        schema.create_table(self.ermrest_catalog, tab_def)
+        schema.create_table(self.ermrest_catalog, tab_def)  # TODO: this won't work anymore
         # Unfortunately, the 'paths' interface must be rebuilt for every relation to be materialized because the remote
         # schema itself is changing (by definition) throughout the `commit` process.
         paths = self.ermrest_catalog.getPathBuilder()
@@ -83,11 +64,20 @@ class ERMrestCatalog (base.AbstractCatalog):
         new_table.insert(plan)
 
 
+class ERMrestSchema (base.Schema):
+    """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
+    def __init__(self, catalog, schema_doc):
+        super(ERMrestSchema, self).__init__(catalog, schema_doc)
+
+    def _new_table_instance(self, table_doc):
+        return ERMrestTable(self, table_doc)
+
+
 class ERMrestTable (base.AbstractTable):
     """Extant table in an ERMrest catalog."""
-    def __init__(self, sname, tname, table_doc, **kwargs):
-        super(ERMrestTable, self).__init__(sname, tname, table_doc, **_kwargs(**kwargs, table=self))
-        self.schema = kwargs['schema']
+    def __init__(self, schema, table_doc):
+        super(ERMrestTable, self).__init__(table_doc)
+        self.schema = schema
 
     @property
     def logical_plan(self):

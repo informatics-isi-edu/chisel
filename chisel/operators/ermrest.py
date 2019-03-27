@@ -39,7 +39,7 @@ class ERMrestProjectSelect (Project):
         self._formula = formula
 
     def __iter__(self):
-        paths = self._table.schema.model.ermrest_catalog.getPathBuilder()
+        paths = self._table.schema.catalog.ermrest_catalog.getPathBuilder()
         table = paths.schemas[self._table.schema.name].tables[self._table.name]
         filtered_path = _filter_table(table, self._formula)
         cols = [table.column_definitions[a] for a in self._attributes if a != 'RID']
@@ -58,7 +58,7 @@ class ERMrestSelect (PhysicalOperator):
         self._formula = formula
 
     def __iter__(self):
-        paths = self._table.schema.model.ermrest_catalog.getPathBuilder()
+        paths = self._table.schema.catalog.ermrest_catalog.getPathBuilder()
         table = paths.schemas[self._table.schema.name].tables[self._table.name]
         filtered_path = _filter_table(table, self._formula)
         rows = filtered_path.entities()

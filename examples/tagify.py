@@ -12,7 +12,7 @@ catalog = chisel.connect(__catalog_url__)
 print('CONNECTED')
 
 # Create a new relation computed from the atomized source relation
-domain = catalog.s['vocab'].t['anatomy_terms']
+domain = catalog.s['vocab'].t['anatomy']
 catalog.s['isa'].t['enhancer_anatomical_structures'] = catalog.s['isa'].t['enhancer'].c['list_of_anatomical_structures'].to_tags(domain)
 catalog.commit(dry_run=__dry_run__)
 print('DONE')
