@@ -40,7 +40,21 @@ class AbstractCatalog (object):
         super(AbstractCatalog, self).__init__()
         self._model_doc = model_doc
         self._schemas = {schema_name: self._new_schema_instance(model_doc['schemas'][schema_name]) for schema_name in model_doc['schemas']}
-        # TODO: compute 'referenced_by' in the tables
+        self._update_referenced_by()
+
+    def _update_referenced_by(self):
+        """Introspects the 'foreign_keys' and updates the 'referenced_by' properties on the 'Table' objects.
+        :param model: an ERMrest model object
+        """
+        for schema in self.schemas.values():
+            for referer in schema.tables.values():
+                for fkey in referer.foreign_keys:
+                    referenced = self.schemas[
+                        fkey.referenced_columns[0]['schema_name']
+                    ].tables[
+                        fkey.referenced_columns[0]['table_name']
+                    ]
+                    referenced.referenced_by.append(fkey)
 
     @property
     def schemas(self):
