@@ -310,7 +310,7 @@ class SchemaTables (collections.abc.MutableMapping):
         elif key in self._pending_assignments:
             raise ValueError('Table assignment already pending.')
         else:
-            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema, key))  # TODO fixme
+            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
 
     def __delitem__(self, key):
         if key in self._base_tables:
