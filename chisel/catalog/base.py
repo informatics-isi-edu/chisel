@@ -14,28 +14,6 @@ logger = logging.getLogger(__name__)
 class AbstractCatalog (object):
     """Abstract base class for catalogs."""
 
-    # TODO: revisit this after the basic functionality is restored
-    # class CatalogSchemas(collections.abc.Mapping):
-    #     """Collection of catalog schema model objects."""
-    #
-    #     def __init__(self, catalog, backing):
-    #         """Initializes the collection.
-    #
-    #         :param catalog: the parent catalog
-    #         :param backing: the backing collection must be a Mapping
-    #         """
-    #         assert (isinstance(backing, collections.abc.Mapping))
-    #         self._backing = backing
-    #
-    #     def __getitem__(self, item):
-    #         return self._backing[item]
-    #
-    #     def __iter__(self):
-    #         return iter(self._backing)
-    #
-    #     def __len__(self):
-    #         return len(self._backing)
-
     def __init__(self, model_doc):
         super(AbstractCatalog, self).__init__()
         self._model_doc = model_doc
@@ -79,6 +57,9 @@ class AbstractCatalog (object):
         This is a short-hand for `catalog.schemas[schema_name]`.
         """
         return self.schemas[item]
+
+    def _ipython_key_completions_(self):
+        return self.schemas.keys()
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -189,6 +170,16 @@ class Schema (object):
         self.comment = schema_doc['comment']
         self._tables = {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
         self.tables = SchemaTables(self, self._tables)
+
+    def __getitem__(self, item):
+        """Maps a table name to a table model object.
+
+        This is a short-hand for `schema.tables[table_name]`.
+        """
+        return self.tables[item]
+
+    def _ipython_key_completions_(self):
+        return list(self.tables.keys())
 
     def _new_table_instance(self, table_doc):
         """Overridable method for creating a new table model object.
@@ -347,14 +338,6 @@ class AbstractTable (object):
         self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
         self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
 
-        # TODO: this may not be necessary for the OrderedDict
-        # monkey patch the column definitions for ipython key completions
-        # setattr(
-        #     self.column_definitions,
-        #     '_ipython_key_completions_',
-        #     lambda: list(self.column_definitions.elements.keys())
-        # )
-
     def _new_column_instance(self, column_doc):
         """Overridable method for creating a new column model object.
 
@@ -362,6 +345,17 @@ class AbstractTable (object):
         :return: column model object
         """
         return Column(column_doc, self)
+
+    def __getitem__(self, item):
+        """Maps a column name to a column model object.
+
+        This is a short-hand for `table.columns[column_name]`.
+        """
+        return self.columns[item]
+
+    def _ipython_key_completions_(self):
+        return self.columns.keys()
+        # return list(self.columns.keys())
 
     def prejson(self):
         """Returns a JSON-ready representation of this table model object.
