@@ -117,6 +117,7 @@ class Assign (PhysicalOperator):
         assert child.description is not None
         self._child = child
         self._description = child.description.copy()
+        self._description['schema_name'] = schema.name
         self._description['table_name'] = table_name
 
     def __iter__(self):

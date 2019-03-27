@@ -333,8 +333,8 @@ class AbstractTable (object):
         super(AbstractTable, self).__init__()
         self._table_doc = table_doc
         self.name = table_doc['table_name']
-        self.sname = table_doc['schema_name']
-        self.kind = table_doc['kind']
+        self.sname = table_doc.get('schema_name')  # not present in computed relation
+        self.kind = table_doc.get('kind')  # not present in computed relation
         self.column_definitions = collections.OrderedDict([
             (col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']
         ])
