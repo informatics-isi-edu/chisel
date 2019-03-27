@@ -454,9 +454,9 @@ class AbstractTable (object):
                     projection.append(column)
                 else:
                     raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
-            return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))  # TODO: set 'table' param?
+            return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
-            return ComputedRelation(self.logical_plan)  # TODO: set 'table' param?
+            return ComputedRelation(self.logical_plan)
 
     def filter(self, formula):
         """Filters this relation according to the given formula.
@@ -471,7 +471,7 @@ class AbstractTable (object):
         else:
             # TODO: next we want to support a conjunction of comparisons
             # TODO: allow input of comparison or conjunction of comparisons
-            return ComputedRelation(_op.Select(self.logical_plan, formula))  # TODO: set 'table' param?
+            return ComputedRelation(_op.Select(self.logical_plan, formula))
 
     def reify_sub(self, *cols):
         """Reifies a sub-concept of the relation by the specified columns. This relation is left unchanged.
