@@ -323,7 +323,7 @@ class AbstractTable (object):
         self.comment = table_doc['comment']
         self.sname = table_doc.get('schema_name')  # not present in computed relation
         self.kind = table_doc.get('kind')  # not present in computed relation
-        self.column_definitions = collections.OrderedDict([
+        self.columns = collections.OrderedDict([
             (col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']
         ])
         self.foreign_keys = table_doc['foreign_keys']
@@ -355,16 +355,13 @@ class AbstractTable (object):
     def describe(self):
         """Returns a text (markdown) description."""
         def type2str(t):
-            if t.is_array:
-                return t.typename + "[]"
-            else:
-                return t.typename
+            return t['typename']
 
         def _make_markdown_repr(quote=lambda s: s):
             data = [
                 ["Column", "Type", "Nullable", "Default", "Comment"]
             ] + [
-                [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.column_definitions
+                [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.columns.values()
             ]
             desc = "### Table \"" + self.sname + "." + self.name + "\"\n" + \
                    util.markdown_table(data, quote)
@@ -424,7 +421,7 @@ class AbstractTable (object):
     @property
     def c(self):
         """Shorthand for the column_definitions container."""
-        return self.column_definitions
+        return self.columns
 
     def select(self, *columns):
         """Selects this relation and projects the columns.
@@ -535,6 +532,7 @@ class Column (object):
         self.name = column_doc['name']
         self.type = column_doc['type']
         self.default = column_doc['default']
+        self.nullok = column_doc['nullok']
         self.comment = column_doc['comment']
 
     def __hash__(self):
