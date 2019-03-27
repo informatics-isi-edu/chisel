@@ -1,7 +1,6 @@
 """Database catalog module."""
 
 import collections
-from collections import abc as _abc
 import itertools
 import logging
 import pprint as pp
@@ -10,17 +9,6 @@ from deriva.core import ermrest_model as _em
 from .. import optimizer as _op, operators, util
 
 logger = logging.getLogger(__name__)
-
-
-# def _kwargs(**kwargs):
-#     """Helper for extending module with sub-types for the whole model tree."""
-#     kwargs2 = {
-#         'schema_class': Schema,
-#         'table_class': AbstractTable,
-#         'column_class': Column
-#     }
-#     kwargs2.update(kwargs)
-#     return kwargs2
 
 
 class AbstractCatalog (object):
