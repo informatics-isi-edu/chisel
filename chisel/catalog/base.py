@@ -24,15 +24,51 @@ logger = logging.getLogger(__name__)
 
 class AbstractCatalog (object):
     """Abstract base class for catalogs."""
+
+    class CatalogSchemas(_abc.Mapping):
+        """Collection of catalog schema model objects."""
+
+        def __init__(self, catalog, backing):
+            """Initializes the collection.
+
+            :param catalog: the parent catalog
+            :param backing: the backing collection must be a Mapping
+            """
+            assert (isinstance(backing, _abc.Mapping))
+            self._catalog = catalog
+            self._backing = backing
+
+        def __getitem__(self, item):
+            return self._backing[item]
+
+        def __iter__(self):
+            return iter(self._backing)
+
+        def __len__(self):
+            return len(self._backing)
+
     def __init__(self, model_doc):
         super(AbstractCatalog, self).__init__()
-        # TODO: initialize schema
+        self._model_doc = model_doc
+        schemas = {}
+        for schema_name in model_doc['schemas']:
+            schema = self._new_schema_instance(model_doc['schemas'][schema_name], **{'foo': 'bar'})
+        self._schemas = AbstractCatalog.CatalogSchemas(self, schemas)
         # TODO: compute 'referenced_by' in the tables
+        self._new_schema_instance = Schema
 
     @property
     def schemas(self):
         """Map of schema names to schema model objects."""
-        raise NotImplementedError()
+        return self._schemas
+
+    def _new_schema_instance(self, schema_doc, **kwargs):
+        """Overridable method for creating a new schema model object.
+
+        :param schema_doc: the schema document
+        :return: schema model object
+        """
+        return Schema(self, schema_doc)
 
     def __getitem__(self, item):
         """Maps a schema name to a schema model object.
@@ -141,31 +177,9 @@ class AbstractCatalog (object):
                 self._materialize_relation(self.schemas[computed_relation.sname], physical_plan)
 
 
-class CatalogSchemas (_abc.Mapping):  # TODO: make it a nested class in AbstractCatalog ?
-    """Collection of catalog schema model objects."""
-    def __init__(self, catalog, backing):
-        """Initializes the collection.
-
-        :param catalog: the parent catalog
-        :param backing: the backing collection must be a Mapping
-        """
-        assert(isinstance(backing, _abc.Mapping))
-        self._catalog = catalog
-        self._backing = backing
-
-    def __getitem__(self, item):
-        return self._backing[item]
-
-    def __iter__(self):
-        return iter(self._backing)
-
-    def __len__(self):
-        return len(self._backing)
-
-
 class Schema (object):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
-    def __init__(self, schema_doc, catalog):
+    def __init__(self, catalog, schema_doc):
         super(Schema, self).__init__()
         self._catalog = catalog
         self.tables = SchemaTables(self)
