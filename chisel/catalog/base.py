@@ -576,7 +576,11 @@ class Column (object):
 
     __ge__ = ge
 
-    eq.__doc__ = lt.__doc__ = le.__doc__ = gt.__doc__ = ge.__doc__ = \
+    eq.__doc__ = \
+    lt.__doc__ = \
+    le.__doc__ = \
+    gt.__doc__ = \
+    ge.__doc__ = \
         """Creates and returns a comparison clause.
 
         :param other: assumes a literal; any allowed but `str(other)` will be used to cast its value to text
