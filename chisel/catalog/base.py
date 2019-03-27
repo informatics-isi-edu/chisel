@@ -1,5 +1,6 @@
 """Database catalog module."""
 
+import collections
 from collections import abc as _abc
 import itertools
 import logging
@@ -25,44 +26,44 @@ logger = logging.getLogger(__name__)
 class AbstractCatalog (object):
     """Abstract base class for catalogs."""
 
-    class CatalogSchemas(_abc.Mapping):
-        """Collection of catalog schema model objects."""
-
-        def __init__(self, catalog, backing):
-            """Initializes the collection.
-
-            :param catalog: the parent catalog
-            :param backing: the backing collection must be a Mapping
-            """
-            assert (isinstance(backing, _abc.Mapping))
-            self._catalog = catalog
-            self._backing = backing
-
-        def __getitem__(self, item):
-            return self._backing[item]
-
-        def __iter__(self):
-            return iter(self._backing)
-
-        def __len__(self):
-            return len(self._backing)
+    # TODO: revisit this after the basic functionality is restored
+    # class CatalogSchemas(collections.abc.Mapping):
+    #     """Collection of catalog schema model objects."""
+    #
+    #     def __init__(self, catalog, backing):
+    #         """Initializes the collection.
+    #
+    #         :param catalog: the parent catalog
+    #         :param backing: the backing collection must be a Mapping
+    #         """
+    #         assert (isinstance(backing, collections.abc.Mapping))
+    #         self._backing = backing
+    #
+    #     def __getitem__(self, item):
+    #         return self._backing[item]
+    #
+    #     def __iter__(self):
+    #         return iter(self._backing)
+    #
+    #     def __len__(self):
+    #         return len(self._backing)
 
     def __init__(self, model_doc):
         super(AbstractCatalog, self).__init__()
         self._model_doc = model_doc
-        schemas = {}
-        for schema_name in model_doc['schemas']:
-            schema = self._new_schema_instance(model_doc['schemas'][schema_name], **{'foo': 'bar'})
-        self._schemas = AbstractCatalog.CatalogSchemas(self, schemas)
+        self._schemas = {schema_name: self._new_schema_instance(model_doc['schemas'][schema_name]) for schema_name in model_doc['schemas']}
         # TODO: compute 'referenced_by' in the tables
-        self._new_schema_instance = Schema
 
     @property
     def schemas(self):
         """Map of schema names to schema model objects."""
         return self._schemas
 
-    def _new_schema_instance(self, schema_doc, **kwargs):
+    @property
+    def s(self):
+        return self._schemas
+
+    def _new_schema_instance(self, schema_doc):
         """Overridable method for creating a new schema model object.
 
         :param schema_doc: the schema document
@@ -182,8 +183,18 @@ class Schema (object):
     def __init__(self, catalog, schema_doc):
         super(Schema, self).__init__()
         self._catalog = catalog
-        self.tables = SchemaTables(self)
-        self.name = schema_doc['name']  # TODO: or 'sname'?
+        self.name = schema_doc['schema_name']
+        self.comment = schema_doc['comment']
+        self._tables = {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
+        self.tables = SchemaTables(self, self._tables)
+
+    def _new_table_instance(self, table_doc):
+        """Overridable method for creating a new table model object.
+
+        :param table_doc: the table document
+        :return: table model object
+        """
+        return AbstractTable(table_doc)
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -252,20 +263,21 @@ class Schema (object):
         return self.tables
 
 
-class SchemaTables (_abc.MutableMapping):
+class SchemaTables (collections.abc.MutableMapping):
     """Container class for schema tables (for internal use only).
 
     This class mostly passes through container methods to the underlying tables container. Its purpose is to facilitate
     assignment of new, computed relations to the catalog.
     """
-    def __init__(self, backing):
+    def __init__(self, schema, backing):
         """A collection of schema tables.
 
+        :param schema: the parent schema
         :param backing: the backing collection, which must be a Mapping
         """
         super(SchemaTables, self).__init__()
-        self._backing = backing
-        self._base_tables = backing.tables
+        self._schema = schema
+        self._base_tables = backing
         self._pending_assignments = {}
 
     def _ipython_key_completions_(self):
@@ -298,7 +310,7 @@ class SchemaTables (_abc.MutableMapping):
         elif key in self._pending_assignments:
             raise ValueError('Table assignment already pending.')
         else:
-            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._backing, key))  # TODO fixme
+            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema, key))  # TODO fixme
 
     def __delitem__(self, key):
         if key in self._base_tables:
@@ -320,20 +332,37 @@ class AbstractTable (object):
     def __init__(self, table_doc):
         super(AbstractTable, self).__init__()
         self._table_doc = table_doc
-        self.sname = table_doc['schema_name']
         self.name = table_doc['table_name']
+        self.sname = table_doc['schema_name']
         self.kind = table_doc['kind']
-        self.type = table_doc['type']
-        self.column_definitions = table_doc['column_definitions']  # TODO: create column model objects
+        self.column_definitions = collections.OrderedDict([
+            (col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']
+        ])
         self.foreign_keys = table_doc['foreign_keys']
         self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
 
-        # monkey patch the column definitions for ipython key completions  # TODO: this can become a normal method
-        setattr(
-            self.column_definitions,
-            '_ipython_key_completions_',
-            lambda: list(self.column_definitions.elements.keys())
-        )
+        # TODO: this may not be necessary for the OrderedDict
+        # monkey patch the column definitions for ipython key completions
+        # setattr(
+        #     self.column_definitions,
+        #     '_ipython_key_completions_',
+        #     lambda: list(self.column_definitions.elements.keys())
+        # )
+
+    def _new_column_instance(self, column_doc):
+        """Overridable method for creating a new column model object.
+
+        :param column_doc: the column document
+        :return: column model object
+        """
+        return Column(self, column_doc)
+
+    def prejson(self):
+        """Returns a JSON-ready representation of this table model object.
+
+        :return: a JSON-ready representation of this table model object
+        """
+        return self._table_doc
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -510,11 +539,15 @@ class ComputedRelation (AbstractTable):
         return self._buffered_plan
 
 
-class Column (_em.Column):
+class Column (object):
     """Table column."""
-    def __init__(self, sname, tname, column_doc, **kwargs):
-        super(Column, self).__init__(sname, tname, column_doc, **kwargs)
-        self.table = kwargs['table']
+    def __init__(self, table, column_doc):
+        super(Column, self).__init__()
+        self.table = table
+        self.name = column_doc['name']
+        self.type = column_doc['type']
+        self.default = column_doc['default']
+        self.comment = column_doc['comment']
 
     def __hash__(self):
         return super(Column, self).__hash__()

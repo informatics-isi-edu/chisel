@@ -36,11 +36,11 @@ def connect(url, credentials=None):
     return SemistructuredCatalog(parsed_url.path)
 
 
-def from_semistructured_files(path):
-    """Initializes a database catalog based on semistructured files in a shallow directory hierarchy.
+def introspect_semistructured_files(path):
+    """Introspects the model of semistructured files in a shallow directory hierarchy.
 
     :param path: the directory path
-    :return: a catalog instance
+    :return: a catalog model document
     """
     def table_definition_from_file(base_dir, schema_name, filename):
         abs_filename = os.path.join(base_dir, schema_name, filename)
@@ -75,18 +75,18 @@ def from_semistructured_files(path):
             if table:
                 model_doc['schemas']['.']['tables'][filename] = table
 
-    # Define model doc and instantiate catalog
-    return SemistructuredCatalog(model_doc, path=path)
+    # Return model document
+    return model_doc
 
 
 class SemistructuredCatalog (base.AbstractCatalog):
     """Database catalog backed by semistructured files."""
     def __init__(self, path):
-        super(SemistructuredCatalog, self).__init__()
+        super(SemistructuredCatalog, self).__init__(introspect_semistructured_files(path))
         self.path = path
-        # TODO delete me
-        # assert 'path' in kwargs, "required argument 'path' missing"
-        # self.path = kwargs['path']
+
+    def _new_schema_instance(self, schema_doc):
+        return SemistructuredSchema(self, schema_doc)
 
     def _materialize_relation(self, schema, plan):
         """Materializes a relation from a physical plan.
@@ -111,16 +111,25 @@ class SemistructuredCatalog (base.AbstractCatalog):
             raise Exception("Unable to materialize relation. Unknown file extension for '{}'.".format(filename))
 
 
+class SemistructuredSchema (base.Schema):
+    """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
+    def __init__(self, catalog, schema_doc):
+        super(SemistructuredSchema, self).__init__(catalog, schema_doc)
+
+    def _new_table_instance(self, table_doc):
+        return SemistructuredTable(self, table_doc)
+
+
 class SemistructuredTable (base.AbstractTable):
     """Extant table in a semistructured catalog."""
-    def __init__(self, sname, tname, table_doc, **kwargs):
-        super(SemistructuredTable, self).__init__(sname, tname, table_doc, **_kwargs(**kwargs, table=self))
-        self.schema = kwargs['schema']
+    def __init__(self, schema, table_doc):
+        super(SemistructuredTable, self).__init__(table_doc)
+        self.schema = schema
 
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
-        filename = os.path.join(self.schema.model.path, self.sname, self.name)
+        filename = os.path.join(self.schema._catalog.path, self.sname, self.name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
             return optimizer.Scan(filename=filename)
         elif filename.endswith('.json'):
