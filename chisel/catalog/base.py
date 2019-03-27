@@ -167,6 +167,7 @@ class AbstractCatalog (object):
 
 class Schema (object):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
+
     def __init__(self, catalog, schema_doc):
         super(Schema, self).__init__()
         self.catalog = catalog
@@ -256,6 +257,7 @@ class SchemaTables (collections.abc.MutableMapping):
     This class mostly passes through container methods to the underlying tables container. Its purpose is to facilitate
     assignment of new, computed relations to the catalog.
     """
+
     def __init__(self, schema, backing):
         """A collection of schema tables.
 
@@ -316,6 +318,7 @@ class SchemaTables (collections.abc.MutableMapping):
 
 class AbstractTable (object):
     """Abstract base class for database tables."""
+
     def __init__(self, table_doc):
         super(AbstractTable, self).__init__()
         self._table_doc = table_doc
@@ -488,6 +491,7 @@ class AbstractTable (object):
 
 class ComputedRelation (AbstractTable):
     """Computed relation."""
+
     def __init__(self, logical_plan):
         # NOTE: this is a consistent way of computing the relational schema. It is expensive only if the source
         # source relations are NOT extants. That is, if the source relations are Tables from a Catalog, then the
@@ -526,6 +530,7 @@ class ComputedRelation (AbstractTable):
 
 class Column (object):
     """Table column."""
+
     def __init__(self, table, column_doc):
         super(Column, self).__init__()
         self.table = table
