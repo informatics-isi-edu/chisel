@@ -320,6 +320,7 @@ class AbstractTable (object):
         super(AbstractTable, self).__init__()
         self._table_doc = table_doc
         self.name = table_doc['table_name']
+        self.comment = table_doc['comment']
         self.sname = table_doc.get('schema_name')  # not present in computed relation
         self.kind = table_doc.get('kind')  # not present in computed relation
         self.column_definitions = collections.OrderedDict([
