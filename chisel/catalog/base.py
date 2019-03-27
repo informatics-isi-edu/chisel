@@ -326,7 +326,7 @@ class AbstractTable (object):
         self.columns = collections.OrderedDict([
             (col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']
         ])
-        self.foreign_keys = table_doc['foreign_keys']
+        self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
         self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
 
         # TODO: this may not be necessary for the OrderedDict
