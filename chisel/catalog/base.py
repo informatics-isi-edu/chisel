@@ -16,6 +16,7 @@ class AbstractCatalog (object):
 
     def __init__(self, model_doc):
         super(AbstractCatalog, self).__init__()
+        self._evolve_ctx = None
         self._model_doc = model_doc
         self._schemas = {sname: self._new_schema_instance(model_doc['schemas'][sname]) for sname in model_doc['schemas']}
         self._update_referenced_by()
@@ -107,6 +108,86 @@ class AbstractCatalog (object):
 
         return dot
 
+    class _CatalogMutationContextManager (object):
+        """A context manager (i.e., 'with' statement enter/exit) for catalog model mutation."""
+
+        class _CatalogMutationAbort (Exception):
+            pass
+
+        def __init__(self, catalog, dry_run=False, consolidate=True):
+            assert isinstance(catalog, AbstractCatalog), "'catalog' must be an 'AbstractCatalog'"
+            self.parent = catalog
+            self.dry_run = dry_run
+            self.consolidate = consolidate
+
+        def __enter__(self):
+            if self.parent._evolve_ctx:
+                raise Exception('A catalog model mutation context already exists.')
+            self.parent._evolve_ctx = self
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            print(exc_type, exc_val, exc_tb)  # TODO: debug messages
+            if (not self.parent._evolve_ctx) or (self.parent._evolve_ctx != self):
+                raise Exception("Attempting to exit a catalog mutation content not assigned to the parent catalog.")
+
+            self.parent._evolve_ctx = None
+
+            if exc_type:
+                logging.info("Exception caught during catalog mutation, cancelling the current mutation.")
+                self.parent._abort()
+                return isinstance(exc_val, self._CatalogMutationAbort)
+            else:
+                logging.debug("Committing current catalog model mutation operations.")
+                self.parent._commit(self.dry_run, self.consolidate)
+
+        def abort(self):
+            """Aborts a catalog mutation context by raising an exception to be handled on exit of current context."""
+            raise self._CatalogMutationAbort()
+
+    def evolve(self, dry_run=False, consolidate=True):
+        """Begins a catalog model evolution block.
+
+        This should be called in a `with` statement block. At the end of the block, the pending changes will be
+        committed to the catalog. If an exception, any exception, is raised during the block the current mutations will
+        be cancelled.
+
+        Usage:
+        ```
+        # let `catalog` be a chisel catalog object
+        with catalog.evolve:
+            catalog['foo']['baz'] = catalog['foo']['bar'].select(...).where(...)
+
+            ...perform other mutating operations
+
+            # at the end of the block, the pending operations (above) will be performed
+        ```
+
+        Or optionally abort a catalog mutation:
+        ```
+        # let `catalog` be a chisel catalog object
+        with catalog.evolve as context:
+            catalog['foo']['baz'] = catalog['foo']['bar'].select(...).where(...)
+
+            ...perform other mutating operations
+
+            if oops_something_went_wrong_here:
+                context.abort()
+
+            ...anything else will be skipped, unless you catch the exception raised by the abort() method.
+
+            # at the end of the block, the pending operations (above) will be aborted.
+        ```
+
+        :param dry_run: if set to True, the pending commits will be drained, debug output printed, but not committed.
+        :param consolidate: if set to True, attempt to consolidate shared work between pending operations.
+        :return: a catalog model mutation context object for use in 'with' statements
+        """
+        if self._evolve_ctx:
+            raise Exception('A catalog mutation context already exists.')
+
+        return self._CatalogMutationContextManager(self, dry_run, consolidate)
+
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
@@ -115,7 +196,18 @@ class AbstractCatalog (object):
         """
         raise NotImplementedError()
 
-    def commit(self, dry_run=False, consolidate=True):
+    def _abort(self):
+        """Abort pending catalog model mutations."""
+        for schema in self.schemas.values():
+            schema.tables.reset()
+
+        # TODO: restore state of catalog model objects
+
+    def commit(self, dry_run=False, consolidate=True):  # TODO: deprecate this
+        """This is deprecated. Use `evolve()`."""
+        self._commit(dry_run, consolidate)
+
+    def _commit(self, dry_run=False, consolidate=True):
         """Commits pending computed relation assignments to the catalog.
 
         :param dry_run: if set to True, the pending commits will be drained, debug output printed, but not committed.
@@ -156,6 +248,8 @@ class AbstractCatalog (object):
                 # Materialize the planned relation
                 logging.info('Materializing "{name}"...'.format(name=computed_relation.name))
                 self._materialize_relation(physical_plan)
+
+        # TODO: restore state of catalog model objects
 
 
 class Schema (object):
