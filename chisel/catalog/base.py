@@ -17,13 +17,11 @@ class AbstractCatalog (object):
     def __init__(self, model_doc):
         super(AbstractCatalog, self).__init__()
         self._model_doc = model_doc
-        self._schemas = {schema_name: self._new_schema_instance(model_doc['schemas'][schema_name]) for schema_name in model_doc['schemas']}
+        self._schemas = {sname: self._new_schema_instance(model_doc['schemas'][sname]) for sname in model_doc['schemas']}
         self._update_referenced_by()
 
     def _update_referenced_by(self):
-        """Introspects the 'foreign_keys' and updates the 'referenced_by' properties on the 'Table' objects.
-        :param model: an ERMrest model object
-        """
+        """Updates the 'referenced_by back pointers on the table model objects."""
         for schema in self.schemas.values():
             for referer in schema.tables.values():
                 for fkey in referer.foreign_keys:
