@@ -54,6 +54,8 @@ class JSONScan (PhysicalOperator):
         key_defs = [_em.Key.define([name]) for name in row_0_keys if re.match(key_regex, name)]
         assert key_defs, "Expected to find at least one key, but none were identified."
         self._description = _em.Table.define(table_name, column_defs=col_defs, key_defs=key_defs, provide_system=False)
+        self._description['schema_name'] = os.path.dirname(input_filename) if input_filename else None
+        self._description['kind'] = 'file' if input_filename else 'json'
         # TODO: do deeper introspection of JSON input
 
     def __iter__(self):
@@ -92,7 +94,10 @@ class TabularFileScan (PhysicalOperator):
             field_names = csv.DictReader(f, dialect=self._dialect).fieldnames
             col_defs = [_em.Column.define(name, _em.builtin_types['text']) for name in field_names]
             key_defs = [_em.Key.define([name]) for name in field_names if re.match(self._key_regex, name)]
-        return _em.Table.define(self._filename, col_defs, key_defs, provide_system=False)
+        table_doc = _em.Table.define(self._filename, col_defs, key_defs, provide_system=False)
+        table_doc['schema_name'] = os.path.dirname(self._filename)
+        table_doc['kind'] = 'file'
+        return table_doc
 
     def _deep_introspection(self):
         """Introspects the schema by inspecting the row data."""

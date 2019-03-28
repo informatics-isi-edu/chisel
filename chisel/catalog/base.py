@@ -1,6 +1,6 @@
 """Database catalog module."""
 
-from collections import abc as _abc
+import collections
 import itertools
 import logging
 import pprint as pp
@@ -11,21 +11,55 @@ from .. import optimizer as _op, operators, util
 logger = logging.getLogger(__name__)
 
 
-def _kwargs(**kwargs):
-    """Helper for extending module with sub-types for the whole model tree."""
-    kwargs2 = {
-        'schema_class': Schema,
-        'table_class': AbstractTable,
-        'column_class': Column
-    }
-    kwargs2.update(kwargs)
-    return kwargs2
+class AbstractCatalog (object):
+    """Abstract base class for catalogs."""
 
+    def __init__(self, model_doc):
+        super(AbstractCatalog, self).__init__()
+        self._model_doc = model_doc
+        self._schemas = {schema_name: self._new_schema_instance(model_doc['schemas'][schema_name]) for schema_name in model_doc['schemas']}
+        self._update_referenced_by()
 
-class AbstractCatalog (_em.Model):
-    """Abstract base class for database catalogs."""
-    def __init__(self, model_doc, **kwargs):
-        super(AbstractCatalog, self).__init__(model_doc, **_kwargs(**kwargs, model=self))
+    def _update_referenced_by(self):
+        """Introspects the 'foreign_keys' and updates the 'referenced_by' properties on the 'Table' objects.
+        :param model: an ERMrest model object
+        """
+        for schema in self.schemas.values():
+            for referer in schema.tables.values():
+                for fkey in referer.foreign_keys:
+                    referenced = self.schemas[
+                        fkey.referenced_columns[0]['schema_name']
+                    ].tables[
+                        fkey.referenced_columns[0]['table_name']
+                    ]
+                    referenced.referenced_by.append(fkey)
+
+    @property
+    def schemas(self):
+        """Map of schema names to schema model objects."""
+        return self._schemas
+
+    @property
+    def s(self):
+        return self._schemas
+
+    def _new_schema_instance(self, schema_doc):
+        """Overridable method for creating a new schema model object.
+
+        :param schema_doc: the schema document
+        :return: schema model object
+        """
+        return Schema(schema_doc, self)
+
+    def __getitem__(self, item):
+        """Maps a schema name to a schema model object.
+
+        This is a short-hand for `catalog.schemas[schema_name]`.
+        """
+        return self.schemas[item]
+
+    def _ipython_key_completions_(self):
+        return self.schemas.keys()
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -75,15 +109,9 @@ class AbstractCatalog (_em.Model):
 
         return dot
 
-    @property
-    def s(self):
-        """Shorthand for the schemas container."""
-        return self.schemas
-
-    def _materialize_relation(self, schema, plan):
+    def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
-        :param schema: a `Schema` in which to materialize the relation
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
@@ -129,74 +157,37 @@ class AbstractCatalog (_em.Model):
             else:
                 # Materialize the planned relation
                 logging.info('Materializing "{name}"...'.format(name=computed_relation.name))
-                self._materialize_relation(self.schemas[computed_relation.sname], physical_plan)
+                self._materialize_relation(physical_plan)
 
 
-class SchemaTablesContainer (_abc.MutableMapping):
-    """Container class for schema tables (for internal use only).
+class Schema (object):
+    """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
 
-    This class mostly passes through container methods to the underlying tables container. Its purpose is to facilitate
-    assignment of new, computed relations to the catalog.
-    """
-    def __init__(self, parent_schema):
-        super(SchemaTablesContainer, self).__init__()
-        self._parent_schema = parent_schema
-        self._base_tables = parent_schema.tables
-        self._pending_assignments = {}
-
-    def _ipython_key_completions_(self):
-        return self._base_tables.keys()
-
-    @property
-    def pending(self):
-        """List of 'pending' assignments to this schema."""
-        return self._pending_assignments.values()
-
-    def reset(self):
-        """Resets the pending assignments to this schema."""
-        self._pending_assignments = {}
-
-    def __str__(self):
-        tables = self._base_tables.copy()
-        tables.update(self._pending_assignments)
-        return str(tables)
+    def __init__(self, schema_doc, catalog):
+        super(Schema, self).__init__()
+        self.catalog = catalog
+        self.name = schema_doc['schema_name']
+        self.comment = schema_doc['comment']
+        self._tables = {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
+        self.tables = SchemaTables(self, self._tables)
 
     def __getitem__(self, item):
-        return self._base_tables[item]
+        """Maps a table name to a table model object.
 
-    def __setitem__(self, key, value):
-        if isinstance(value, _em.Table) and not isinstance(value, ComputedRelation):
-            self._base_tables[key] = value
-        elif not isinstance(value, ComputedRelation):
-            raise ValueError('Computed relation expected')
-        elif key in self._base_tables:
-            raise ValueError('Table assignment to an exiting table not allow.')
-        elif key in self._pending_assignments:
-            raise ValueError('Table assignment already pending.')
-        else:
-            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._parent_schema, key), **_kwargs(schema=self._parent_schema))
+        This is a short-hand for `schema.tables[table_name]`.
+        """
+        return self.tables[item]
 
-    def __delitem__(self, key):
-        if key in self._base_tables:
-            del self._base_tables[key]
-        elif key in self._pending_assignments:
-            del self._pending_assignments
-        else:
-            raise KeyError(key + " not found")
+    def _ipython_key_completions_(self):
+        return list(self.tables.keys())
 
-    def __iter__(self):
-        return iter(self._base_tables)
+    def _new_table_instance(self, table_doc):
+        """Overridable method for creating a new table model object.
 
-    def __len__(self):
-        return self._base_tables
-
-
-class Schema (_em.Schema):
-    """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
-    def __init__(self, sname, schema_doc, **kwargs):
-        super(Schema, self).__init__(sname, schema_doc, **_kwargs(**kwargs, schema=self))
-        self.model = kwargs['model']
-        self.tables = SchemaTablesContainer(self)
+        :param table_doc: the table document
+        :return: table model object
+        """
+        return AbstractTable(table_doc)
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -265,31 +256,124 @@ class Schema (_em.Schema):
         return self.tables
 
 
-class AbstractTable (_em.Table):
-    """Abstract base class for database tables."""
-    def __init__(self, sname, tname, table_doc, **kwargs):
-        super(AbstractTable, self).__init__(sname, tname, table_doc, **kwargs)
+class SchemaTables (collections.abc.MutableMapping):
+    """Container class for schema tables (for internal use only).
 
-        # monkey patch the column definitions for ipython key completions
-        setattr(
-            self.column_definitions,
-            '_ipython_key_completions_',
-            lambda: list(self.column_definitions.elements.keys())
-        )
+    This class mostly passes through container methods to the underlying tables container. Its purpose is to facilitate
+    assignment of new, computed relations to the catalog.
+    """
+
+    def __init__(self, schema, backing):
+        """A collection of schema tables.
+
+        :param schema: the parent schema
+        :param backing: the backing collection, which must be a Mapping
+        """
+        super(SchemaTables, self).__init__()
+        self._schema = schema
+        self._base_tables = backing
+        self._pending_assignments = {}
+
+    def _ipython_key_completions_(self):
+        return self._base_tables.keys()
+
+    @property
+    def pending(self):
+        """List of 'pending' assignments to this schema."""
+        return self._pending_assignments.values()
+
+    def reset(self):
+        """Resets the pending assignments to this schema."""
+        self._pending_assignments = {}
+
+    def __str__(self):
+        tables = self._base_tables.copy()
+        tables.update(self._pending_assignments)
+        return str(tables)
+
+    def __getitem__(self, item):
+        return self._base_tables[item]
+
+    def __setitem__(self, key, value):
+        if isinstance(value, _em.Table) and not isinstance(value, ComputedRelation):
+            self._base_tables[key] = value
+        elif not isinstance(value, ComputedRelation):
+            raise ValueError('Computed relation expected')
+        elif key in self._base_tables:
+            raise ValueError('Table assignment to an exiting table not allow.')
+        elif key in self._pending_assignments:
+            raise ValueError('Table assignment already pending.')
+        else:
+            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+
+    def __delitem__(self, key):
+        if key in self._base_tables:
+            del self._base_tables[key]
+        elif key in self._pending_assignments:
+            del self._pending_assignments
+        else:
+            raise KeyError(key + " not found")
+
+    def __iter__(self):
+        return iter(self._base_tables)
+
+    def __len__(self):
+        return self._base_tables
+
+
+class AbstractTable (object):
+    """Abstract base class for database tables."""
+
+    def __init__(self, table_doc, schema=None):
+        super(AbstractTable, self).__init__()
+        self._table_doc = table_doc
+        self.schema = schema
+        self.name = table_doc['table_name']
+        self.comment = table_doc['comment']
+        self.sname = table_doc.get('schema_name')  # not present in computed relation
+        self.kind = table_doc.get('kind')  # not present in computed relation
+        self.columns = collections.OrderedDict([
+            (col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']
+        ])
+        self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
+        self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
+
+    def _new_column_instance(self, column_doc):
+        """Overridable method for creating a new column model object.
+
+        :param column_doc: the column document
+        :return: column model object
+        """
+        return Column(column_doc, self)
+
+    def __getitem__(self, item):
+        """Maps a column name to a column model object.
+
+        This is a short-hand for `table.columns[column_name]`.
+        """
+        return self.columns[item]
+
+    def _ipython_key_completions_(self):
+        return self.columns.keys()
+        # return list(self.columns.keys())
+
+    def prejson(self):
+        """Returns a JSON-ready representation of this table model object.
+
+        :return: a JSON-ready representation of this table model object
+        """
+        return self._table_doc
 
     def describe(self):
         """Returns a text (markdown) description."""
         def type2str(t):
-            if t.is_array:
-                return t.typename + "[]"
-            else:
-                return t.typename
+            return t['typename']
 
         def _make_markdown_repr(quote=lambda s: s):
             data = [
                 ["Column", "Type", "Nullable", "Default", "Comment"]
             ] + [
-                [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.column_definitions
+                [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.columns.values()
             ]
             desc = "### Table \"" + self.sname + "." + self.name + "\"\n" + \
                    util.markdown_table(data, quote)
@@ -349,7 +433,7 @@ class AbstractTable (_em.Table):
     @property
     def c(self):
         """Shorthand for the column_definitions container."""
-        return self.column_definitions
+        return self.columns
 
     def select(self, *columns):
         """Selects this relation and projects the columns.
@@ -367,9 +451,9 @@ class AbstractTable (_em.Table):
                     projection.append(column)
                 else:
                     raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
-            return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))  # TODO: set 'table' param?
+            return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
-            return ComputedRelation(self.logical_plan, **_kwargs())  # TODO: set 'table' param?
+            return ComputedRelation(self.logical_plan)
 
     def filter(self, formula):
         """Filters this relation according to the given formula.
@@ -384,7 +468,7 @@ class AbstractTable (_em.Table):
         else:
             # TODO: next we want to support a conjunction of comparisons
             # TODO: allow input of comparison or conjunction of comparisons
-            return ComputedRelation(_op.Select(self.logical_plan, formula), **_kwargs())  # TODO: set 'table' param?
+            return ComputedRelation(_op.Select(self.logical_plan, formula))
 
     def reify_sub(self, *cols):
         """Reifies a sub-concept of the relation by the specified columns. This relation is left unchanged.
@@ -394,7 +478,7 @@ class AbstractTable (_em.Table):
         """
         if not all([isinstance(col, Column) for col in cols]):
             raise ValueError("All positional arguments must be of type Column")
-        return ComputedRelation(_op.ReifySub(self.logical_plan, tuple([col.name for col in cols])), **_kwargs())
+        return ComputedRelation(_op.ReifySub(self.logical_plan, tuple([col.name for col in cols])))
 
     def reify(self, new_key_cols, new_other_cols):
         """Splits out a new relation based on this table, which will be comprised of the new_key_cols as its keys and
@@ -411,12 +495,13 @@ class AbstractTable (_em.Table):
             raise ValueError("All items in the column arguments must be of type Column")
         if set(new_key_cols) & set(new_other_cols):
             raise ValueError("Key columns and Other columns must not overlap")
-        return ComputedRelation(_op.Reify(self.logical_plan, tuple([col.name for col in new_key_cols]), tuple([col.name for col in new_other_cols])), **_kwargs())
+        return ComputedRelation(_op.Reify(self.logical_plan, tuple([col.name for col in new_key_cols]), tuple([col.name for col in new_other_cols])))
 
 
 class ComputedRelation (AbstractTable):
     """Computed relation."""
-    def __init__(self, logical_plan, **kwargs):
+
+    def __init__(self, logical_plan):
         # NOTE: this is a consistent way of computing the relational schema. It is expensive only if the source
         # source relations are NOT extants. That is, if the source relations are Tables from a Catalog, then the
         # expression will begin with an ErmScan physical operator which will efficiently return the description from
@@ -431,12 +516,7 @@ class ComputedRelation (AbstractTable):
         self._logical_plan = _op.logical_planner(logical_plan)
         self._physical_plan = _op.physical_planner(self._logical_plan)
         self._buffered_plan = operators.BufferedOperator(self._physical_plan)
-        super(ComputedRelation, self).__init__(
-            kwargs['schema'].name if 'schema' in kwargs else 'NA',
-            self._physical_plan.description['table_name'],
-            self._physical_plan.description,
-            **_kwargs(**kwargs, table=self)
-        )
+        super(ComputedRelation, self).__init__(self._physical_plan.description)
 
     @property
     def logical_plan(self):
@@ -457,11 +537,17 @@ class ComputedRelation (AbstractTable):
         return self._buffered_plan
 
 
-class Column (_em.Column):
+class Column (object):
     """Table column."""
-    def __init__(self, sname, tname, column_doc, **kwargs):
-        super(Column, self).__init__(sname, tname, column_doc, **kwargs)
-        self.table = kwargs['table']
+
+    def __init__(self, column_doc, table):
+        super(Column, self).__init__()
+        self.table = table
+        self.name = column_doc['name']
+        self.type = column_doc['type']
+        self.default = column_doc['default']
+        self.nullok = column_doc['nullok']
+        self.comment = column_doc['comment']
 
     def __hash__(self):
         return super(Column, self).__hash__()
@@ -491,7 +577,11 @@ class Column (_em.Column):
 
     __ge__ = ge
 
-    eq.__doc__ = lt.__doc__ = le.__doc__ = gt.__doc__ = ge.__doc__ = \
+    eq.__doc__ = \
+    lt.__doc__ = \
+    le.__doc__ = \
+    gt.__doc__ = \
+    ge.__doc__ = \
         """Creates and returns a comparison clause.
 
         :param other: assumes a literal; any allowed but `str(other)` will be used to cast its value to text

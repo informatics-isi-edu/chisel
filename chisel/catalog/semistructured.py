@@ -12,17 +12,6 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def _kwargs(**kwargs):
-    """Helper for extending module with sub-types for the whole model tree."""
-    kwargs2 = {
-        'schema_class': base.Schema,
-        'table_class': SemistructuredTable,
-        'column_class': base.Column
-    }
-    kwargs2.update(kwargs)
-    return kwargs2
-
-
 def connect(url, credentials=None):
     """Connect to a local, semi-structured (i.e., CSV, JSON) data source.
 
@@ -33,14 +22,14 @@ def connect(url, credentials=None):
     parsed_url = util.urlparse(url)
     if credentials:
         logger.warning('Credentials not supported by semistructured catalog')
-    return from_semistructured_files(parsed_url.path)
+    return SemistructuredCatalog(parsed_url.path)
 
 
-def from_semistructured_files(path):
-    """Initializes a database catalog based on semistructured files in a shallow directory hierarchy.
+def introspect_semistructured_files(path):
+    """Introspects the model of semistructured files in a shallow directory hierarchy.
 
     :param path: the directory path
-    :return: a catalog instance
+    :return: a catalog model document
     """
     def table_definition_from_file(base_dir, schema_name, filename):
         abs_filename = os.path.join(base_dir, schema_name, filename)
@@ -75,25 +64,26 @@ def from_semistructured_files(path):
             if table:
                 model_doc['schemas']['.']['tables'][filename] = table
 
-    # Define model doc and instantiate catalog
-    return SemistructuredCatalog(model_doc, path=path)
+    # Return model document
+    return model_doc
 
 
-class SemistructuredCatalog(base.AbstractCatalog):
+class SemistructuredCatalog (base.AbstractCatalog):
     """Database catalog backed by semistructured files."""
-    def __init__(self, model_doc, **kwargs):
-        super(SemistructuredCatalog, self).__init__(model_doc, **_kwargs(**kwargs))
-        assert 'path' in kwargs, "required argument 'path' missing"
-        self.path = kwargs['path']
+    def __init__(self, path):
+        super(SemistructuredCatalog, self).__init__(introspect_semistructured_files(path))
+        self.path = path
 
-    def _materialize_relation(self, schema, plan):
+    def _new_schema_instance(self, schema_doc):
+        return SemistructuredSchema(schema_doc, self)
+
+    def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
-        :param schema: a `Schema` in which to materialize the relation
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
-        filename = os.path.join(self.path, schema.name, plan.description['table_name'])
+        filename = os.path.join(self.path, plan.description['schema_name'], plan.description['table_name'])
         if filename.endswith('.json'):
             with open(filename, 'w') as jsonfile:
                 json.dump(list(plan), jsonfile, indent=2)
@@ -109,16 +99,20 @@ class SemistructuredCatalog(base.AbstractCatalog):
             raise Exception("Unable to materialize relation. Unknown file extension for '{}'.".format(filename))
 
 
+class SemistructuredSchema (base.Schema):
+    """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
+
+    def _new_table_instance(self, table_doc):
+        return SemistructuredTable(table_doc, self)
+
+
 class SemistructuredTable (base.AbstractTable):
     """Extant table in a semistructured catalog."""
-    def __init__(self, sname, tname, table_doc, **kwargs):
-        super(SemistructuredTable, self).__init__(sname, tname, table_doc, **_kwargs(**kwargs, table=self))
-        self.schema = kwargs['schema']
 
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
-        filename = os.path.join(self.schema.model.path, self.sname, self.name)
+        filename = os.path.join(self.schema.catalog.path, self.sname, self.name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
             return optimizer.Scan(filename=filename)
         elif filename.endswith('.json'):

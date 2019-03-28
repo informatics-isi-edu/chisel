@@ -31,17 +31,17 @@ class TestComputedRelation (unittest.TestCase):
         self._rel = None
 
     def test_description(self):
-        self.assertIsNotNone(self._rel.column_definitions)
-        self.assertEqual(len(self._rel.column_definitions), len(payload[0].keys()))
+        self.assertIsNotNone(self._rel.columns)
+        self.assertEqual(len(self._rel.columns), len(payload[0].keys()))
 
     def test_reifySub(self):
         parted = self._rel.reify_sub(self._rel.c['property_2'])
-        self.assertEqual(len(parted.column_definitions), 2)
+        self.assertEqual(len(parted.columns), 2)
 
     def test_atomize(self):
         atomized = self._rel.c['property_3'].to_atoms()
-        self.assertEqual(len(atomized.column_definitions), 2)
+        self.assertEqual(len(atomized.columns), 2)
 
     def test_tagify(self):
         tagged = self._rel.c['property_3'].to_tags(chisel.json_reader(object_payload=domain))
-        self.assertEqual(len(tagged.column_definitions), 2)
+        self.assertEqual(len(tagged.columns), 2)

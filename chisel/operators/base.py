@@ -112,11 +112,12 @@ class TempVarRef (PhysicalOperator):
 
 class Assign (PhysicalOperator):
     """Assign operator names the relation and passes through the child iterator."""
-    def __init__(self, child, schema, table_name):
+    def __init__(self, child, schema_name, table_name):
         super(Assign, self).__init__()
         assert child.description is not None
         self._child = child
         self._description = child.description.copy()
+        self._description['schema_name'] = schema_name
         self._description['table_name'] = table_name
 
     def __iter__(self):
