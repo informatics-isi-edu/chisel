@@ -204,12 +204,7 @@ class AbstractCatalog (object):
         """Abort pending catalog model mutations."""
         for schema in self.schemas.values():
             schema.tables.reset()
-
         # TODO: restore state of catalog model objects
-
-    def commit(self, dry_run=False, consolidate=True):  # TODO: deprecate this
-        """This is deprecated. Use `evolve()`."""
-        self._commit(dry_run, consolidate)
 
     def _commit(self, dry_run=False, consolidate=True):
         """Commits pending computed relation assignments to the catalog.
@@ -252,7 +247,6 @@ class AbstractCatalog (object):
                 # Materialize the planned relation
                 logging.info('Materializing "{name}"...'.format(name=computed_relation.name))
                 self._materialize_relation(physical_plan)
-
         # TODO: restore state of catalog model objects
 
 

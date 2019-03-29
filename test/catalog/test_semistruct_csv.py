@@ -17,9 +17,9 @@ class TestSemistructuredCsv (BaseTestCase):
         self.assertIsNotNone(domain)
 
     def test_materialize_to_csv(self):
-        domain = self._catalog.s['.'].t[self.catalog_helper.samples].c['species'].to_domain(similarity_fn=None)
-        self._catalog.s['.'].t[self.output_basename] = domain
-        self._catalog.commit()
+        with self._catalog.evolve():
+            domain = self._catalog.s['.'].t[self.catalog_helper.samples].c['species'].to_domain(similarity_fn=None)
+            self._catalog.s['.'].t[self.output_basename] = domain
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
     def test_do_not_clobber(self):
