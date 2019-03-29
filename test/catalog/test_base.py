@@ -30,5 +30,17 @@ class TestBaseCatalog (BaseTestCase):
     def test_evolve_block_private_commit(self):
         def block_commit():
             self._catalog._commit()
-
         self.assertRaises(chisel.CatalogMutationError, block_commit)
+
+    def test_model_getters(self):
+        self.assertEqual(self._catalog.schemas['.'].tables[self.catalog_helper.samples],
+                         self._catalog['.'][self.catalog_helper.samples])
+
+    def test_model_setters(self):
+        with self._catalog.evolve() as ctx:
+            temp = self._catalog['.'][self.catalog_helper.samples].c['species'].to_domain()
+            self._catalog.schemas['.'].tables['domain1'] = temp
+            self._catalog['.']['domain2'] = temp
+            # TODO: api should probably allow access of pending (temp) relations
+            # self.assertEqual(self._catalog.schemas['.'].tables['domain1'], self._catalog['.']['domain2'])
+            ctx.abort()

@@ -275,6 +275,13 @@ class Schema (object):
         """
         return self.tables[item]
 
+    def __setitem__(self, key, value):
+        """Maps a table name to a table model object.
+
+        This is a short-hand for `schema.tables[table_name] = table_object`.
+        """
+        self.tables[key] = value
+
     def _ipython_key_completions_(self):
         return list(self.tables.keys())
 

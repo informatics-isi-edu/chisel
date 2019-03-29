@@ -69,22 +69,58 @@ credentail = get_credential(hostname)
 catalog = chisel.connect('https://example.org/ermrest/catalog/1', credentail)
 ```
 
-### Get a table in the catalog
+### Reference a table in the catalog
 
-Catalogs are organized by _schemas_ (a.k.a., namespaces). Within a schema 
-are _tables_. While you do not need to assign table objects to local variables
-in your script in order to use them, it can help make your code more readable.
-
-```python
-foo = catalog.schemas['a_schema'].tables['foo']
-```
-
-For readability, the catalog object aliases `schemas` as `s`, `tables` as 
-`t`, and `columns` as `c`, so that the above statement could be rewritten like this.
+Catalogs are organized by _schemas_ (a.k.a., namespaces). Within a schema are 
+_tables_.
 
 ```python
-foo = catalog.s['a_schema'].t['foo']
+catalog.schemas['a_schema'].tables['foo']
 ```
+
+For readability, the catalog itself behaves as a collection of schemas, each 
+schema object behaves as a collection of tables, and each table behaves as a
+ collection of columns. The above expression could be rewritten like this.
+
+```python
+catalog['a_schema']['foo']
+```
+
+In general, you should _avoid assigning catalog model objects to local
+variables_. The model objects will not be updated following a catalog model 
+mutation. They will be _stale_ and future operations are likely to fail on them
+
+### Begin a catalog evolution block
+
+Catalog model evolution operations are performed in a block of statements that
+are only performed after exiting the block.
+
+```python
+with catalog.evolve():
+    # catalog model mutation operations...
+```
+
+If any exception is raised and not caught, when the block exits, the pending 
+operations will be aborted. Pending operations may be aborted explicitly by 
+using the catalog mutation context manager.
+
+```python
+with catalog.evolve() as ctx:
+    # catalog model mutation operations...
+    if something_went_wrong:
+        ctx.abort()
+    # all operations before and after the abort() are cancelled
+    # and the block is immediately exited
+```
+
+If you want to do a test run, set the `dry_run` flag in the `evolve()` method.
+
+```python
+with catalog.evolve(dry_run=True):
+    # catalog model mutation operations...
+```
+
+This will dump diagnostic information to the standard output stream.
 
 ### Perform operations
 
@@ -93,14 +129,13 @@ or one of its columns. The methods return objects called "computed relations"
 -- essentially a new table that will be _computed_ from the operations over 
 the initial, extant table. These operations can be _chained_ to form more 
 complex operations. The operations will be evaluated and executed only when 
-they are finally committed to the catalog, and therefore to the underlying 
-data source.
+the evolve block is existed.
 
 In this example, a new unique "domain" of terms is created from the `bar`
 column of the `foo` table.
 
 ```python
-foobar = foo.c['bar'].to_domain()
+catalog['a_schema']['foo']['bar'].to_domain()
 ```
 
 This `to_domain` method, when executed, will select the values of 
@@ -108,27 +143,17 @@ column `bar` from table `foo`. It will also _deduplicate_ the values using a
 string similarity comparison of them. Then it will generate a new relation
 (i.e., table) to store just those deduplicated values of the column `bar`.
 
-### Assign to catalog and commit
+### Assign to catalog
 
 Up to this point, we have only expressed schema evolution operations, but none
 have been executed nor has the catalog been altered in any way.
 
 To make our changes permanent, we first need to assign this new relation 
-(i.e., table) to the catalog and then `commit` the pending operation.
+(i.e., table) to the catalog.
 
 ```python
-catalog.s['a_schema'].t['foobar'] = foobar
-catalog.commit()
+catalog['a_schema']['foobar'] = catalog['a_schema']['foo']['bar'].to_domain()
 ```
-
-Or if you want to do a test run, replace the last line with this.
-
-```python
-catalog.commit(dry_run=True)
-```
-
-This will dump some diagnostic information to the console about the 
-schema evolution operations.
 
 ### More examples
 
@@ -138,8 +163,9 @@ chisel's usage. To run the examples, you must set your
 
 ## API
 
-Chisel is under active development and its API is subject to change. 
-Currently, the best way to learn about the API is to use Python's built-in
-`help(...)` method on tables and columns. Such as `help(foo)` or 
-`help(foo.c['bar'])` to get a description of the object and listing of its 
-methods. This also works on functions, like `help(foo.c['bar'].to_domain)`.
+Chisel is under active development and its API is subject to change. Currently,
+the best way to learn about the API is to use Python's built-in `help(...)` 
+method on tables and columns. Such as `help(catalog['a_schema']['foo'])` or 
+`help(catalog['a_schema']['foo']['bar'])` to get a description of the object 
+and listing of its methods. This also works on functions, like 
+`help(catalog['a_schema']['foo']['bar'].to_domain)`.
