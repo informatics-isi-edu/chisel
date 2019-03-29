@@ -88,7 +88,7 @@ catalog['a_schema']['foo']
 
 In general, you should _avoid assigning catalog model objects to local
 variables_. The model objects will not be updated following a catalog model 
-mutation. They will be _stale_ and future operations are likely to fail on them
+mutation and future operations on them are likely to fail.
 
 ### Begin a catalog evolution block
 
