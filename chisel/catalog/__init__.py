@@ -3,7 +3,7 @@ from .. import optimizer as _op
 from . import base as _base
 from .ermrest import connect as _ermrest_connect
 from .semistructured import connect as _semistructured_connect
-
+from .base import CatalogMutationError
 
 def connect(url, credentials=None):
     """Connect to a data source.

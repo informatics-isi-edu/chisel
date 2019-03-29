@@ -12,17 +12,17 @@ catalog = chisel.connect(__catalog_url__)
 print('CONNECTED')
 
 # Create a new relation by reifying a subset of attributes of an existing relation into a new relation
-enhancer = catalog.s['isa'].t['enhancer']
-catalog.s['isa'].t['enhancer_assembly'] = enhancer.reify(
-    {   # new key column(s) in new relation
-        enhancer.c['id']
-    },
-    {   # new non-key columns in new relation
-        enhancer.c['original_species_assembly'],
-        enhancer.c['original_species_chromosome'],
-        enhancer.c['original_species_start'],
-        enhancer.c['original_species_end']
-    }
-)
-catalog.commit(dry_run=__dry_run__)
+with catalog.evolve(dry_run=__dry_run__):
+    enhancer = catalog.s['isa'].t['enhancer']
+    catalog.s['isa'].t['enhancer_assembly'] = enhancer.reify(
+        {   # new key column(s) in new relation
+            enhancer.c['id']
+        },
+        {   # new non-key columns in new relation
+            enhancer.c['original_species_assembly'],
+            enhancer.c['original_species_chromosome'],
+            enhancer.c['original_species_start'],
+            enhancer.c['original_species_end']
+        }
+    )
 print('DONE')

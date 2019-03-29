@@ -10,6 +10,6 @@ catalog = chisel.connect(__catalog_url__)
 print('CONNECTED')
 
 # Create a new relation computed from the a scan of the csv file
-catalog.s['isa'].t['enhancer_reporter_assay'] = chisel.csv_reader(os.getenv('CHISEL_EXAMPLE_CSV'))
-catalog.commit(dry_run=__dry_run__)
+with catalog.evolve(dry_run=__dry_run__):
+    catalog.s['isa'].t['enhancer_reporter_assay'] = chisel.csv_reader(os.getenv('CHISEL_EXAMPLE_CSV'))
 print('DONE')
