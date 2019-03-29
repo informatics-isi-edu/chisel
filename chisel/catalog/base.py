@@ -11,6 +11,11 @@ from .. import optimizer as _op, operators, util
 logger = logging.getLogger(__name__)
 
 
+class CatalogMutationError (Exception):
+    """Indicates an error during catalog model mutation."""
+    pass
+
+
 class AbstractCatalog (object):
     """Abstract base class for catalogs."""
 
@@ -122,14 +127,13 @@ class AbstractCatalog (object):
 
         def __enter__(self):
             if self.parent._evolve_ctx:
-                raise Exception('A catalog model mutation context already exists.')
+                raise CatalogMutationError('A catalog model mutation context already exists.')
             self.parent._evolve_ctx = self
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            print(exc_type, exc_val, exc_tb)  # TODO: debug messages
             if (not self.parent._evolve_ctx) or (self.parent._evolve_ctx != self):
-                raise Exception("Attempting to exit a catalog mutation content not assigned to the parent catalog.")
+                raise CatalogMutationError("Attempting to exit a catalog mutation content not assigned to the parent catalog.")
 
             self.parent._evolve_ctx = None
 
@@ -184,7 +188,7 @@ class AbstractCatalog (object):
         :return: a catalog model mutation context object for use in 'with' statements
         """
         if self._evolve_ctx:
-            raise Exception('A catalog mutation context already exists.')
+            raise CatalogMutationError('A catalog mutation context already exists.')
 
         return self._CatalogMutationContextManager(self, dry_run, consolidate)
 
