@@ -13,10 +13,6 @@ __catalog_url__ = os.getenv('CHISEL_EXAMPLE_CATALOG_URL', 'http://localhost/ermr
 catalog = chisel.connect(__catalog_url__)
 print('CONNECTED')
 
-# For this demonstration, lookup and delete the target table if it already exists
-if 'zebrafish_stage_terms' in catalog.s['vocab'].tables:
-    catalog.s['vocab'].t['zebrafish_stage_terms'].delete(catalog.catalog, catalog.s['vocab'])  # committed immediately
-
 # SPARQL expression to extract the id (i.e., short identifier) and name (i.e., preferred readable name) from the graph
 sparql_class_and_props = """
 SELECT DISTINCT ?id (?label AS ?name)
