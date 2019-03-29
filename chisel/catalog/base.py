@@ -204,7 +204,7 @@ class AbstractCatalog (object):
     def _abort(self):
         """Abort pending catalog model mutations."""
         if not self._evolve_ctx:
-            raise CatalogMutationError("This method should no be called directly")
+            raise CatalogMutationError("No catalog mutation context set. This method should not be called directly")
 
         for schema in self.schemas.values():
             schema.tables.reset()
@@ -217,7 +217,7 @@ class AbstractCatalog (object):
         :param consolidate: if set to True, attempt to consolidate shared work between pending operations.
         """
         if not self._evolve_ctx:
-            raise CatalogMutationError("This method should no be called directly")
+            raise CatalogMutationError("No catalog mutation context set. This method should not be called directly")
 
         # Find all pending assignment operations
         computed_relations = []
@@ -241,6 +241,7 @@ class AbstractCatalog (object):
             physical_plan = _op.physical_planner(logical_plan)
 
             if dry_run:
+                # TODO: change this to return an object than can be printed or displayed in ipython
                 logger.info('Dry run: no changes to catalog will be performed.')
                 print('Logical plan:')
                 print(logical_plan)
