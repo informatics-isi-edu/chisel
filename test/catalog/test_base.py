@@ -14,3 +14,21 @@ class TestBaseCatalog (BaseTestCase):
                 with self._catalog.evolve():
                     pass
         self.assertRaises(chisel.CatalogMutationError, double_evolve)
+
+    def test_evolve_ctx_abort(self):
+        val = 'foo'
+        with self._catalog.evolve() as ctx:
+            ctx.abort()
+            val = 'bar'
+        self.assertEqual(val, 'foo', "catalog model mutation context not aborted")
+
+    def test_evolve_block_private_abort(self):
+        def block_abort():
+            self._catalog._abort()
+        self.assertRaises(chisel.CatalogMutationError, block_abort)
+
+    def test_evolve_block_private_commit(self):
+        def block_commit():
+            self._catalog._commit()
+
+        self.assertRaises(chisel.CatalogMutationError, block_commit)

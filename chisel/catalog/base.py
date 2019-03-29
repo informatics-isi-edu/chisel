@@ -135,15 +135,16 @@ class AbstractCatalog (object):
             if (not self.parent._evolve_ctx) or (self.parent._evolve_ctx != self):
                 raise CatalogMutationError("Attempting to exit a catalog mutation content not assigned to the parent catalog.")
 
-            self.parent._evolve_ctx = None
-
-            if exc_type:
-                logging.info("Exception caught during catalog mutation, cancelling the current mutation.")
-                self.parent._abort()
-                return isinstance(exc_val, self._CatalogMutationAbort)
-            else:
-                logging.debug("Committing current catalog model mutation operations.")
-                self.parent._commit(self.dry_run, self.consolidate)
+            try:
+                if exc_type:
+                    logging.info("Exception caught during catalog mutation, cancelling the current mutation.")
+                    self.parent._abort()
+                    return isinstance(exc_val, self._CatalogMutationAbort)
+                else:
+                    logging.debug("Committing current catalog model mutation operations.")
+                    self.parent._commit(self.dry_run, self.consolidate)
+            finally:
+                self.parent._evolve_ctx = None
 
         def abort(self):
             """Aborts a catalog mutation context by raising an exception to be handled on exit of current context."""
@@ -202,6 +203,9 @@ class AbstractCatalog (object):
 
     def _abort(self):
         """Abort pending catalog model mutations."""
+        if not self._evolve_ctx:
+            raise CatalogMutationError("This method should no be called directly")
+
         for schema in self.schemas.values():
             schema.tables.reset()
         # TODO: restore state of catalog model objects
@@ -212,6 +216,9 @@ class AbstractCatalog (object):
         :param dry_run: if set to True, the pending commits will be drained, debug output printed, but not committed.
         :param consolidate: if set to True, attempt to consolidate shared work between pending operations.
         """
+        if not self._evolve_ctx:
+            raise CatalogMutationError("This method should no be called directly")
+
         # Find all pending assignment operations
         computed_relations = []
         for schema in self.schemas.values():

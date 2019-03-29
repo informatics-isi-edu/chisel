@@ -12,6 +12,6 @@ catalog = chisel.connect(__catalog_url__)
 print('CONNECTED')
 
 # Create a new relation computed from the atomized source relation
-catalog.s['isa'].t['enhancer_closest_genes'] = catalog.s['isa'].t['enhancer'].c['list_of_closest_genes'].to_atoms()
-catalog.commit(dry_run=__dry_run__)
+with catalog.evolve(dry_run=__dry_run__):
+    catalog.s['isa'].t['enhancer_closest_genes'] = catalog.s['isa'].t['enhancer'].c['list_of_closest_genes'].to_atoms()
 print('DONE')
