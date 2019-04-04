@@ -23,14 +23,12 @@ class TestBaseCatalog (BaseTestCase):
         self.assertEqual(val, 'foo', "catalog model mutation context not aborted")
 
     def test_evolve_block_private_abort(self):
-        def block_abort():
+        with self.assertRaises(chisel.CatalogMutationError):
             self._catalog._abort()
-        self.assertRaises(chisel.CatalogMutationError, block_abort)
 
     def test_evolve_block_private_commit(self):
-        def block_commit():
+        with self.assertRaises(chisel.CatalogMutationError):
             self._catalog._commit()
-        self.assertRaises(chisel.CatalogMutationError, block_commit)
 
     def test_model_getters(self):
         self.assertEqual(self._catalog.schemas['.'].tables[self.catalog_helper.samples],
