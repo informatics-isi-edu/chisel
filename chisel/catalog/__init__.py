@@ -5,6 +5,7 @@ from .ermrest import connect as _ermrest_connect
 from .semistructured import connect as _semistructured_connect
 from .base import CatalogMutationError
 
+
 def connect(url, credentials=None):
     """Connect to a data source.
 
@@ -50,4 +51,8 @@ def shred(graph, expression):
     :param expression: text of a SPARQL query statement
     :return: a computed relation object
     """
+    if not graph:
+        raise ValueError("Invalid value for 'graph'")
+    if not expression:
+        raise ValueError("Invalid value for 'expression'")
     return _base.ComputedRelation(_op.Shred(graph, expression))

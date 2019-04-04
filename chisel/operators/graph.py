@@ -29,6 +29,8 @@ class Shred (PhysicalOperator):
         :param expression: text of a SPARQL expression
         :param kwargs: keyword arguments
         """
+        assert graph, "Invalid value for 'graph'"
+        assert expression, "Invalid value for 'expression'"
         super(Shred, self).__init__()
         self._graph = graph
         self._expression = expression

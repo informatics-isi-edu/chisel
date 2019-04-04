@@ -4,6 +4,7 @@ import os
 import unittest
 import rdflib as _rdflib
 import chisel.operators as _op
+import chisel
 
 # flag to run all unit tests
 CHISEL_TEST_ALL = os.getenv('CHISEL_TEST_ALL')
@@ -20,19 +21,31 @@ WHERE {
   ?s rdfs:label ?label .
 }"""
 
+# this is just a dummy value used for passing assertions so that other parameters can trip an error condition
+dummy_graph = dict(dummy="just a dummy")
+
 
 class TestShred (unittest.TestCase):
     """Basic tests for Shred operator."""
 
-    def test_invalid_graph_introspection(self):
-        """Tests expected exception from deep introspection of invalid graph object."""
+    def test_invalid_graph_parameter(self):
+        """Tests expected exception from invalid graph object."""
+        with self.assertRaises(AssertionError):
+            _op.Shred(None, "SELECT ?id")
         with self.assertRaises(ValueError):
-            _op.Shred(dict(), "SELECT ?id WHERE { ?id ... }", introspect='deep')
+            chisel.shred(None, "SELECT ?id")
+
+    def test_invalid_expression_parameter(self):
+        """Tests expected exception from invalid expression string."""
+        with self.assertRaises(AssertionError):
+            _op.Shred(dummy_graph, "")
+        with self.assertRaises(ValueError):
+            chisel.shred(dummy_graph, "")
 
     def test_invalid_graph_execution(self):
         """Tests expected exception from executing shred operation on invalid graph object."""
         with self.assertRaises(ValueError):
-            list(_op.Shred(dict(), "SELECT ?id WHERE { ?id ... }"))
+            list(_op.Shred(dummy_graph, "SELECT ?id WHERE { ?id ... }"))
 
     @unittest.skipUnless(CHISEL_TEST_OWL_PATH, 'you need an owl file for this test')
     def test_shallow_introspection(self):
