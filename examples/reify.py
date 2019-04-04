@@ -13,16 +13,16 @@ print('CONNECTED')
 
 # Create a new relation by reifying a subset of attributes of an existing relation into a new relation
 with catalog.evolve(dry_run=__dry_run__):
-    enhancer = catalog.s['isa'].t['enhancer']
-    catalog.s['isa'].t['enhancer_assembly'] = enhancer.reify(
+    enhancer = catalog['isa']['enhancer']
+    catalog['isa']['enhancer_assembly'] = enhancer.reify(
         {   # new key column(s) in new relation
-            enhancer.c['id']
+            enhancer['id']
         },
         {   # new non-key columns in new relation
-            enhancer.c['original_species_assembly'],
-            enhancer.c['original_species_chromosome'],
-            enhancer.c['original_species_start'],
-            enhancer.c['original_species_end']
+            enhancer['original_species_assembly'],
+            enhancer['original_species_chromosome'],
+            enhancer['original_species_start'],
+            enhancer['original_species_end']
         }
     )
 print('DONE')

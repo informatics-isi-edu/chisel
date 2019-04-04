@@ -23,5 +23,5 @@ WHERE {
 
 # Create a new relation computed from the shredded graph
 with catalog.evolve(dry_run=__dry_run__):
-    catalog.s['vocab'].t['zebrafish_stage_terms'] = chisel.shred(os.getenv('CHISEL_EXAMPLE_ZFS_OWL'), sparql_class_and_props)
+    catalog['vocab']['zebrafish_stage_terms'] = chisel.shred(os.getenv('CHISEL_EXAMPLE_ZFS_OWL'), sparql_class_and_props)
 print('DONE')

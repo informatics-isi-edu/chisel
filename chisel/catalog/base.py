@@ -43,10 +43,6 @@ class AbstractCatalog (object):
         """Map of schema names to schema model objects."""
         return self._schemas
 
-    @property
-    def s(self):
-        return self._schemas
-
     def _new_schema_instance(self, schema_doc):
         """Overridable method for creating a new schema model object.
 
@@ -355,11 +351,6 @@ class Schema (object):
 
         return dot
 
-    @property
-    def t(self):
-        """Shorthand for the tables container."""
-        return self.tables
-
 
 class SchemaTables (collections.abc.MutableMapping):
     """Container class for schema tables (for internal use only).
@@ -534,11 +525,6 @@ class AbstractTable (object):
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
         raise NotImplementedError()
-
-    @property
-    def c(self):
-        """Shorthand for the column_definitions container."""
-        return self.columns
 
     def select(self, *columns):
         """Selects this relation and projects the columns.

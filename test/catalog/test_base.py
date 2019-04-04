@@ -38,7 +38,7 @@ class TestBaseCatalog (BaseTestCase):
 
     def test_model_setters(self):
         with self._catalog.evolve() as ctx:
-            temp = self._catalog['.'][self.catalog_helper.samples].c['species'].to_domain()
+            temp = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
             self._catalog.schemas['.'].tables['domain1'] = temp
             self._catalog['.']['domain2'] = temp
             # TODO: api should probably allow access of pending (temp) relations

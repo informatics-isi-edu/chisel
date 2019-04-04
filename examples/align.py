@@ -13,6 +13,6 @@ print('CONNECTED')
 
 # Align the 'sex' property of the clinical_assay table with the 'gender_terms' vocabulary
 with catalog.evolve(dry_run=__dry_run__):
-    domain = catalog.s['vocab'].t['gender']
-    catalog.s['isa'].t['clinical_assay_fixed'] = catalog.s['isa'].t['clinical_assay'].c['sex'].align(domain)
+    domain = catalog['vocab']['gender']
+    catalog['isa']['clinical_assay_fixed'] = catalog['isa']['clinical_assay']['sex'].align(domain)
 print('DONE')

@@ -13,5 +13,5 @@ print('CONNECTED')
 
 # Create a new 'domain' relation by extracting unique values of an attributes of an existing relation
 with catalog.evolve(dry_run=__dry_run__):
-    catalog.s['vocab'].t['ethnicity'] = catalog.s['isa'].t['clinical_assay'].c['ethnicity'].to_domain(similarity_fn=None)
+    catalog['vocab']['ethnicity'] = catalog['isa']['clinical_assay']['ethnicity'].to_domain(similarity_fn=None)
 print('DONE')

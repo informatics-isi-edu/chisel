@@ -13,6 +13,6 @@ print('CONNECTED')
 
 # Create a new relation computed from the atomized source relation
 with catalog.evolve(dry_run=__dry_run__):
-    domain = catalog.s['vocab'].t['anatomy']
-    catalog.s['isa'].t['enhancer_anatomical_structures'] = catalog.s['isa'].t['enhancer'].c['list_of_anatomical_structures'].to_tags(domain)
+    domain = catalog['vocab']['anatomy']
+    catalog['isa']['enhancer_anatomical_structures'] = catalog['isa']['enhancer']['list_of_anatomical_structures'].to_tags(domain)
 print('DONE')

@@ -13,6 +13,6 @@ print('CONNECTED')
 
 # Create a new relation computed from the reifySubed column(s) of the source relation
 with catalog.evolve(dry_run=__dry_run__):
-    dataset = catalog.s['isa'].t['dataset']  # assigning to local var just for readability
-    catalog.s['isa'].t['dataset_jbrowse'] = dataset.reify_sub(dataset.c['show_in_jbrowse'])
+    dataset = catalog['isa']['dataset']  # assigning to local var just for readability
+    catalog['isa']['dataset_jbrowse'] = dataset.reify_sub(dataset['show_in_jbrowse'])
 print('DONE')
