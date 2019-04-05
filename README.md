@@ -63,10 +63,10 @@ import chisel
 
 # Get user credential
 hostname = 'example.org'
-credentail = get_credential(hostname)
+credential = get_credential(hostname)
 
 # Connect to a DERIVA data source
-catalog = chisel.connect('https://example.org/ermrest/catalog/1', credentail)
+catalog = chisel.connect('https://example.org/ermrest/catalog/1', credential)
 ```
 
 ### Reference a table in the catalog
