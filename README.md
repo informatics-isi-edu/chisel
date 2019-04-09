@@ -52,21 +52,16 @@ This installation method gets a copy of the source and then installs it.
 
 A data source (e.g., your database) is represented as a `catalog` object.
 You will likely need to establish a _user credential_ depending on the type of
-data source you are using. For DERIVA catalogs, use the `get_credential` 
-function from the `deriva-py` library to get a handle to your user
-credential. Note that you will need to establish your user credential (i.e., 
-log in to the server) before getting a handle to it.
+data source you are using. For DERIVA catalogs, use the Authentication Agent
+available in the [DERIVA Client](https://github.com/informatics-isi-edu/deriva-client) 
+bundle. Note that you will need to establish your user credential (i.e., 
+log in to the server) before performing operations on it that may mutate it.
 
 ```python
-from deriva.core import get_credential
 import chisel
 
-# Get user credential
-hostname = 'example.org'
-credential = get_credential(hostname)
-
-# Connect to a DERIVA data source
-catalog = chisel.connect('https://example.org/ermrest/catalog/1', credential)
+# Connect to a data source
+catalog = chisel.connect('https://example.org/ermrest/catalog/1')
 ```
 
 ### Reference a table in the catalog
