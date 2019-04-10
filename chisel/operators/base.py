@@ -179,7 +179,7 @@ class Project (PhysicalOperator):
                 attrs = item.fn(table_def)
                 if 'RID' in attrs:
                     attrs.remove('RID')
-                    renamed_rid = table_def['table_name'] + '_RID'
+                    renamed_rid = table_def['table_name'] + '_RID'  # TODO: revisit this column name change
                     self._alias_to_cname[renamed_rid] = 'RID'
                     self._cname_to_alias['RID'].append(renamed_rid)
                 self._attributes |= set(attrs)
@@ -247,14 +247,14 @@ class Project (PhysicalOperator):
 
         # Define the table
         self._description = _em.Table.define(
-            table_def['table_name'] + ":" + uuid.uuid1().hex,  # computed relation name for this projection
+            table_def['table_name'],
             column_defs=col_defs,
             key_defs=key_defs,
             fkey_defs=fkey_defs,
-            comment="A projection of the '{table_name}' table".format(table_name=table_def['table_name']),
-            acls=table_def['acls'] if 'acls' in table_def else {},
-            acl_bindings=table_def['acl_bindings'] if 'acl_bindings' in table_def else {},  # TODO: Filter these and handle renames
-            annotations=table_def['annotations'] if 'annotations' in table_def else {},  # TODO: Filter these and handle renames
+            comment=table_def.get('comment', ''),
+            acls=table_def.get('acls', {}),  # TODO: Filter these and handle renames
+            acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
+            annotations=table_def.get('annotations', {}),  # TODO: Filter these and handle renames
             provide_system=False
         )
 
@@ -269,7 +269,7 @@ class Project (PhysicalOperator):
             yield self._rename_row_attributes(row, self._alias_to_cname)
 
 
-class Rename (PhysicalOperator):
+class Rename (PhysicalOperator):  # TODO: should rewrite this as a sub-class of project (or not have it at all)
     """Rename operator."""
     def __init__(self, child, renames):
         super(Rename, self).__init__()
@@ -421,9 +421,10 @@ class Unnest (PhysicalOperator):
             column_defs=table_def['column_definitions'],
             # key_defs=[], -- key defs are empty because the unnested relation should break unique constraints
             fkey_defs=table_def['foreign_keys'], # TODO: sanity check that unnest attr is not in a fkey
-            comment="An unnesting of the '{table_name}' relation".format(table_name=table_def['table_name']),
-            acls=table_def['acls'],
-            # acl_bindings=table_def['acl_bindings'], -- need to be filtered from the source base relation
+            comment=table_def.get('comment', ''),
+            acls=table_def.get('acls', {}),  # TODO: Filter these and handle renames
+            acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
+            annotations=table_def.get('annotations', {}),  # TODO: Filter these and handle renames
             provide_system=False
         )
 
@@ -480,6 +481,11 @@ class CrossJoin (PhysicalOperator):
         self._description = _em.Table.define(
             left_def['table_name'] + "_" + right_def['table_name'],
             column_defs=col_defs,
+            # TODO: keys: keys from left side of join - tbd
+            # TODO: joined acls
+            # TODO: joined acl_bindings
+            # TODO: joined fkeys
+            # TODO: joined annotations
             provide_system=False
         )
 
