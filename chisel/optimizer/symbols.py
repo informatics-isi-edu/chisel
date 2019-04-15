@@ -33,6 +33,20 @@ def _conjunction_and_fn(left, right):
 
 
 #
+# Extant definitions
+#
+
+#: Represents an extant (existing table) from an ERMrest catalog
+ERMrestExtant = namedtuple('ERMrestExtant', 'catalog sname tname')
+
+#: JSONScan operator
+JSONScan = namedtuple('JSONScan', 'input_filename json_content object_payload key_regex')  # TODO: JSONDataExtant
+
+#: Scan operator
+Scan = namedtuple('Scan', 'filename')  # TODO: TabularDataExtant
+
+
+#
 # Primitive operator definitions
 #
 
@@ -48,12 +62,6 @@ Distinct = namedtuple('Distinct', 'child attributes')
 #: deduplicate operator
 Deduplicate = namedtuple('Deduplicate', 'child attributes similarity_fn grouping_fn')
 
-#: extant operator represents an extant (existing table) from an ERMrest catalog
-Extant = namedtuple('Extant', 'table')
-
-#: JSONScan operator
-JSONScan = namedtuple('JSONScan', 'input_filename json_content object_payload key_regex')
-
 #: nest operator
 Nest = namedtuple('Nest', 'child grouping nesting similarity_fn grouping_fn')
 
@@ -65,9 +73,6 @@ Project = namedtuple('Project', 'child attributes')
 
 #: rename operator
 Rename = namedtuple('Rename', 'child renames')
-
-#: Scan operator
-Scan = namedtuple('Scan', 'filename')
 
 #: select operator takes a restriction 'formula'
 Select = namedtuple('Select', 'child formula')

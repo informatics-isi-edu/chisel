@@ -78,4 +78,4 @@ class ERMrestTable (base.AbstractTable):
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
-        return optimizer.Extant(self)
+        return optimizer.ERMrestExtant(self.schema.catalog, self.schema.name, self.name)
