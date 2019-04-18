@@ -1,3 +1,4 @@
+import unittest
 from .utils import CatalogHelper, BaseTestCase
 
 
@@ -22,6 +23,7 @@ class TestSemistructuredCsv (BaseTestCase):
             self._catalog['.'][self.output_basename] = domain
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
+    @unittest.skip
     def test_do_not_clobber(self):
         # This is actually a general test of the 'do not clobber' feature built into the catalog
         def clobbers():
