@@ -395,8 +395,10 @@ class SchemaTables (collections.abc.MutableMapping):
             self._base_tables[key] = value
         elif not isinstance(value, ComputedRelation):
             raise ValueError('Computed relation expected')
-        elif key in self._base_tables:
-            raise ValueError('Table assignment to an exiting table not allow.')
+        # TODO: should add it to a list of table alterations, or backup the existing relation temporarily before
+        #  replacing with computed relation
+        # elif key in self._base_tables:
+        #     raise ValueError('Table assignment to an exiting table not allow.')
         elif key in self._pending_assignments:
             raise ValueError('Table assignment already pending.')
         else:

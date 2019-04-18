@@ -178,6 +178,10 @@ physical_transformation_rules = Matcher([
         lambda child, schema, table_name: _op.Assign(child, schema, table_name)
     ),
     (
+        'Assign(Project(ERMrestExtant(catalog, sname, tname), attributes), schema, table_name) if tname == table_name',
+        lambda catalog, sname, tname, schema, table_name, attributes: _op.ERMrestAlterTable(catalog, schema, table_name, attributes)
+    ),
+    (
         'TempVar(child)',
         lambda child: _op.TempVarRef(child)
     ),
