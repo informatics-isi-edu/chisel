@@ -392,6 +392,7 @@ class SchemaTables (collections.abc.MutableMapping):
 
     def __setitem__(self, key, value):
         if isinstance(value, _em.Table) and not isinstance(value, ComputedRelation):
+            # TODO: this rule should be obviated now after the refactoring and introduction of 'backing'
             self._base_tables[key] = value
         elif not isinstance(value, ComputedRelation):
             raise ValueError('Computed relation expected')
@@ -400,6 +401,7 @@ class SchemaTables (collections.abc.MutableMapping):
         # elif key in self._base_tables:
         #     raise ValueError('Table assignment to an exiting table not allow.')
         elif key in self._pending_assignments:
+            # TODO: is this check really necessary?
             raise ValueError('Table assignment already pending.')
         else:
             self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
