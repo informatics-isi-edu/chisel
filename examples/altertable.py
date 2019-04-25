@@ -13,6 +13,11 @@ print('CONNECTED')
 
 # Create a new relation by reifying a subset of attributes of an existing relation into a new relation
 with catalog.evolve(dry_run=__dry_run__):
-    catalog['isa']['enhancer'] = catalog['isa']['enhancer'].select('id')
-    #catalog['isa']['foobar'] = catalog['isa']['enhancer'].select('id')
+    enhancer = catalog['isa']['enhancer']  # local var reference
+    catalog['isa']['enhancer'] = enhancer.select(
+        enhancer['original_species_assembly'],
+        enhancer['original_species_chromosome'],
+        enhancer['original_species_start'],
+        enhancer['original_species_end']
+    )
 print('DONE')
