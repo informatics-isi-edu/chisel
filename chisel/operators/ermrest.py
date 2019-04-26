@@ -38,6 +38,7 @@ class ERMrestProjectSelect (Project):
         self._catalog = catalog
         self._sname = sname
         self._tname = tname
+        self._projection = projection
         self._formula = formula
 
     def __iter__(self):
@@ -66,28 +67,5 @@ class ERMrestSelect (PhysicalOperator):
         table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
         rows = filtered_path.entities()
-        logger.debug("Fetching rows from '{}'".format(rows.uri))
-        return iter(rows)
-
-
-# TODO: might not want to take this approach. this is under evaluation.
-class ERMrestAlterTable (Project):
-    """Fused project-scan operator for ERMrest data sources."""
-    def __init__(self, catalog, sname, tname, projection, formula=None):
-        print("ERMrest ALTER TABLE...")
-        super(ERMrestAlterTable, self).__init__(Metadata(catalog.schemas[sname].tables[tname].prejson()), projection)
-        self._catalog = catalog
-        self._sname = sname
-        self._tname = tname
-        self._formula = formula
-
-    def __iter__(self):
-        print("ERMrest ALTER TABLE...")
-        paths = self._catalog.ermrest_catalog.getPathBuilder()
-        table = paths.schemas[self._sname].tables[self._tname]
-        filtered_path = _filter_table(table, self._formula)
-        cols = [table.column_definitions[a] for a in self._attributes if a != 'RID']
-        kwargs = {alias: table.column_definitions[cname] for alias, cname in self._alias_to_cname.items()}
-        rows = filtered_path.entities(*cols, **kwargs)
         logger.debug("Fetching rows from '{}'".format(rows.uri))
         return iter(rows)

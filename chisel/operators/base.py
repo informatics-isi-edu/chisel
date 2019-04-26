@@ -124,6 +124,13 @@ class Assign (PhysicalOperator):
         return iter(self._child)
 
 
+class Alter (Assign):
+    """Alter operator names the relation and passes through the child iterator."""
+    def __init__(self, child, schema_name, table_name):
+        super(Alter, self).__init__(child, schema_name, table_name)
+        print("ALTER TABLE...")  # TODO: remove dev statement
+
+
 class Select (PhysicalOperator):
     """Basic select operator."""
     def __init__(self, child, formula):

@@ -180,7 +180,8 @@ physical_transformation_rules = Matcher([
     (
         'Assign(Project(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)'
         '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
-        lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes: _op.ERMrestAlterTable(catalog, dst_sname, dst_tname, attributes)
+        lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
+        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), dst_sname, dst_tname)
     ),
     (
         'TempVar(child)',
