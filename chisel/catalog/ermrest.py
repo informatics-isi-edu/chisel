@@ -48,9 +48,9 @@ class ERMrestCatalog (base.AbstractCatalog):
             key_defs=desc['keys'],
             fkey_defs=desc['foreign_keys'],
             comment=desc['comment'],
-            acls=desc['acls'] if 'acls' in desc else {},
-            acl_bindings=desc['acl_bindings'] if 'acl_bindings' in desc else {},
-            annotations=desc['annotations'] if 'annotations' in desc else {},
+            acls=desc.get('acls', {}),
+            acl_bindings=desc.get('acl_bindings', {}),
+            annotations=desc.get('annotations', {}),
             provide_system=ERMrestCatalog.provide_system
         )
         # Create table
