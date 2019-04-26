@@ -3,6 +3,7 @@
 from deriva import core as _deriva_core
 from deriva.core import ermrest_model as _em
 from .. import optimizer
+from .. import operators
 from .. import util
 from . import base
 
@@ -40,29 +41,36 @@ class ERMrestCatalog (base.AbstractCatalog):
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
-        # Redefine table from plan description (allows us to provide system columns)
-        desc = plan.description
-        tab_def = _em.Table.define(
-            desc['table_name'],
-            column_defs=desc['column_definitions'],
-            key_defs=desc['keys'],
-            fkey_defs=desc['foreign_keys'],
-            comment=desc['comment'],
-            acls=desc.get('acls', {}),
-            acl_bindings=desc.get('acl_bindings', {}),
-            annotations=desc.get('annotations', {}),
-            provide_system=ERMrestCatalog.provide_system
-        )
-        # Create table
-        # TODO: the following needs testing after changes :: also should improve efficiency here
-        schema = self.ermrest_catalog.getCatalogSchema().schemas[plan.description['schema_name']]
-        schema.create_table(self.ermrest_catalog, tab_def)
-        # Unfortunately, the 'paths' interface must be rebuilt for every relation to be materialized because the remote
-        # schema itself is changing (by definition) throughout the `commit` process.
-        paths = self.ermrest_catalog.getPathBuilder()  # TODO: also look to improve efficiency here too
-        new_table = paths.schemas[schema.name].tables[plan.description['table_name']]
-        # Insert data
-        new_table.insert(plan)
+        if isinstance(plan, operators.Alter):
+            print("DO ALTER TABLE...")
+            print(plan)
+            print(plan.projection)
+        elif isinstance(plan, operators.Assign):
+            # Redefine table from plan description (allows us to provide system columns)
+            desc = plan.description
+            tab_def = _em.Table.define(
+                desc['table_name'],
+                column_defs=desc['column_definitions'],
+                key_defs=desc['keys'],
+                fkey_defs=desc['foreign_keys'],
+                comment=desc['comment'],
+                acls=desc.get('acls', {}),
+                acl_bindings=desc.get('acl_bindings', {}),
+                annotations=desc.get('annotations', {}),
+                provide_system=ERMrestCatalog.provide_system
+            )
+            # Create table
+            # TODO: the following needs testing after changes :: also should improve efficiency here
+            schema = self.ermrest_catalog.getCatalogSchema().schemas[plan.description['schema_name']]
+            schema.create_table(self.ermrest_catalog, tab_def)
+            # Unfortunately, the 'paths' interface must be rebuilt for every relation to be materialized because the remote
+            # schema itself is changing (by definition) throughout the `commit` process.
+            paths = self.ermrest_catalog.getPathBuilder()  # TODO: also look to improve efficiency here too
+            new_table = paths.schemas[schema.name].tables[plan.description['table_name']]
+            # Insert data
+            new_table.insert(plan)
+        else:
+            raise ValueError('Plan cannot be materialized.')
 
 
 class ERMrestSchema (base.Schema):

@@ -12,7 +12,8 @@ catalog = chisel.connect(__catalog_url__)
 print('CONNECTED')
 
 # Create a new relation by reifying a subset of attributes of an existing relation into a new relation
-with catalog.evolve(dry_run=__dry_run__):
+# with catalog.evolve(dry_run=__dry_run__):
+with catalog.evolve():
     enhancer = catalog['isa']['enhancer']  # local var reference
     catalog['isa']['enhancer'] = enhancer.select(
         enhancer['original_species_assembly'],
