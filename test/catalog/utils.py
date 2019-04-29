@@ -1,17 +1,16 @@
+import abc
 import csv
 import json
 import os
 from os.path import dirname as up
 import unittest
+
 import chisel
 
 
-class CatalogHelper:
-    """Helper class that sets up and cleans up a local catalog.
+class AbstractCatalogHelper:
+    """Abstract catalog helper class for setting up & tearing down catalogs during unit tests.
     """
-
-    CSV = 'csv'
-    JSON = 'json'
 
     FIELDS = ['id', 'species', 'list_of_closest_genes', 'list_of_anatomical_structures']
 
@@ -28,6 +27,38 @@ class CatalogHelper:
         (0, 'musmusculus',    'Mitf, Gm765',           'branchial arch')
     ]
     DUMMY_LEN = len(DUMMY_ROWS)
+
+    @abc.abstractmethod
+    def setup(self):
+        """Creates and populates a test catalog."""
+        pass
+
+    @abc.abstractmethod
+    def teardown(self):
+        """Deletes the test catalog."""
+        pass
+
+    @abc.abstractmethod
+    def unit_teardown(self, other=[]):
+        """Deletes tables that have been mutated during a unit test."""
+        pass
+
+    @abc.abstractmethod
+    def exists(self, tablename):
+        """Tests if a table exists."""
+        pass
+
+    @abc.abstractmethod
+    def connect(self):
+        pass
+
+
+class CatalogHelper (AbstractCatalogHelper):
+    """Helper class that sets up and tears down a local catalog.
+    """
+
+    CSV = 'csv'
+    JSON = 'json'
 
     def __init__(self, table_names=[], file_format=CSV):
         """Initializes catalog helper.
@@ -81,11 +112,35 @@ class CatalogHelper:
             except FileNotFoundError:
                 pass
 
-    def exists(self, basename):
-        return os.path.isfile(os.path.join(self.data_dir, basename))
+    def exists(self, tablename):
+        return os.path.isfile(os.path.join(self.data_dir, tablename))
 
     def connect(self):
         return chisel.connect(self.data_dir)
+
+
+class ERMrestHelper (AbstractCatalogHelper):
+    """Helper class that sets up and tears down an ERMrest catalog.
+    """
+
+    def setup(self):
+        # create catalog
+        pass
+
+    def teardown(self):
+        # delete catalog
+        pass
+
+    def unit_teardown(self, other=[]):
+        # delete any mutated tables
+        pass
+
+    def exists(self, tablename):
+        pass
+
+    def connect(self):
+        # connect to catalog
+        pass
 
 
 class BaseTestCase (unittest.TestCase):
