@@ -204,6 +204,7 @@ class ERMrestHelper (AbstractCatalogHelper):
 
     def unit_teardown(self, other=[]):
         # delete any mutated tables
+        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
         model = self._ermrest_catalog.getCatalogModel()
         for tablename in self._unit_table_names + other:
             try:
@@ -217,11 +218,14 @@ class ERMrestHelper (AbstractCatalogHelper):
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
         sname, tname = self._parse_table_name(tablename)
 
-        path = '/schema/%s/table/%s' % (urlquote(sname), urlquote(tname))
-        r = self._ermrest_catalog.get(path)
-        r.raise_for_status()
-        resp = r.json()
-        return resp is not None
+        try:
+            path = '/schema/%s/table/%s' % (urlquote(sname), urlquote(tname))
+            r = self._ermrest_catalog.get(path)
+            r.raise_for_status()
+            resp = r.json()
+            return resp is not None
+        except Exception:
+            return False
 
     def connect(self):
         # connect to catalog
