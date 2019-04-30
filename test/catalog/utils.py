@@ -5,7 +5,7 @@ import os
 from os.path import dirname as up
 import unittest
 
-from deriva.core import DerivaServer, ErmrestCatalog, urlquote
+from deriva.core import DerivaServer, ErmrestCatalog, urlquote, get_credential
 from deriva.core.ermrest_model import Schema, Table, Column, Key, builtin_types
 
 import chisel
@@ -132,14 +132,15 @@ class ERMrestHelper (AbstractCatalogHelper):
     """Helper class that sets up and tears down an ERMrest catalog.
     """
 
-    def __init__(self, hostname):
+    def __init__(self, hostname, unit_table_names=[]):
         """Initializes the ERMrest catalog helper
 
         :param hostname: hostname of the deriva test server
+        :param unit_table_names: unit-specific table names
         """
         super(ERMrestHelper, self).__init__()
         self.samples = 'samples'
-        self._unit_table_names = []
+        self._unit_table_names = unit_table_names
         self._hostname = hostname
         self._ermrest_catalog = None
 
@@ -151,14 +152,14 @@ class ERMrestHelper (AbstractCatalogHelper):
         if len(fq_name) == 2:
             sname, tname = fq_name
         elif len(fq_name) < 2:
-            sname, tname = 'public', fq_name
+            sname, tname = 'public', fq_name[0]
         else:
             raise ValueError("invalid 'tablename': " + tablename)
         return sname, tname
 
     def setup(self):
         # create catalog
-        server = DerivaServer('https', self._hostname)
+        server = DerivaServer('https', self._hostname, credentials=get_credential(self._hostname))
         self._ermrest_catalog = server.create_ermrest_catalog()
 
         # get public schema
@@ -194,8 +195,8 @@ class ERMrestHelper (AbstractCatalogHelper):
 
         # insert test data
         pb = self._ermrest_catalog.getPathBuilder()
-        path = pb.schemas['public'].tables[self.samples].path
-        path.insert(self._test_rows)
+        samples = pb.schemas['public'].tables[self.samples]
+        samples.insert(self._test_rows)
 
     def teardown(self):
         # delete catalog
