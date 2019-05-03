@@ -42,9 +42,14 @@ class ERMrestCatalog (base.AbstractCatalog):
         :return: None
         """
         if isinstance(plan, operators.Alter):
-            print("DO ALTER TABLE...")
-            print(plan)
-            print(plan.projection)
+            model = self.ermrest_catalog.getCatalogModel()
+            schema = model.schemas[plan.description['schema_name']]
+            table = schema.tables[plan.description['table_name']]
+            column_defs = table.column_definitions
+            for column in column_defs:
+                if column.name not in plan.projection + ('RID', 'RCB', 'RMB', 'RCT', 'RMT'):
+                    column.delete(self.ermrest_catalog)
+
         elif isinstance(plan, operators.Assign):
             # Redefine table from plan description (allows us to provide system columns)
             desc = plan.description
@@ -61,7 +66,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             )
             # Create table
             # TODO: the following needs testing after changes :: also should improve efficiency here
-            schema = self.ermrest_catalog.getCatalogSchema().schemas[plan.description['schema_name']]
+            schema = self.ermrest_catalog.getCatalogModel().schemas[plan.description['schema_name']]
             schema.create_table(self.ermrest_catalog, tab_def)
             # Unfortunately, the 'paths' interface must be rebuilt for every relation to be materialized because the remote
             # schema itself is changing (by definition) throughout the `commit` process.

@@ -19,11 +19,19 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertTrue(self.catalog_helper.exists(self.catalog_helper.samples))
 
     def test_alter(self):
+        projected_col_name = self.catalog_helper.FIELDS[1]
         with self._catalog.evolve() as ctx:
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
-                self.catalog_helper.FIELDS[1]
+                projected_col_name
             )
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples]._physical_plan, Alter)
-            ctx.abort()
+
+        # validate the schema names
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        col_defs = ermrest_schema['schemas']['public']['tables'][self.catalog_helper.samples]['column_definitions']
+        col_names = [col_def['name'] for col_def in col_defs]
+        self.assertIn(projected_col_name, col_names)
+        self.assertTrue(
+            all([field == projected_col_name or field not in col_names for field in self.catalog_helper.FIELDS]))
