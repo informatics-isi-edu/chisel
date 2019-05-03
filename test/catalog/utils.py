@@ -233,7 +233,7 @@ class ERMrestHelper (AbstractCatalogHelper):
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
         return chisel.connect('https://{hostname}/ermrest/catalog/{id}'.format(
             hostname=self._hostname,
-            id=self._ermrest_catalog._catalog_id
+            id=self._ermrest_catalog.catalog_id
         ))
 
 
