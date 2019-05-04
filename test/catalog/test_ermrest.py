@@ -14,7 +14,7 @@ class TestERMrestCatalog (BaseTestCase):
 
     catalog_helper = ERMrestHelper(ermrest_hostname)
 
-    def test_connect_setup(self):
+    def test_basic_setup(self):
         self.assertTrue(self._catalog is not None)
         self.assertTrue(self.catalog_helper.exists(self.catalog_helper.samples))
 

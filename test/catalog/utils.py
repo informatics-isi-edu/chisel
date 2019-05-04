@@ -46,13 +46,18 @@ class AbstractCatalogHelper:
         ]
 
     @abc.abstractmethod
-    def setup(self):
+    def suite_setup(self):
         """Creates and populates a test catalog."""
         pass
 
     @abc.abstractmethod
-    def teardown(self):
+    def suite_teardown(self):
         """Deletes the test catalog."""
+        pass
+
+    @abc.abstractmethod
+    def unit_setup(self):
+        """Defines schema and populates data for a unit test setup."""
         pass
 
     @abc.abstractmethod
@@ -98,7 +103,7 @@ class CatalogHelper (AbstractCatalogHelper):
         self._unit_table_names = table_names
         self._unit_table_filenames = [os.path.join(self._data_dir, basename) for basename in table_names]
 
-    def setup(self):
+    def suite_setup(self):
         os.makedirs(self._data_dir, exist_ok=True)
 
         with open(self.samples_filename, 'w', newline='') as ofile:
@@ -109,9 +114,12 @@ class CatalogHelper (AbstractCatalogHelper):
             else:
                 json.dump(self._test_rows, ofile)
 
-    def teardown(self):
+    def suite_teardown(self):
         self.unit_teardown(other=[self.samples_filename])
         os.rmdir(self._data_dir)
+
+    def unit_setup(self):
+        pass
 
     def unit_teardown(self, other=[]):
         filenames = self._unit_table_filenames + other
@@ -132,15 +140,13 @@ class ERMrestHelper (AbstractCatalogHelper):
     """Helper class that sets up and tears down an ERMrest catalog.
     """
 
-    def __init__(self, hostname, unit_table_names=[]):
+    def __init__(self, hostname):
         """Initializes the ERMrest catalog helper
 
         :param hostname: hostname of the deriva test server
-        :param unit_table_names: unit-specific table names
         """
         super(ERMrestHelper, self).__init__()
         self.samples = 'samples'
-        self._unit_table_names = unit_table_names
         self._hostname = hostname
         self._ermrest_catalog = None
 
@@ -157,11 +163,17 @@ class ERMrestHelper (AbstractCatalogHelper):
             raise ValueError("invalid 'tablename': " + tablename)
         return sname, tname
 
-    def setup(self):
+    def suite_setup(self):
         # create catalog
         server = DerivaServer('https', self._hostname, credentials=get_credential(self._hostname))
         self._ermrest_catalog = server.create_ermrest_catalog()
 
+    def suite_teardown(self):
+        # delete catalog
+        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
+        self._ermrest_catalog.delete_ermrest_catalog(really=True)
+
+    def unit_setup(self):
         # get public schema
         model = self._ermrest_catalog.getCatalogModel()
         public = model.schemas['public']
@@ -198,16 +210,11 @@ class ERMrestHelper (AbstractCatalogHelper):
         samples = pb.schemas['public'].tables[self.samples]
         samples.insert(self._test_rows)
 
-    def teardown(self):
-        # delete catalog
-        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
-        self._ermrest_catalog.delete_ermrest_catalog(really=True)
-
     def unit_teardown(self, other=[]):
         # delete any mutated tables
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
         model = self._ermrest_catalog.getCatalogModel()
-        for tablename in self._unit_table_names + other:
+        for tablename in [self.samples] + other:
             try:
                 s, t = self._parse_table_name(tablename)
                 model.schemas[s].tables[t].delete(self._ermrest_catalog)
@@ -245,13 +252,14 @@ class BaseTestCase (unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.catalog_helper.setup()
+        cls.catalog_helper.suite_setup()
 
     @classmethod
     def tearDownClass(cls):
-        cls.catalog_helper.teardown()
+        cls.catalog_helper.suite_teardown()
 
     def setUp(self):
+        self.catalog_helper.unit_setup()
         self._catalog = self.catalog_helper.connect()
 
     def tearDown(self):
