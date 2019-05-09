@@ -1,11 +1,14 @@
 """Catalog model for remote ERMrest catalog services."""
 
+import logging
 from deriva import core as _deriva_core
 from deriva.core import ermrest_model as _em
 from .. import optimizer
 from .. import operators
 from .. import util
 from . import base
+
+logger = logging.getLogger(__name__)
 
 
 def connect(url, credentials=None):
@@ -42,13 +45,23 @@ class ERMrestCatalog (base.AbstractCatalog):
         :return: None
         """
         if isinstance(plan, operators.Alter):
+            logger.debug("Altering table '{tname}'.".format(tname=plan.description['table_name']))
             model = self.ermrest_catalog.getCatalogModel()
             schema = model.schemas[plan.description['schema_name']]
             table = schema.tables[plan.description['table_name']]
-            column_defs = table.column_definitions
-            for column in column_defs:
-                if column.name not in plan.projection + ('RID', 'RCB', 'RMB', 'RCT', 'RMT'):
-                    column.delete(self.ermrest_catalog)
+            columns = table.column_definitions
+            if plan.projection[0] != optimizer.AllAttributes():
+                logger.debug("Dropping columns not in the projection.")
+                for column in columns:
+                    if column.name not in plan.projection + ('RID', 'RCB', 'RMB', 'RCT', 'RMT'):
+                        logger.debug("Deleting column '{cname}'.".format(cname=column.name))
+                        column.delete(self.ermrest_catalog)
+            else:
+                logger.debug("Dropping columns that were explicitly removed.")
+                for removal in plan.projection[1:]:
+                    assert isinstance(removal, optimizer.AttributeRemoval)
+                    logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
+                    columns[removal.name].delete(self.ermrest_catalog)
 
         elif isinstance(plan, operators.Assign):
             # Redefine table from plan description (allows us to provide system columns)

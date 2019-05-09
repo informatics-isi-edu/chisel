@@ -523,13 +523,23 @@ class AbstractTable (object):
         """
         if columns:
             projection = []
+
+            # validation: projection may be column, column name, alias, or removal
             for column in columns:
                 if isinstance(column, Column):
                     projection.append(column.name)
-                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias):
+                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias) or isinstance(column, _op.AttributeRemoval):
                     projection.append(column)
                 else:
                     raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
+
+            # validation: if any removal, all must be removals (can't mix removals with other projections)
+            removals = [isinstance(o, _op.AttributeRemoval) for o in projection]
+            if any(removals):
+                if not all(removals):
+                    raise ValueError("Attribute removal cannot be mixed with other attribute projections")
+                projection = [_op.AllAttributes()] + projection
+
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
             return ComputedRelation(self.logical_plan)
@@ -674,6 +684,15 @@ class Column (object):
         :return: a symbolic expression for the renamed column
         """
         return _op.AttributeAlias(self.name, name)
+
+    def inv(self):
+        """Removes an attribute when used in a projection.
+
+        :return: a sybolic expression for the removed column
+        """
+        return _op.AttributeRemoval(self.name)
+
+    __invert__ = inv
 
     def to_atoms(self, delim=',', unnest_fn=None):
         """Computes a new relation from the 'atomic' values of this column.
