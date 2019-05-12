@@ -140,15 +140,17 @@ class ERMrestHelper (AbstractCatalogHelper):
     """Helper class that sets up and tears down an ERMrest catalog.
     """
 
-    def __init__(self, hostname):
+    def __init__(self, hostname, catalog_id=None):
         """Initializes the ERMrest catalog helper
 
         :param hostname: hostname of the deriva test server
+        :param catalog_id: optional id of catalog to _reuse_ by this unit test suite
         """
         super(ERMrestHelper, self).__init__()
         self.samples = 'samples'
         self._hostname = hostname
         self._ermrest_catalog = None
+        self._reuse_catalog_id = catalog_id
 
     @classmethod
     def _parse_table_name(cls, tablename):
@@ -166,12 +168,17 @@ class ERMrestHelper (AbstractCatalogHelper):
     def suite_setup(self):
         # create catalog
         server = DerivaServer('https', self._hostname, credentials=get_credential(self._hostname))
-        self._ermrest_catalog = server.create_ermrest_catalog()
+        if self._reuse_catalog_id:
+            self._ermrest_catalog = server.connect_ermrest(self._reuse_catalog_id)
+            self.unit_teardown()  # in the event that the last run terminated abruptly and didn't properly teardown
+        else:
+            self._ermrest_catalog = server.create_ermrest_catalog()
 
     def suite_teardown(self):
         # delete catalog
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
-        self._ermrest_catalog.delete_ermrest_catalog(really=True)
+        if not self._reuse_catalog_id:
+            self._ermrest_catalog.delete_ermrest_catalog(really=True)
 
     def unit_setup(self):
         # get public schema
