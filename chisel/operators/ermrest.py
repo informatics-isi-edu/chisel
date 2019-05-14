@@ -47,7 +47,7 @@ class ERMrestProjectSelect (Project):
         filtered_path = _filter_table(table, self._formula)
         cols = [table.column_definitions[a] for a in self._attributes if a != 'RID']
         kwargs = {alias: table.column_definitions[cname] for alias, cname in self._alias_to_cname.items()}
-        rows = filtered_path.entities(*cols, **kwargs)
+        rows = filtered_path.attributes(*cols, **kwargs)
         logger.debug("Fetching rows from '{}'".format(rows.uri))
         return iter(rows)
 
