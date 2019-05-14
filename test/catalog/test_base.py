@@ -23,6 +23,14 @@ class TestBaseCatalog (BaseTestCase):
             val = 'bar'
         self.assertEqual(val, 'foo', "catalog model mutation context not aborted")
 
+    def test_evolve_ctx_abort_restore(self):
+        with self._catalog.evolve() as ctx:
+            temp = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
+            self._catalog['.'][self.catalog_helper.samples] = temp
+            ctx.abort()
+        # table should be restored
+        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], AbstractTable, "Failed to restore tables")
+
     def test_evolve_block_private_abort(self):
         with self.assertRaises(chisel.CatalogMutationError):
             self._catalog._abort()

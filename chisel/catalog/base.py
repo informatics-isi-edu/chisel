@@ -204,7 +204,6 @@ class AbstractCatalog (object):
 
         for schema in self.schemas.values():
             schema.tables.reset()
-        # TODO: restore state of catalog model objects
 
     def _commit(self, dry_run=False, consolidate=True):
         """Commits pending computed relation assignments to the catalog.
