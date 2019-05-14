@@ -78,12 +78,11 @@ class ERMrestCatalog (base.AbstractCatalog):
                 provide_system=ERMrestCatalog.provide_system
             )
             # Create table
-            # TODO: the following needs testing after changes :: also should improve efficiency here
+            # TODO: it should be possible to only refresh the model and paths each evolve context since destructive
+            #  operations must be performed in isolation
             schema = self.ermrest_catalog.getCatalogModel().schemas[plan.description['schema_name']]
             schema.create_table(self.ermrest_catalog, tab_def)
-            # Unfortunately, the 'paths' interface must be rebuilt for every relation to be materialized because the remote
-            # schema itself is changing (by definition) throughout the `commit` process.
-            paths = self.ermrest_catalog.getPathBuilder()  # TODO: also look to improve efficiency here too
+            paths = self.ermrest_catalog.getPathBuilder()
             new_table = paths.schemas[schema.name].tables[plan.description['table_name']]
             # Insert data
             new_table.insert(plan)

@@ -13,7 +13,7 @@ ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
 class TestERMrestCatalog (BaseTestCase):
     """Units test suite for ermrest catalog functionality."""
 
-    catalog_helper = ERMrestHelper(ermrest_hostname, ermrest_catalog_id)
+    catalog_helper = ERMrestHelper(ermrest_hostname, ermrest_catalog_id, unit_table_names=['list_of_closest_genes'])
 
     def test_basic_setup(self):
         self.assertTrue(self._catalog is not None)
@@ -76,3 +76,13 @@ class TestERMrestCatalog (BaseTestCase):
             all([field in col_names or field == removed_col_name for field in self.catalog_helper.FIELDS]),
             'Column not in altered table, but it should not have been removed.'
         )
+
+    def test_ermrest_atomize(self):
+        cname = 'list_of_closest_genes'
+        with self._catalog.evolve():
+            self._catalog['public'][cname] = \
+                self._catalog['public'][self.catalog_helper.samples][cname].to_atoms()
+
+        # validate new table is in ermrest
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        self.assertIn(cname, ermrest_schema['schemas']['public']['tables'])

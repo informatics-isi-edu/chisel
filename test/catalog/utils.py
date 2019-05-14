@@ -140,7 +140,7 @@ class ERMrestHelper (AbstractCatalogHelper):
     """Helper class that sets up and tears down an ERMrest catalog.
     """
 
-    def __init__(self, hostname, catalog_id=None):
+    def __init__(self, hostname, catalog_id=None, unit_table_names=[]):
         """Initializes the ERMrest catalog helper
 
         :param hostname: hostname of the deriva test server
@@ -151,6 +151,7 @@ class ERMrestHelper (AbstractCatalogHelper):
         self._hostname = hostname
         self._ermrest_catalog = None
         self._reuse_catalog_id = catalog_id
+        self._unit_table_names = unit_table_names
 
     @classmethod
     def _parse_table_name(cls, tablename):
@@ -221,7 +222,7 @@ class ERMrestHelper (AbstractCatalogHelper):
         # delete any mutated tables
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
         model = self._ermrest_catalog.getCatalogModel()
-        for tablename in [self.samples] + other:
+        for tablename in [self.samples] + self._unit_table_names + other:
             try:
                 s, t = self._parse_table_name(tablename)
                 model.schemas[s].tables[t].delete(self._ermrest_catalog)

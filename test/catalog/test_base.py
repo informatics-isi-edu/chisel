@@ -1,4 +1,5 @@
 import chisel
+from chisel.catalog.base import AbstractTable
 from .utils import CatalogHelper, BaseTestCase
 
 
@@ -42,3 +43,26 @@ class TestBaseCatalog (BaseTestCase):
             # TODO: api should probably allow access of pending (temp) relations
             # self.assertEqual(self._catalog.schemas['.'].tables['domain1'], self._catalog['.']['domain2'])
             ctx.abort()
+
+    def test_model_setter_not_in_evolve_ctx_err(self):
+        with self.assertRaises(chisel.CatalogMutationError):
+            temp = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
+            self._catalog.schemas['.'].tables['domain1'] = temp
+
+    def test_destructive_setter_not_in_isolation_err(self):
+        with self.assertRaises(chisel.CatalogMutationError):
+            with self._catalog.evolve() as ctx:
+                temp = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
+                self._catalog.schemas['.'].tables['domain1'] = temp
+                self._catalog['.'][self.catalog_helper.samples] = temp
+        # table should be restored
+        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], AbstractTable, "Failed to restore tables")
+
+    def test_setter_after_desctructive_not_in_isolation_err(self):
+        with self.assertRaises(chisel.CatalogMutationError):
+            with self._catalog.evolve() as ctx:
+                temp = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
+                self._catalog['.'][self.catalog_helper.samples] = temp
+                self._catalog.schemas['.'].tables['domain1'] = temp
+        # table should be restored
+        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], AbstractTable, "Failed to restore tables")

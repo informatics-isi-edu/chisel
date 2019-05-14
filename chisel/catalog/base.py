@@ -370,6 +370,7 @@ class SchemaTables (collections.abc.MutableMapping):
         self._backup = tables
         self._tables = tables.copy()
         self._pending = {}
+        self._destructive_pending = False
 
     def _ipython_key_completions_(self):
         return self._tables.keys()
@@ -383,6 +384,7 @@ class SchemaTables (collections.abc.MutableMapping):
         """Resets the pending assignments to this schema."""
         self._tables = self._backup.copy()
         self._pending = {}
+        self._destructive_pending = False
 
     def __str__(self):
         return str(self._tables)
@@ -391,12 +393,31 @@ class SchemaTables (collections.abc.MutableMapping):
         return self._tables[item]
 
     def __setitem__(self, key, value):
+        if not self._schema.catalog._evolve_ctx:
+            raise CatalogMutationError("No catalog mutation context set.")
         if not isinstance(value, ComputedRelation):
             raise ValueError("Value must be a computed relations.")
+        if self._destructive_pending:
+            raise CatalogMutationError("A destructive operation is pending.")
+        if key in self._tables:
+            # 'key in tables' indicates that a table is being altered or replaced - a 'destructive' operation
+            if self._pending:
+                raise CatalogMutationError("A destructive operation is pending.")
+            self._destructive_pending = True
         self._tables[key] = self._pending[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
 
     def __delitem__(self, key):
-        raise NotImplemented("Tables cannot be deleted through this interface.")
+        table = self._tables[key]  # allow exception if key not in tables
+        if not self._schema.catalog._evolve_ctx:
+            raise CatalogMutationError("No catalog mutation context set.")
+        if self._pending:
+            raise CatalogMutationError("Destructive operations must be performed in isolation.")
+        self._destructive_pending = True
+        # create a computed relation <- assign(nil, sname, tname)
+        #  ...add computed relation to _pending list
+        #  ...delete key/table from _tables
+        #  ...add rule to translate logical 'assign(nil...)' into 'drop_table' physical operator
+        raise NotImplemented("Delete is not yet supported.")
 
     def __iter__(self):
         return iter(self._tables)
