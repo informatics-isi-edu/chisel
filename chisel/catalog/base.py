@@ -224,6 +224,10 @@ class AbstractCatalog (object):
 
         logger.info('Committing {num} pending computed relations'.format(num=len(computed_relations)))
 
+        # Run the logical planner and update the computed relations
+        for computed_relation in computed_relations:
+            computed_relation.logical_plan = _op.logical_planner(computed_relation.logical_plan)
+
         # Consolidate the computed relations; i.e., identify and consolidate shared work
         if consolidate:
             _op.consolidate(computed_relations)
@@ -622,10 +626,9 @@ class ComputedRelation (AbstractTable):
         # `column_definitions` with `Column` objects that can be used in subsequent API calls. One potential future
         # solution here is to implement "unbound" `Column` objects and return them from the `column_definitions`. The
         # unbound columns will therefore only be fully resolved when the expression is finally executed.
-        self._logical_plan = _op.logical_planner(logical_plan)
-        self._physical_plan = _op.physical_planner(self._logical_plan)
-        self._buffered_plan = operators.BufferedOperator(self._physical_plan)
-        super(ComputedRelation, self).__init__(self._physical_plan.description)
+        self._logical_plan = logical_plan
+        self._buffered_plan = operators.BufferedOperator(_op.physical_planner(_op.logical_planner(logical_plan)))
+        super(ComputedRelation, self).__init__(self._buffered_plan.description)
 
     @property
     def logical_plan(self):
@@ -634,15 +637,16 @@ class ComputedRelation (AbstractTable):
 
     @logical_plan.setter
     def logical_plan(self, value):
-        self._logical_plan = value
-        self._physical_plan = _op.physical_planner(self._logical_plan)
         # Don't bother to update the relation's description because it is assumed that the logical plan update is only
         # for optimization; one could assert that the current and new logical plans are 'logically' equivalent but this
         # check is not cheap to perform and therefore skipped at this time.
+        self._logical_plan = value
+        self._buffered_plan = None
 
-    @property
-    def physical_plan(self):
-        """The physical plan used to compute this relation; intended for internal use."""
+    def execute(self):
+        """Returns an executable, iterable plan for computing the tuples of this relation."""
+        if not self._buffered_plan:
+            self._buffered_plan = operators.BufferedOperator(_op.physical_planner(_op.logical_planner(self._logical_plan)))
         return self._buffered_plan
 
 

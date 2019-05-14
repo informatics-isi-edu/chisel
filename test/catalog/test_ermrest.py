@@ -21,13 +21,13 @@ class TestERMrestCatalog (BaseTestCase):
 
     def test_alter_select_cname(self):
         projected_col_name = self.catalog_helper.FIELDS[1]
-        with self._catalog.evolve() as ctx:
+        with self._catalog.evolve():
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
                 projected_col_name
             )
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
-            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples]._physical_plan, Alter)
+            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples].execute()._child, Alter)
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -39,13 +39,13 @@ class TestERMrestCatalog (BaseTestCase):
 
     def test_alter_select_column(self):
         projected_col_name = self.catalog_helper.FIELDS[1]
-        with self._catalog.evolve() as ctx:
+        with self._catalog.evolve():
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
                 self._catalog['public'][self.catalog_helper.samples][projected_col_name]
             )
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
-            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples]._physical_plan, Alter)
+            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples].execute()._child, Alter)
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -59,13 +59,13 @@ class TestERMrestCatalog (BaseTestCase):
 
     def test_alter_remove_column(self):
         removed_col_name = self.catalog_helper.FIELDS[1]
-        with self._catalog.evolve() as ctx:
+        with self._catalog.evolve():
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
                 ~self._catalog['public'][self.catalog_helper.samples][removed_col_name]
             )
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
-            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples]._physical_plan, Alter)
+            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples].execute()._child, Alter)
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
