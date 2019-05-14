@@ -33,33 +33,38 @@ def _filter_table(table, formula):
 
 class ERMrestProjectSelect (Project):
     """Fused project-scan operator for ERMrest data sources."""
-    def __init__(self, table, projection, formula=None):
-        super(ERMrestProjectSelect, self).__init__(Metadata(table.prejson()), projection)
-        self._table = table
+    def __init__(self, catalog, sname, tname, projection, formula=None):
+        super(ERMrestProjectSelect, self).__init__(Metadata(catalog.schemas[sname].tables[tname].prejson()), projection)
+        self._catalog = catalog
+        self._sname = sname
+        self._tname = tname
+        self._projection = projection
         self._formula = formula
 
     def __iter__(self):
-        paths = self._table.schema.catalog.ermrest_catalog.getPathBuilder()
-        table = paths.schemas[self._table.schema.name].tables[self._table.name]
+        paths = self._catalog.ermrest_catalog.getPathBuilder()
+        table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
         cols = [table.column_definitions[a] for a in self._attributes if a != 'RID']
         kwargs = {alias: table.column_definitions[cname] for alias, cname in self._alias_to_cname.items()}
-        rows = filtered_path.entities(*cols, **kwargs)
+        rows = filtered_path.attributes(*cols, **kwargs)
         logger.debug("Fetching rows from '{}'".format(rows.uri))
         return iter(rows)
 
 
 class ERMrestSelect (PhysicalOperator):
     """Select operator for ERMrest data sources."""
-    def __init__(self, table, formula=None):
+    def __init__(self, catalog, sname, tname, formula=None):
         super(ERMrestSelect, self).__init__()
-        self._description = table.prejson()
-        self._table = table
+        self._description = catalog.schemas[sname].tables[tname].prejson()
+        self._catalog = catalog
+        self._sname = sname
+        self._tname = tname
         self._formula = formula
 
     def __iter__(self):
-        paths = self._table.schema.catalog.ermrest_catalog.getPathBuilder()
-        table = paths.schemas[self._table.schema.name].tables[self._table.name]
+        paths = self._catalog.ermrest_catalog.getPathBuilder()
+        table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
         rows = filtered_path.entities()
         logger.debug("Fetching rows from '{}'".format(rows.uri))

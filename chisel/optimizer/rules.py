@@ -178,6 +178,12 @@ physical_transformation_rules = Matcher([
         lambda child, schema, table_name: _op.Assign(child, schema, table_name)
     ),
     (
+        'Assign(Project(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)'
+        '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
+        lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
+        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), dst_sname, dst_tname, attributes)
+    ),
+    (
         'TempVar(child)',
         lambda child: _op.TempVarRef(child)
     ),
@@ -190,20 +196,20 @@ physical_transformation_rules = Matcher([
         lambda child, attributes, similarity_fn, grouping_fn: _op.NestedLoopsSimilarityAggregation(_op.HashDistinct(child, attributes), attributes, [], similarity_fn, grouping_fn)
     ),
     (
-        'Project(Select(Extant(table), formula), attributes)',
-        lambda table, formula, attributes: _op.ERMrestProjectSelect(table, attributes, formula)
+        'Project(Select(ERMrestExtant(catalog, sname, tname), formula), attributes)',
+        lambda catalog, sname, tname, formula, attributes: _op.ERMrestProjectSelect(catalog, sname, tname, attributes, formula)
     ),
     (
-        'Project(Extant(table), attributes)',
-        lambda table, attributes: _op.ERMrestProjectSelect(table, attributes)
+        'Project(ERMrestExtant(catalog, sname, tname), attributes)',
+        lambda catalog, sname, tname, attributes: _op.ERMrestProjectSelect(catalog, sname, tname, attributes)
     ),
     (
-        'Select(Extant(table), formula)',
-        lambda table, formula: _op.ERMrestSelect(table, formula)
+        'Select(ERMrestExtant(catalog, sname, tname), formula)',
+        lambda catalog, sname, tname, formula: _op.ERMrestSelect(catalog, sname, tname, formula)
     ),
     (
-        'Extant(table)',
-        lambda table: _op.ERMrestSelect(table)
+        'ERMrestExtant(catalog, sname, tname)',
+        lambda catalog, sname, tname: _op.ERMrestSelect(catalog, sname, tname)
     ),
     (
         'JSONScan(input_filename, json_content, object_payload, key_regex)',

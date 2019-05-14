@@ -359,62 +359,71 @@ class SchemaTables (collections.abc.MutableMapping):
     assignment of new, computed relations to the catalog.
     """
 
-    def __init__(self, schema, backing):
+    def __init__(self, schema, tables):
         """A collection of schema tables.
 
         :param schema: the parent schema
-        :param backing: the backing collection, which must be a Mapping
+        :param tables: the original tables collection, which must be a mapping
         """
         super(SchemaTables, self).__init__()
         self._schema = schema
-        self._base_tables = backing
-        self._pending_assignments = {}
+        self._backup = tables
+        self._tables = tables.copy()
+        self._pending = {}
+        self._destructive_pending = False
 
     def _ipython_key_completions_(self):
-        return self._base_tables.keys()
+        return self._tables.keys()
 
     @property
     def pending(self):
         """List of 'pending' assignments to this schema."""
-        return self._pending_assignments.values()
+        return self._pending.values()
 
     def reset(self):
         """Resets the pending assignments to this schema."""
-        self._pending_assignments = {}
+        self._tables = self._backup.copy()
+        self._pending = {}
+        self._destructive_pending = False
 
     def __str__(self):
-        tables = self._base_tables.copy()
-        tables.update(self._pending_assignments)
-        return str(tables)
+        return str(self._tables)
 
     def __getitem__(self, item):
-        return self._base_tables[item]
+        return self._tables[item]
 
     def __setitem__(self, key, value):
-        if isinstance(value, _em.Table) and not isinstance(value, ComputedRelation):
-            self._base_tables[key] = value
-        elif not isinstance(value, ComputedRelation):
-            raise ValueError('Computed relation expected')
-        elif key in self._base_tables:
-            raise ValueError('Table assignment to an exiting table not allow.')
-        elif key in self._pending_assignments:
-            raise ValueError('Table assignment already pending.')
-        else:
-            self._pending_assignments[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+        if not self._schema.catalog._evolve_ctx:
+            raise CatalogMutationError("No catalog mutation context set.")
+        if not isinstance(value, ComputedRelation):
+            raise ValueError("Value must be a computed relations.")
+        if self._destructive_pending:
+            raise CatalogMutationError("A destructive operation is pending.")
+        if key in self._tables:
+            # 'key in tables' indicates that a table is being altered or replaced - a 'destructive' operation
+            if self._pending:
+                raise CatalogMutationError("A destructive operation is pending.")
+            self._destructive_pending = True
+        self._tables[key] = self._pending[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
 
     def __delitem__(self, key):
-        if key in self._base_tables:
-            del self._base_tables[key]
-        elif key in self._pending_assignments:
-            del self._pending_assignments
-        else:
-            raise KeyError(key + " not found")
+        table = self._tables[key]  # allow exception if key not in tables
+        if not self._schema.catalog._evolve_ctx:
+            raise CatalogMutationError("No catalog mutation context set.")
+        if self._pending:
+            raise CatalogMutationError("Destructive operations must be performed in isolation.")
+        self._destructive_pending = True
+        # create a computed relation <- assign(nil, sname, tname)
+        #  ...add computed relation to _pending list
+        #  ...delete key/table from _tables
+        #  ...add rule to translate logical 'assign(nil...)' into 'drop_table' physical operator
+        raise NotImplemented("Delete is not yet supported.")
 
     def __iter__(self):
-        return iter(self._base_tables)
+        return iter(self._tables)
 
     def __len__(self):
-        return self._base_tables
+        return self._tables
 
 
 class AbstractTable (object):
@@ -535,13 +544,23 @@ class AbstractTable (object):
         """
         if columns:
             projection = []
+
+            # validation: projection may be column, column name, alias, or removal
             for column in columns:
                 if isinstance(column, Column):
                     projection.append(column.name)
-                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias):
+                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias) or isinstance(column, _op.AttributeRemoval):
                     projection.append(column)
                 else:
                     raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
+
+            # validation: if any removal, all must be removals (can't mix removals with other projections)
+            removals = [isinstance(o, _op.AttributeRemoval) for o in projection]
+            if any(removals):
+                if not all(removals):
+                    raise ValueError("Attribute removal cannot be mixed with other attribute projections")
+                projection = [_op.AllAttributes()] + projection
+
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
             return ComputedRelation(self.logical_plan)
@@ -686,6 +705,15 @@ class Column (object):
         :return: a symbolic expression for the renamed column
         """
         return _op.AttributeAlias(self.name, name)
+
+    def inv(self):
+        """Removes an attribute when used in a projection.
+
+        :return: a sybolic expression for the removed column
+        """
+        return _op.AttributeRemoval(self.name)
+
+    __invert__ = inv
 
     def to_atoms(self, delim=',', unnest_fn=None):
         """Computes a new relation from the 'atomic' values of this column.

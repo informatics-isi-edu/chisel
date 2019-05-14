@@ -1,17 +1,19 @@
+import abc
 import csv
 import json
 import os
 from os.path import dirname as up
 import unittest
+
+from deriva.core import DerivaServer, ErmrestCatalog, urlquote, get_credential
+from deriva.core.ermrest_model import Schema, Table, Column, Key, builtin_types
+
 import chisel
 
 
-class CatalogHelper:
-    """Helper class that sets up and cleans up a local catalog.
+class AbstractCatalogHelper:
+    """Abstract catalog helper class for setting up & tearing down catalogs during unit tests.
     """
-
-    CSV = 'csv'
-    JSON = 'json'
 
     FIELDS = ['id', 'species', 'list_of_closest_genes', 'list_of_anatomical_structures']
 
@@ -29,63 +31,225 @@ class CatalogHelper:
     ]
     DUMMY_LEN = len(DUMMY_ROWS)
 
+    def __init__(self, num_test_rows=30):
+        """Initializes the catalog helper.
+
+        :param num_test_rows: number of test rows to produce from the dummy rows
+        """
+        self._test_rows = [
+            {
+                'id': i,
+                'species': self.DUMMY_ROWS[i % self.DUMMY_LEN][1],
+                'list_of_closest_genes': self.DUMMY_ROWS[i % self.DUMMY_LEN][2],
+                'list_of_anatomical_structures': self.DUMMY_ROWS[i % self.DUMMY_LEN][3]
+            } for i in range(num_test_rows)
+        ]
+
+    @abc.abstractmethod
+    def suite_setup(self):
+        """Creates and populates a test catalog."""
+        pass
+
+    @abc.abstractmethod
+    def suite_teardown(self):
+        """Deletes the test catalog."""
+        pass
+
+    @abc.abstractmethod
+    def unit_setup(self):
+        """Defines schema and populates data for a unit test setup."""
+        pass
+
+    @abc.abstractmethod
+    def unit_teardown(self, other=[]):
+        """Deletes tables that have been mutated during a unit test."""
+        pass
+
+    @abc.abstractmethod
+    def exists(self, tablename):
+        """Tests if a table exists."""
+        pass
+
+    @abc.abstractmethod
+    def connect(self):
+        pass
+
+
+class CatalogHelper (AbstractCatalogHelper):
+    """Helper class that sets up and tears down a local catalog.
+    """
+
+    CSV = 'csv'
+    JSON = 'json'
+
     def __init__(self, table_names=[], file_format=CSV):
         """Initializes catalog helper.
 
         :param table_names: list of tables to be added to this catalog during unit testing
         :param file_format: file format used by the catalog. Acceptable values: 'csv' or 'json'.
         """
+        super(CatalogHelper, self).__init__()
+
         if file_format not in {self.CSV, self.JSON}:
             raise ValueError('Invalid file format')
-        self.max_test_rows = 30
-        self.data_dir = os.path.join(up(up(__file__)), 'data')
-        self.file_format = file_format
+        self._data_dir = os.path.join(up(up(__file__)), 'data')
+        self._file_format = file_format
 
         # 'samples' tabular data
         self.samples = 'samples.' + file_format
-        self.samples_filename = os.path.join(self.data_dir, self.samples)
+        self.samples_filename = os.path.join(self._data_dir, self.samples)
 
         # output data files expected
-        self.unit_table_names = table_names
-        self.unit_table_filenames = [os.path.join(self.data_dir, basename) for basename in table_names]
+        self._unit_table_names = table_names
+        self._unit_table_filenames = [os.path.join(self._data_dir, basename) for basename in table_names]
 
-    def setup(self):
-        os.makedirs(self.data_dir, exist_ok=True)
-
-        rows = [
-            {
-                'id': i,
-                'species': self.DUMMY_ROWS[i % self.DUMMY_LEN][1],
-                'list_of_closest_genes': self.DUMMY_ROWS[i % self.DUMMY_LEN][2],
-                'list_of_anatomical_structures': self.DUMMY_ROWS[i % self.DUMMY_LEN][3]
-            } for i in range(self.max_test_rows)
-        ]
+    def suite_setup(self):
+        os.makedirs(self._data_dir, exist_ok=True)
 
         with open(self.samples_filename, 'w', newline='') as ofile:
-            if self.file_format == self.CSV:
+            if self._file_format == self.CSV:
                 csvwriter = csv.DictWriter(ofile, fieldnames=self.FIELDS)
                 csvwriter.writeheader()
-                csvwriter.writerows(rows)
+                csvwriter.writerows(self._test_rows)
             else:
-                json.dump(rows, ofile)
+                json.dump(self._test_rows, ofile)
 
-    def teardown(self):
+    def suite_teardown(self):
         self.unit_teardown(other=[self.samples_filename])
-        os.rmdir(self.data_dir)
+        os.rmdir(self._data_dir)
+
+    def unit_setup(self):
+        pass
 
     def unit_teardown(self, other=[]):
-        filenames = self.unit_table_filenames + other
+        filenames = self._unit_table_filenames + other
         for filename in filenames:
             try:
                 os.remove(filename)
             except FileNotFoundError:
                 pass
 
-    def exists(self, basename):
-        return os.path.isfile(os.path.join(self.data_dir, basename))
+    def exists(self, tablename):
+        return os.path.isfile(os.path.join(self._data_dir, tablename))
 
     def connect(self):
-        return chisel.connect(self.data_dir)
+        return chisel.connect(self._data_dir)
+
+
+class ERMrestHelper (AbstractCatalogHelper):
+    """Helper class that sets up and tears down an ERMrest catalog.
+    """
+
+    def __init__(self, hostname, catalog_id=None, unit_table_names=[]):
+        """Initializes the ERMrest catalog helper
+
+        :param hostname: hostname of the deriva test server
+        :param catalog_id: optional id of catalog to _reuse_ by this unit test suite
+        """
+        super(ERMrestHelper, self).__init__()
+        self.samples = 'samples'
+        self._hostname = hostname
+        self._ermrest_catalog = None
+        self._reuse_catalog_id = catalog_id
+        self._unit_table_names = unit_table_names
+
+    @classmethod
+    def _parse_table_name(cls, tablename):
+        if not tablename:
+            raise ValueError("tablename not given")
+        fq_name = tablename.split(':')
+        if len(fq_name) == 2:
+            sname, tname = fq_name
+        elif len(fq_name) < 2:
+            sname, tname = 'public', fq_name[0]
+        else:
+            raise ValueError("invalid 'tablename': " + tablename)
+        return sname, tname
+
+    def suite_setup(self):
+        # create catalog
+        server = DerivaServer('https', self._hostname, credentials=get_credential(self._hostname))
+        if self._reuse_catalog_id:
+            self._ermrest_catalog = server.connect_ermrest(self._reuse_catalog_id)
+            self.unit_teardown()  # in the event that the last run terminated abruptly and didn't properly teardown
+        else:
+            self._ermrest_catalog = server.create_ermrest_catalog()
+
+    def suite_teardown(self):
+        # delete catalog
+        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
+        if not self._reuse_catalog_id:
+            self._ermrest_catalog.delete_ermrest_catalog(really=True)
+
+    def unit_setup(self):
+        # get public schema
+        model = self._ermrest_catalog.getCatalogModel()
+        public = model.schemas['public']
+        assert isinstance(public, Schema)
+
+        # create table
+        public.create_table(
+            self._ermrest_catalog,
+            Table.define(
+                self.samples,
+                column_defs=[
+                    Column.define(
+                        self.FIELDS[0],
+                        builtin_types.int8,
+                        False
+                    )
+                ] + [
+                    Column.define(
+                        field_name,
+                        builtin_types.text
+                    )
+                    for field_name in self.FIELDS[1:]
+                ],
+                key_defs=[
+                    Key.define(
+                        ['id']
+                    )
+                ]
+            )
+        )
+
+        # insert test data
+        pb = self._ermrest_catalog.getPathBuilder()
+        samples = pb.schemas['public'].tables[self.samples]
+        samples.insert(self._test_rows)
+
+    def unit_teardown(self, other=[]):
+        # delete any mutated tables
+        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
+        model = self._ermrest_catalog.getCatalogModel()
+        for tablename in [self.samples] + self._unit_table_names + other:
+            try:
+                s, t = self._parse_table_name(tablename)
+                model.schemas[s].tables[t].delete(self._ermrest_catalog)
+            except Exception:
+                pass
+
+    def exists(self, tablename):
+        # check if table exists in ermrest catalog
+        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
+        sname, tname = self._parse_table_name(tablename)
+
+        try:
+            path = '/schema/%s/table/%s' % (urlquote(sname), urlquote(tname))
+            r = self._ermrest_catalog.get(path)
+            r.raise_for_status()
+            resp = r.json()
+            return resp is not None
+        except Exception:
+            return False
+
+    def connect(self):
+        # connect to catalog
+        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
+        return chisel.connect('https://{hostname}/ermrest/catalog/{id}'.format(
+            hostname=self._hostname,
+            id=self._ermrest_catalog.catalog_id
+        ))
 
 
 class BaseTestCase (unittest.TestCase):
@@ -96,13 +260,14 @@ class BaseTestCase (unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.catalog_helper.setup()
+        cls.catalog_helper.suite_setup()
 
     @classmethod
     def tearDownClass(cls):
-        cls.catalog_helper.teardown()
+        cls.catalog_helper.suite_teardown()
 
     def setUp(self):
+        self.catalog_helper.unit_setup()
         self._catalog = self.catalog_helper.connect()
 
     def tearDown(self):
