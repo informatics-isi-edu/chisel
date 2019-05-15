@@ -407,7 +407,12 @@ class SchemaTables (collections.abc.MutableMapping):
             if self._pending:
                 raise CatalogMutationError("A destructive operation is pending.")
             self._destructive_pending = True
-        self._tables[key] = self._pending[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+
+        # update pending and current tables and return value
+        val = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+        self._tables[key] = self._pending[key] = val
+        assert self._tables[key] == self._pending[key]
+        return val
 
     def __delitem__(self, key):
         table = self._tables[key]  # allow exception if key not in tables
