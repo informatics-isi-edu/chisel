@@ -410,10 +410,11 @@ class SchemaTables (collections.abc.MutableMapping):
             self._destructive_pending = True
 
         # update pending and current tables and return value
-        val = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
-        self._tables[key] = self._pending[key] = val
+        # TODO: pending should be tracked in the evolve_ctx, in order, and then processed in order
+        newval = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+        self._tables[key] = self._pending[key] = newval
         assert self._tables[key] == self._pending[key]
-        return val
+        return newval
 
     def __delitem__(self, key):
         table = self._tables[key]  # allow exception if key not in tables
