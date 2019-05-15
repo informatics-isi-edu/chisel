@@ -1,5 +1,6 @@
 """Database catalog module."""
 
+import abc
 import collections
 import itertools
 import logging
@@ -189,13 +190,13 @@ class AbstractCatalog (object):
 
         return self._CatalogMutationContextManager(self, dry_run, consolidate)
 
+    @abc.abstractmethod
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
-        raise NotImplementedError()
 
     def _abort(self):
         """Abort pending catalog model mutations."""
@@ -451,6 +452,10 @@ class AbstractTable (object):
         self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
         self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
 
+    @abc.abstractmethod
+    def logical_plan(self):
+        """The logical plan used to compute this relation; intended for internal use."""
+
     def _new_column_instance(self, column_doc):
         """Overridable method for creating a new column model object.
 
@@ -537,11 +542,6 @@ class AbstractTable (object):
             dot.edge(tail_name, head_name)
 
         return dot
-
-    @property
-    def logical_plan(self):
-        """The logical plan used to compute this relation; intended for internal use."""
-        raise NotImplementedError()
 
     def select(self, *columns):
         """Selects this relation and projects the columns.
