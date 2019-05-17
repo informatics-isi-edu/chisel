@@ -235,8 +235,16 @@ class AbstractCatalog (object):
 
         # Process the pending operations
         for computed_relation in computed_relations:
+            # compute the model changes
+            model_changes = self._determine_model_changes(computed_relation)
+
+            # relax model constraints, if/when necessary
+            if not dry_run:
+                self._relax_model_constraints(model_changes)
+
             # get its optimized and consolidated logical plan
             logical_plan = computed_relation.logical_plan
+
             # do physical planning
             physical_plan = _op.physical_planner(logical_plan)
 
@@ -251,11 +259,34 @@ class AbstractCatalog (object):
                 pp.pprint(physical_plan.description)
                 print('Data:')
                 pp.pprint(list(itertools.islice(physical_plan, 100)))
+                print('Model changes:')
+                pp.pprint(model_changes)
             else:
                 # Materialize the planned relation
                 logging.info('Materializing "{name}"...'.format(name=computed_relation.name))
                 self._materialize_relation(physical_plan)
-        # TODO: restore state of catalog model objects
+
+                # 'propagate' model changes
+                self._apply_model_changes(model_changes)
+
+        # revise state of catalog model objects
+        self._revise_catalog_state()
+
+    def _determine_model_changes(self, computed_relation):
+        """Determines the model changes to be produced by this computed relation."""
+        return dict(mappings=[], constraints=[], policies=[])
+
+    def _relax_model_constraints(self, model_changes):
+        """Relaxes model constraints in the prior conditions of the model changes."""
+        pass
+
+    def _apply_model_changes(self, model_changes):
+        """Apply model changes in the post conditions of the model changes."""
+        pass
+
+    def _revise_catalog_state(self):
+        """Revise the catalog model object state following model evolve commits"""
+        pass
 
 
 class Schema (object):

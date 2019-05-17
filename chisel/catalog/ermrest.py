@@ -89,6 +89,18 @@ class ERMrestCatalog (base.AbstractCatalog):
         else:
             raise ValueError('Plan cannot be materialized.')
 
+    def _determine_model_changes(self, computed_relation):
+        """Determines the model changes to be produced by this computed relation."""
+        return dict(mappings=[], constraints=[], policies=[])
+
+    def _relax_model_constraints(self, model_changes):
+        """Relaxes model constraints in the prior conditions of the model changes."""
+        pass
+
+    def _apply_model_changes(self, model_changes):
+        """Apply model changes in the post conditions of the model changes."""
+        pass
+
 
 class ERMrestSchema (base.Schema):
     """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
