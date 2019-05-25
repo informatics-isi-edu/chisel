@@ -539,7 +539,7 @@ class AbstractTable (object):
         """The physical plan used to compute this relation; intended for internal use."""
         return _op.physical_planner(_op.logical_planner(self.logical_plan))
 
-    def data(self):
+    def fetch(self):
         """Returns the data for this relation."""
         return list(self.physical_plan)
 
