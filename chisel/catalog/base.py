@@ -534,6 +534,15 @@ class AbstractTable (object):
         """The logical plan used to compute this relation; intended for internal use."""
         raise NotImplementedError()
 
+    @property
+    def physical_plan(self):
+        """The physical plan used to compute this relation; intended for internal use."""
+        return _op.physical_planner(_op.logical_planner(self.logical_plan))
+
+    def data(self):
+        """Returns the data for this relation."""
+        return list(self.physical_plan)
+
     def select(self, *columns):
         """Selects this relation and projects the columns.
 
