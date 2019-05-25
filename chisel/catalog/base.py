@@ -479,7 +479,7 @@ class AbstractTable (object):
             ] + [
                 [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.columns.values()
             ]
-            desc = "### Table \"" + self.sname + "." + self.name + "\"\n" + \
+            desc = "### Table \"" + str(self.sname) + "." + str(self.name) + "\"\n" + \
                    util.markdown_table(data, quote)
             return desc
 
