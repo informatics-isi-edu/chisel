@@ -98,12 +98,12 @@ class TempVarRef (PhysicalOperator):
     """References a temporary variable (i.e., computed relation)."""
     def __init__(self, computed_relation):
         super(TempVarRef, self).__init__()
-        assert computed_relation is not None and hasattr(computed_relation, 'execute')
+        assert computed_relation is not None and hasattr(computed_relation, 'fetch')
         self._description = computed_relation.prejson()
         self._computed_relation = computed_relation
 
     def __iter__(self):
-        return iter(self._computed_relation.execute())
+        return iter(self._computed_relation.fetch())
 
 
 #

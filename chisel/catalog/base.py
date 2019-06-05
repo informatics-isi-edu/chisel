@@ -278,15 +278,15 @@ class AbstractCatalog (object):
 
     def _relax_model_constraints(self, model_changes):
         """Relaxes model constraints in the prior conditions of the model changes."""
-        pass
+        pass  # Sub-classes of AbstractCatalog may implement model change methods (optional).
 
     def _apply_model_changes(self, model_changes):
         """Apply model changes in the post conditions of the model changes."""
-        pass
+        pass  # Sub-classes of AbstractCatalog may implement model change methods (optional).
 
     def _revise_catalog_state(self):
         """Revise the catalog model object state following model evolve commits"""
-        pass
+        pass  # Sub-classes of AbstractCatalog may implement model change methods (optional).
 
 
 class Schema (object):
@@ -488,6 +488,10 @@ class AbstractTable (object):
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
 
+    def fetch(self):
+        """Returns an iterator for data for this relation."""
+        return _op.physical_planner(_op.logical_planner(self.logical_plan))
+
     def _new_column_instance(self, column_doc):
         """Overridable method for creating a new column model object.
 
@@ -574,15 +578,6 @@ class AbstractTable (object):
             dot.edge(tail_name, head_name)
 
         return dot
-
-    @property
-    def physical_plan(self):
-        """The physical plan used to compute this relation; intended for internal use."""
-        return _op.physical_planner(_op.logical_planner(self.logical_plan))
-
-    def fetch(self):
-        """Returns the data for this relation."""
-        return list(self.physical_plan)
 
     def select(self, *columns):
         """Selects this relation and projects the columns.
@@ -689,8 +684,8 @@ class ComputedRelation (AbstractTable):
         self._logical_plan = value
         self._buffered_plan = None
 
-    def execute(self):
-        """Returns an executable, iterable plan for computing the tuples of this relation."""
+    def fetch(self):
+        """Returns an iterator for data for this relation."""
         if not self._buffered_plan:
             self._buffered_plan = operators.BufferedOperator(_op.physical_planner(_op.logical_planner(self._logical_plan)))
         return self._buffered_plan

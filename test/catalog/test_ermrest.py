@@ -4,6 +4,7 @@ import unittest
 from chisel.catalog.base import ComputedRelation
 from chisel.operators.base import Alter
 from .utils import ERMrestHelper, BaseTestCase
+import chisel.optimizer as _op
 
 ermrest_hostname = os.getenv('CHISEL_TEST_ERMREST_HOST')
 ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
@@ -27,7 +28,10 @@ class TestERMrestCatalog (BaseTestCase):
                 projected_col_name
             )
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
-            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples].execute()._child, Alter)
+            self.assertIsInstance(
+                _op.physical_planner(_op.logical_planner(self._catalog['public'][self.catalog_helper.samples].logical_plan)),
+                Alter
+            )
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -45,7 +49,10 @@ class TestERMrestCatalog (BaseTestCase):
                 self._catalog['public'][self.catalog_helper.samples][projected_col_name]
             )
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
-            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples].execute()._child, Alter)
+            self.assertIsInstance(
+                _op.physical_planner(_op.logical_planner(self._catalog['public'][self.catalog_helper.samples].logical_plan)),
+                Alter
+            )
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -65,7 +72,10 @@ class TestERMrestCatalog (BaseTestCase):
                 ~self._catalog['public'][self.catalog_helper.samples][removed_col_name]
             )
             self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
-            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples].execute()._child, Alter)
+            self.assertIsInstance(
+                _op.physical_planner(_op.logical_planner(self._catalog['public'][self.catalog_helper.samples].logical_plan)),
+                Alter
+            )
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
