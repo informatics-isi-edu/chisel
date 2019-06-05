@@ -1,5 +1,6 @@
 """Database catalog module."""
 
+import abc
 import collections
 import itertools
 import logging
@@ -189,13 +190,13 @@ class AbstractCatalog (object):
 
         return self._CatalogMutationContextManager(self, dry_run, consolidate)
 
+    @abc.abstractmethod
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
-        raise NotImplementedError()
 
     def _abort(self):
         """Abort pending catalog model mutations."""
@@ -224,14 +225,26 @@ class AbstractCatalog (object):
 
         logger.info('Committing {num} pending computed relations'.format(num=len(computed_relations)))
 
+        # Run the logical planner and update the computed relations
+        for computed_relation in computed_relations:
+            computed_relation.logical_plan = _op.logical_planner(computed_relation.logical_plan)
+
         # Consolidate the computed relations; i.e., identify and consolidate shared work
         if consolidate:
             _op.consolidate(computed_relations)
 
         # Process the pending operations
         for computed_relation in computed_relations:
+            # compute the model changes
+            model_changes = self._determine_model_changes(computed_relation)
+
+            # relax model constraints, if/when necessary
+            if not dry_run:
+                self._relax_model_constraints(model_changes)
+
             # get its optimized and consolidated logical plan
             logical_plan = computed_relation.logical_plan
+
             # do physical planning
             physical_plan = _op.physical_planner(logical_plan)
 
@@ -246,11 +259,34 @@ class AbstractCatalog (object):
                 pp.pprint(physical_plan.description)
                 print('Data:')
                 pp.pprint(list(itertools.islice(physical_plan, 100)))
+                print('Model changes:')
+                pp.pprint(model_changes)
             else:
                 # Materialize the planned relation
                 logging.info('Materializing "{name}"...'.format(name=computed_relation.name))
                 self._materialize_relation(physical_plan)
-        # TODO: restore state of catalog model objects
+
+                # 'propagate' model changes
+                self._apply_model_changes(model_changes)
+
+        # revise state of catalog model objects
+        self._revise_catalog_state()
+
+    def _determine_model_changes(self, computed_relation):
+        """Determines the model changes to be produced by this computed relation."""
+        return dict(mappings=[], constraints=[], policies=[])
+
+    def _relax_model_constraints(self, model_changes):
+        """Relaxes model constraints in the prior conditions of the model changes."""
+        pass  # Sub-classes of AbstractCatalog may implement model change methods (optional).
+
+    def _apply_model_changes(self, model_changes):
+        """Apply model changes in the post conditions of the model changes."""
+        pass  # Sub-classes of AbstractCatalog may implement model change methods (optional).
+
+    def _revise_catalog_state(self):
+        """Revise the catalog model object state following model evolve commits"""
+        pass  # Sub-classes of AbstractCatalog may implement model change methods (optional).
 
 
 class Schema (object):
@@ -403,7 +439,13 @@ class SchemaTables (collections.abc.MutableMapping):
             if self._pending:
                 raise CatalogMutationError("A destructive operation is pending.")
             self._destructive_pending = True
-        self._tables[key] = self._pending[key] = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+
+        # update pending and current tables and return value
+        # TODO: pending should be tracked in the evolve_ctx, in order, and then processed in order
+        newval = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+        self._tables[key] = self._pending[key] = newval
+        assert self._tables[key] == self._pending[key]
+        return newval
 
     def __delitem__(self, key):
         table = self._tables[key]  # allow exception if key not in tables
@@ -441,6 +483,14 @@ class AbstractTable (object):
         ])
         self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
         self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
+
+    @abc.abstractmethod
+    def logical_plan(self):
+        """The logical plan used to compute this relation; intended for internal use."""
+
+    def fetch(self):
+        """Returns an iterator for data for this relation."""
+        return _op.physical_planner(_op.logical_planner(self.logical_plan))
 
     def _new_column_instance(self, column_doc):
         """Overridable method for creating a new column model object.
@@ -528,20 +578,6 @@ class AbstractTable (object):
             dot.edge(tail_name, head_name)
 
         return dot
-
-    @property
-    def logical_plan(self):
-        """The logical plan used to compute this relation; intended for internal use."""
-        raise NotImplementedError()
-
-    @property
-    def physical_plan(self):
-        """The physical plan used to compute this relation; intended for internal use."""
-        return _op.physical_planner(_op.logical_planner(self.logical_plan))
-
-    def fetch(self):
-        """Returns the data for this relation."""
-        return list(self.physical_plan)
 
     def select(self, *columns):
         """Selects this relation and projects the columns.
@@ -631,10 +667,9 @@ class ComputedRelation (AbstractTable):
         # `column_definitions` with `Column` objects that can be used in subsequent API calls. One potential future
         # solution here is to implement "unbound" `Column` objects and return them from the `column_definitions`. The
         # unbound columns will therefore only be fully resolved when the expression is finally executed.
-        self._logical_plan = _op.logical_planner(logical_plan)
-        self._physical_plan = _op.physical_planner(self._logical_plan)
-        self._buffered_plan = operators.BufferedOperator(self._physical_plan)
-        super(ComputedRelation, self).__init__(self._physical_plan.description)
+        self._logical_plan = logical_plan
+        self._buffered_plan = operators.BufferedOperator(_op.physical_planner(_op.logical_planner(logical_plan)))
+        super(ComputedRelation, self).__init__(self._buffered_plan.description)
 
     @property
     def logical_plan(self):
@@ -643,15 +678,16 @@ class ComputedRelation (AbstractTable):
 
     @logical_plan.setter
     def logical_plan(self, value):
-        self._logical_plan = value
-        self._physical_plan = _op.physical_planner(self._logical_plan)
         # Don't bother to update the relation's description because it is assumed that the logical plan update is only
         # for optimization; one could assert that the current and new logical plans are 'logically' equivalent but this
         # check is not cheap to perform and therefore skipped at this time.
+        self._logical_plan = value
+        self._buffered_plan = None
 
-    @property
-    def physical_plan(self):
-        """The physical plan used to compute this relation; intended for internal use."""
+    def fetch(self):
+        """Returns an iterator for data for this relation."""
+        if not self._buffered_plan:
+            self._buffered_plan = operators.BufferedOperator(_op.physical_planner(_op.logical_planner(self._logical_plan)))
         return self._buffered_plan
 
 
