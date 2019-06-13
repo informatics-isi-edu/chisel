@@ -11,8 +11,8 @@ from deriva.core.ermrest_model import Schema, Table, Column, Key, builtin_types
 import chisel
 
 
-class AbstractCatalogHelper:
-    """Abstract catalog helper class for setting up & tearing down catalogs during unit tests.
+class TestHelper:
+    """Test helper class for defining test data.
     """
 
     FIELDS = ['id', 'species', 'list_of_closest_genes', 'list_of_anatomical_structures']
@@ -36,7 +36,7 @@ class AbstractCatalogHelper:
 
         :param num_test_rows: number of test rows to produce from the dummy rows
         """
-        self._test_rows = [
+        self.test_data = [
             {
                 'id': i,
                 'species': self.DUMMY_ROWS[i % self.DUMMY_LEN][1],
@@ -45,34 +45,36 @@ class AbstractCatalogHelper:
             } for i in range(num_test_rows)
         ]
 
+
+class AbstractCatalogHelper (TestHelper):
+    """Abstract catalog helper class for setting up & tearing down catalogs during unit tests.
+    """
+    def __init__(self, num_test_rows=30):
+        super(AbstractCatalogHelper, self).__init__(num_test_rows=num_test_rows)
+
     @abc.abstractmethod
     def suite_setup(self):
         """Creates and populates a test catalog."""
-        pass
 
     @abc.abstractmethod
     def suite_teardown(self):
         """Deletes the test catalog."""
-        pass
 
     @abc.abstractmethod
     def unit_setup(self):
         """Defines schema and populates data for a unit test setup."""
-        pass
 
     @abc.abstractmethod
     def unit_teardown(self, other=[]):
         """Deletes tables that have been mutated during a unit test."""
-        pass
 
     @abc.abstractmethod
     def exists(self, tablename):
         """Tests if a table exists."""
-        pass
 
     @abc.abstractmethod
     def connect(self):
-        pass
+        """Connect the catalog."""
 
 
 class CatalogHelper (AbstractCatalogHelper):
@@ -110,9 +112,9 @@ class CatalogHelper (AbstractCatalogHelper):
             if self._file_format == self.CSV:
                 csvwriter = csv.DictWriter(ofile, fieldnames=self.FIELDS)
                 csvwriter.writeheader()
-                csvwriter.writerows(self._test_rows)
+                csvwriter.writerows(self.test_data)
             else:
-                json.dump(self._test_rows, ofile)
+                json.dump(self.test_data, ofile)
 
     def suite_teardown(self):
         self.unit_teardown(other=[self.samples_filename])
@@ -216,7 +218,7 @@ class ERMrestHelper (AbstractCatalogHelper):
         # insert test data
         pb = self._ermrest_catalog.getPathBuilder()
         samples = pb.schemas['public'].tables[self.samples]
-        samples.insert(self._test_rows)
+        samples.insert(self.test_data)
 
     def unit_teardown(self, other=[]):
         # delete any mutated tables

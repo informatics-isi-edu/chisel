@@ -1,6 +1,6 @@
 import chisel
 from chisel.catalog.base import AbstractTable
-from .utils import CatalogHelper, BaseTestCase
+from test.utils import CatalogHelper, BaseTestCase
 
 
 class TestBaseCatalog (BaseTestCase):
