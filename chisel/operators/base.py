@@ -142,19 +142,16 @@ class Select (PhysicalOperator):
             self._comparisons = [formula]
         else:
             self._comparisons = formula.comparisons
+        assert([all(comparison.operator == '=' for comparison in self._comparisons)])
 
     def __iter__(self):
-        # TODO: see if this can be rewritten using itertools hi-perf native operations
-        for row in self._child:
-            match = True
-            for comparison in self._comparisons:
-                assert comparison.operator == '=', "current limitation only supports equality comparison"
-                if row[comparison.operand1] != comparison.operand2:
-                    match = False
-                    break
+        def predicate(row):
+            if not self._comparisons:  # if no comparisons than return tuple by default
+                return True
+            # otherwise, test that all comparisons match
+            return all([row[comparison.operand1] == comparison.operand2 for comparison in self._comparisons])
 
-            if match:
-                yield row
+        return filter(predicate, self._child)
 
 
 class Project (PhysicalOperator):
