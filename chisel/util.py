@@ -38,6 +38,7 @@ def introspect_key_fn(rel):
     :param rel: a relation scheme
     :return: a list of attribute names
     """
+    # TODO: favor ('RID') before other min keys
     keys = rel.get('keys')
     if not keys:
         logger.warning('Relation "%s" does not have any "keys". Cannot determine minimum key.' % rel.get('table_name'))

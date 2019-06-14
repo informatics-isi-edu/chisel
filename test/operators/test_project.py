@@ -4,6 +4,7 @@ import os
 import unittest
 import chisel.operators as _op
 import chisel.optimizer as _opt
+import chisel.util as _util
 
 logger = logging.getLogger(__name__)
 if os.getenv('CHISEL_TEST_VERBOSE'):
@@ -24,11 +25,9 @@ payload = [
 
 class TestProjection (unittest.TestCase):
     """Basic tests for Project operator."""
-    def setUp(self):
-        self._child = _op.JSONScan(object_payload=payload)
 
-    def tearDown(self):
-        self._child = None
+    _child = _op.JSONScan(object_payload=payload)
+    # _child.description['table_name'] = 'payload'
 
     def test_simple_projection_description(self):
         projection = ('property_1',)
@@ -68,6 +67,18 @@ class TestProjection (unittest.TestCase):
         logger.debug(cnames)
         for expected in ['name', 'synonyms']:
             self.assertIn(expected, cnames, "column missing in projected relation's description")
+
+    def test_project_introspect_RID(self):
+        projection = [
+            _opt.IntrospectionFunction(_util.introspect_key_fn),
+            'property_1'
+        ]
+        oper = _op.Project(self._child, projection)
+        renamed_rid = self._child.description['table_name'] + "_RID"
+        self.assertTrue(
+            any([c['name'] == renamed_rid for c in oper.description['column_definitions']]),
+            "'RID' not renamed to '%s'" % renamed_rid
+        )
 
 
 if __name__ == '__main__':

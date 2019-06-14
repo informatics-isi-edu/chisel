@@ -158,7 +158,8 @@ class Project (PhysicalOperator):
     """Basic projection operator."""
     def __init__(self, child, projection):
         super(Project, self).__init__()
-        assert len(projection) > 0, "No attributes to project"
+        assert projection, "No projection"
+        assert hasattr(projection, '__iter__'), "Projection is not an iterable collection"
         self._child = child
         self._attributes = set()
         self._alias_to_cname = dict()
@@ -183,11 +184,11 @@ class Project (PhysicalOperator):
                 attrs = item.fn(table_def)
                 if 'RID' in attrs:
                     attrs.remove('RID')
-                    renamed_rid = table_def['table_name'] + '_RID'  # TODO: revisit this column name change
+                    renamed_rid = table_def['table_name'] + '_RID'
                     self._alias_to_cname[renamed_rid] = 'RID'
                     self._cname_to_alias['RID'].append(renamed_rid)
                 self._attributes |= set(attrs)
-                # could add a fkey to the source relation here, if it is an extant table in the catalog
+                # TODO: could add a fkey to the source relation here, if it is an extant table in the catalog
             elif isinstance(item, _op.AttributeAlias):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
