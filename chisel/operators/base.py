@@ -270,42 +270,28 @@ class Project (PhysicalOperator):
             yield self._rename_row_attributes(row, self._alias_to_cname)
 
 
-class Rename (PhysicalOperator):  # TODO: should rewrite this as a sub-class of project (or not have it at all)
-    """Rename operator."""
+class Rename (Project):
     def __init__(self, child, renames):
-        super(Rename, self).__init__()
         assert child.description is not None
         assert renames
         assert isinstance(renames, tuple)
         assert all([isinstance(rename, _op.AttributeAlias) for rename in renames])
-        self._child = child
-        self._renames = renames
-        self._description = child.description.copy()
-        # create map of child columns definitions, for faster access below
-        col_map = {col['name']: col for col in self._description['column_definitions']}
-        unmodified_col_map = col_map.copy()
-        # create new list of column definitions
-        col_defs = []
-        # ...first, rename and add the renamed columns
-        for old_cname, new_cname in self._renames:
-            col_def = unmodified_col_map[old_cname].copy()
-            col_def['name'] = new_cname
-            col_defs.append(col_def)
-            if old_cname in col_map:
-                del col_map[old_cname]
-        # ...then add balance of column defs
-        col_defs.extend(col_map.values())
-        # ...and finally, replace the copied description's column definitions
-        self._description['column_definitions'] = col_defs
 
-    def __iter__(self):
-        for row in self._child:
-            renamed_row = row.copy()
-            for old_cname, new_cname in self._renames:
-                renamed_row[new_cname] = row[old_cname]
-                if old_cname in renamed_row:
-                    del renamed_row[old_cname]
-            yield renamed_row
+        # compile list of renames, and handle >1 alias per original column
+        rename_dict = collections.defaultdict(list)
+        for rename in renames:
+            rename_dict[rename.name].append(rename)
+
+        # create a projection from original column definitions modulo the renamed columns
+        projection = []
+        for col in child.description['column_definitions']:
+            if col['name'] in rename_dict:
+                projection.extend(rename_dict[col['name']])
+            else:
+                projection.append(col['name'])
+
+        # let the Project operator do the rest
+        super(Rename, self).__init__(child, projection)
 
 
 class HashDistinct (PhysicalOperator):

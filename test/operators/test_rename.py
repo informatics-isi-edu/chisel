@@ -30,7 +30,7 @@ class TestRename (unittest.TestCase):
         desc = oper.description
         self.assertIsNotNone(desc, 'description is None')
         self.assertIsNotNone(desc['column_definitions'], 'column_definitions is None')
-        self.assertEqual(len(desc['column_definitions']), len(payload[0].keys()), 'incorrect number of columns in description')
+        self.assertEqual(len(payload[0].keys()), len(desc['column_definitions']), 'incorrect number of columns in description')
         self.assertIn(alias_name, {col['name'] for col in desc['column_definitions']}, 'attribute not renamed in column definitions')
 
     def test_renamed_tuple_attribute(self):
