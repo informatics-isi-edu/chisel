@@ -14,11 +14,13 @@ if os.getenv('CHISEL_TEST_VERBOSE'):
 payload = [
     {
         'RID': 1,
-        'property_1': 'hello'
+        'property_1': 'hello',
+        'property_2': '405',
     },
     {
         'RID': 2,
-        'property_1': 'world'
+        'property_1': 'world',
+        'property_2': '110',
     }
 ]
 
@@ -27,7 +29,6 @@ class TestProjection (unittest.TestCase):
     """Basic tests for Project operator."""
 
     _child = _op.JSONScan(object_payload=payload)
-    # _child.description['table_name'] = 'payload'
 
     def test_simple_projection_description(self):
         projection = ('property_1',)
@@ -69,15 +70,22 @@ class TestProjection (unittest.TestCase):
             self.assertIn(expected, cnames, "column missing in projected relation's description")
 
     def test_project_introspect_RID(self):
-        projection = [
+        projection = (
             _opt.IntrospectionFunction(_util.introspect_key_fn),
             'property_1'
-        ]
+        )
         oper = _op.Project(self._child, projection)
         renamed_rid = self._child.description['table_name'] + "_RID"
         self.assertTrue(
             any([c['name'] == renamed_rid for c in oper.description['column_definitions']]),
             "'RID' not renamed to '%s'" % renamed_rid
+        )
+
+    def test_project_preserve_unique_on_rid(self):
+        oper = _op.Project(self._child, ('RID',))
+        self.assertTrue(
+            any([len(colset) == 1 and colset[0] == 'RID' for colset in [key['unique_columns'] for key in oper.description['keys']]]),
+            'could not find a key defined on (RID) when RID was projected from child relation'
         )
 
 

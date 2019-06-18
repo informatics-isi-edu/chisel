@@ -227,10 +227,6 @@ class Project (PhysicalOperator):
         key_defs = []
         for key_def in table_def['keys']:
             unique_columns = key_def['unique_columns']
-            # TODO: re-evaluate this skip
-            # skip the 'RID'
-            if unique_columns[0] == 'RID':
-                continue
             # include key if all unique columns are in the projection
             if all_projected_attributes & set(unique_columns):
                 key_def = key_def.copy()
