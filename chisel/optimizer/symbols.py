@@ -39,8 +39,8 @@ def _conjunction_and_fn(left, right):
 #: Represents an extant (existing table) from an ERMrest catalog
 ERMrestExtant = namedtuple('ERMrestExtant', 'catalog sname tname')
 
-#: JSONScan operator
-JSONScan = namedtuple('JSONScan', 'input_filename json_content object_payload key_regex')  # TODO: JSONDataExtant
+#: JSONDataExtant operator
+JSONDataExtant = namedtuple('JSONDataExtant', 'input_filename json_content object_payload key_regex')
 
 #: Scan operator
 Scan = namedtuple('Scan', 'filename')  # TODO: TabularDataExtant

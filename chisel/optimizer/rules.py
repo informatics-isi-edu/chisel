@@ -212,7 +212,7 @@ physical_transformation_rules = Matcher([
         lambda catalog, sname, tname: _op.ERMrestSelect(catalog, sname, tname)
     ),
     (
-        'JSONScan(input_filename, json_content, object_payload, key_regex)',
+        'JSONDataExtant(input_filename, json_content, object_payload, key_regex)',
         lambda input_filename, json_content, object_payload, key_regex: _op.JSONScan(input_filename, json_content, object_payload, key_regex)
     ),
     (

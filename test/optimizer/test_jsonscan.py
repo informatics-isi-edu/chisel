@@ -1,4 +1,4 @@
-"""Tests for the JSONScan operator."""
+"""Tests for the JSONDataExtant operator."""
 import unittest
 import chisel.optimizer as _opt
 
@@ -15,9 +15,9 @@ payload = [
 
 
 class TestJSONScan (unittest.TestCase):
-    """Basic tests for JSONScan operator."""
+    """Basic tests for JSONDataExtant operator."""
     def setUp(self):
-        self._plan = _opt.JSONScan(input_filename=None, json_content=None, object_payload=payload, key_regex=None)
+        self._plan = _opt.JSONDataExtant(input_filename=None, json_content=None, object_payload=payload, key_regex=None)
 
     def tearDown(self):
         self._plan = None
