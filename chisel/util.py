@@ -3,6 +3,7 @@
 from collections import defaultdict
 import logging
 import nltk as _nltk
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +39,19 @@ def introspect_key_fn(rel):
     :param rel: a relation scheme
     :return: a list of attribute names
     """
-    # TODO: favor ('RID') before other min keys
     keys = rel.get('keys')
     if not keys:
         logger.warning('Relation "%s" does not have any "keys". Cannot determine minimum key.' % rel.get('table_name'))
         return []
 
-    minkey = keys[0]
-    for key in keys[1:]:
-        if len(key['unique_columns']) < len(minkey['unique_columns']):
+    minkey = None
+    min_key_len = sys.maxsize
+    for key in keys:
+        key_len = len(key['unique_columns'])
+        if key_len < min_key_len:
             minkey = key
+            if key_len == 1 and minkey['unique_columns'][0] == 'RID':
+                break
 
     return minkey['unique_columns'].copy()
 
