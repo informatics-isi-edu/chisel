@@ -32,7 +32,8 @@ class JSONScan (PhysicalOperator):
 
         if input_filename:
             with open(input_filename) as fp:
-                # TODO: use a streaming JSON parser, if possible
+                # consider using ijson, or writing a custom parser the reads one object at a time
+                # for now, this is not a high priority to optimize, so we use the 'json' library
                 self._data = json.load(fp)
             table_name = os.path.basename(input_filename)
         elif json_content:
