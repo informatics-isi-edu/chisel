@@ -407,7 +407,7 @@ class Unnest (PhysicalOperator):
             uuid.uuid1().hex,  # computed relation name for this projection
             column_defs=table_def['column_definitions'],
             # key_defs=[], -- key defs are empty because the unnested relation should break unique constraints
-            fkey_defs=table_def['foreign_keys'], # TODO: sanity check that unnest attr is not in a fkey
+            fkey_defs=table_def['foreign_keys'],  # TODO: sanity check that unnest attr is not in a fkey
             comment=table_def.get('comment', ''),
             acls=table_def.get('acls', {}),  # TODO: Filter these and handle renames
             acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
@@ -452,8 +452,6 @@ class CrossJoin (PhysicalOperator):
         self._left_renames, self._right_renames = dict(), dict()
         for table_def, renames in [(left_def, self._left_renames), (right_def, self._right_renames)]:
             for col_def in table_def['column_definitions']:
-                if col_def['name'] in syscols:  # TODO this exclusion should be removed
-                    continue
                 col_def = col_def.copy()
                 if col_def['name'] in conflicts:
                     old_name = col_def['name']
