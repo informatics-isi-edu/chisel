@@ -87,6 +87,20 @@ class TestERMrestCatalog (BaseTestCase):
             'Column not in altered table, but it should not have been removed.'
         )
 
+    def test_alter_del_column(self):
+        removed_col_name = self.catalog_helper.FIELDS[1]
+        del self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
+
+        # validate the schema names
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        col_defs = ermrest_schema['schemas']['public']['tables'][self.catalog_helper.samples]['column_definitions']
+        col_names = [col_def['name'] for col_def in col_defs]
+        self.assertNotIn(removed_col_name, col_names)
+        self.assertTrue(
+            all([field in col_names or field == removed_col_name for field in self.catalog_helper.FIELDS]),
+            'Column not in altered table, but it should not have been removed.'
+        )
+
     def test_ermrest_atomize(self):
         cname = 'list_of_closest_genes'
         with self._catalog.evolve():

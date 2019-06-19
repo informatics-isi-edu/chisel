@@ -478,9 +478,9 @@ class AbstractTable (object):
         self.comment = table_doc['comment']
         self.sname = table_doc.get('schema_name')  # not present in computed relation
         self.kind = table_doc.get('kind')  # not present in computed relation
-        self.columns = collections.OrderedDict([
-            (col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']
-        ])
+        self.columns = ColumnCollection(
+            self, [(col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']]
+        )
         self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
         self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
 
@@ -650,6 +650,30 @@ class AbstractTable (object):
         if set(new_key_cols) & set(new_other_cols):
             raise ValueError("Key columns and Other columns must not overlap")
         return ComputedRelation(_op.Reify(self.logical_plan, tuple([col.name for col in new_key_cols]), tuple([col.name for col in new_other_cols])))
+
+
+class ColumnCollection (collections.OrderedDict):
+    """An OrderedDict sub-class for managing table columns."""
+
+    def __init__(self, table, items):
+        super(ColumnCollection, self).__init__()
+        assert isinstance(table, AbstractTable)
+        assert items is None or hasattr(items, '__iter__')
+        # bypass out overridden setter
+        for item in items:
+            super(ColumnCollection, self).__setitem__(item[0], item[1])
+        self._table = table
+
+    def __delitem__(self, key):
+        # delete column from catalog model
+        with self._table.schema.catalog.evolve():
+            self._table.schema[self._table.name] = self._table.select(~self._table[key])
+        # delete from client-side collection
+        super(ColumnCollection, self).__delitem__(key)
+        # TODO: mark column as deleted and implement a deleted guard in column class
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError()
 
 
 class ComputedRelation (AbstractTable):
