@@ -112,7 +112,7 @@ class TabularFileScan (PhysicalOperator):
         for row in iter(self):
             # determine if column is not null (or empty string)
             if candidate_notnull:
-                candidate_notnull = [col for col in candidate_notnull if row[col] is not None and row[col] != ''] # TODO: should be set '{...}'
+                candidate_notnull = {col for col in candidate_notnull if row[col] is not None and row[col] != ''}
                 candidate_notnull = None if len(candidate_notnull) == 0 else candidate_notnull
 
             # determine if column is not unique
