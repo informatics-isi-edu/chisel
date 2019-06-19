@@ -3,7 +3,7 @@ import unittest
 
 from chisel.catalog.base import ComputedRelation
 from chisel.operators.base import Alter
-from .utils import ERMrestHelper, BaseTestCase
+from test.utils import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
 
 ermrest_hostname = os.getenv('CHISEL_TEST_ERMREST_HOST')

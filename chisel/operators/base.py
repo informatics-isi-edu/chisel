@@ -142,26 +142,24 @@ class Select (PhysicalOperator):
             self._comparisons = [formula]
         else:
             self._comparisons = formula.comparisons
+        assert([all(comparison.operator == '=' for comparison in self._comparisons)])
 
     def __iter__(self):
-        # TODO: see if this can be rewritten using itertools hi-perf native operations
-        for row in self._child:
-            match = True
-            for comparison in self._comparisons:
-                assert comparison.operator == '=', "current limitation only supports equality comparison"
-                if row[comparison.operand1] != comparison.operand2:
-                    match = False
-                    break
+        def predicate(row):
+            if not self._comparisons:  # if no comparisons than return tuple by default
+                return True
+            # otherwise, test that all comparisons match
+            return all([row[comparison.operand1] == comparison.operand2 for comparison in self._comparisons])
 
-            if match:
-                yield row
+        return filter(predicate, self._child)
 
 
 class Project (PhysicalOperator):
     """Basic projection operator."""
     def __init__(self, child, projection):
         super(Project, self).__init__()
-        assert len(projection) > 0, "No attributes to project"
+        assert projection, "No projection"
+        assert hasattr(projection, '__iter__'), "Projection is not an iterable collection"
         self._child = child
         self._attributes = set()
         self._alias_to_cname = dict()
@@ -186,11 +184,11 @@ class Project (PhysicalOperator):
                 attrs = item.fn(table_def)
                 if 'RID' in attrs:
                     attrs.remove('RID')
-                    renamed_rid = table_def['table_name'] + '_RID'  # TODO: revisit this column name change
+                    renamed_rid = table_def['table_name'] + '_RID'
                     self._alias_to_cname[renamed_rid] = 'RID'
                     self._cname_to_alias['RID'].append(renamed_rid)
                 self._attributes |= set(attrs)
-                # could add a fkey to the source relation here, if it is an extant table in the catalog
+                # TODO: could add a fkey to the source relation here, if it is an extant table in the catalog
             elif isinstance(item, _op.AttributeAlias):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
@@ -229,10 +227,6 @@ class Project (PhysicalOperator):
         key_defs = []
         for key_def in table_def['keys']:
             unique_columns = key_def['unique_columns']
-            # TODO: re-evaluate this skip
-            # skip the 'RID'
-            if unique_columns[0] == 'RID':
-                continue
             # include key if all unique columns are in the projection
             if all_projected_attributes & set(unique_columns):
                 key_def = key_def.copy()
@@ -276,42 +270,28 @@ class Project (PhysicalOperator):
             yield self._rename_row_attributes(row, self._alias_to_cname)
 
 
-class Rename (PhysicalOperator):  # TODO: should rewrite this as a sub-class of project (or not have it at all)
-    """Rename operator."""
+class Rename (Project):
     def __init__(self, child, renames):
-        super(Rename, self).__init__()
         assert child.description is not None
         assert renames
         assert isinstance(renames, tuple)
         assert all([isinstance(rename, _op.AttributeAlias) for rename in renames])
-        self._child = child
-        self._renames = renames
-        self._description = child.description.copy()
-        # create map of child columns definitions, for faster access below
-        col_map = {col['name']: col for col in self._description['column_definitions']}
-        unmodified_col_map = col_map.copy()
-        # create new list of column definitions
-        col_defs = []
-        # ...first, rename and add the renamed columns
-        for old_cname, new_cname in self._renames:
-            col_def = unmodified_col_map[old_cname].copy()
-            col_def['name'] = new_cname
-            col_defs.append(col_def)
-            if old_cname in col_map:
-                del col_map[old_cname]
-        # ...then add balance of column defs
-        col_defs.extend(col_map.values())
-        # ...and finally, replace the copied description's column definitions
-        self._description['column_definitions'] = col_defs
 
-    def __iter__(self):
-        for row in self._child:
-            renamed_row = row.copy()
-            for old_cname, new_cname in self._renames:
-                renamed_row[new_cname] = row[old_cname]
-                if old_cname in renamed_row:
-                    del renamed_row[old_cname]
-            yield renamed_row
+        # compile list of renames, and handle >1 alias per original column
+        rename_dict = collections.defaultdict(list)
+        for rename in renames:
+            rename_dict[rename.name].append(rename)
+
+        # create a projection from original column definitions modulo the renamed columns
+        projection = []
+        for col in child.description['column_definitions']:
+            if col['name'] in rename_dict:
+                projection.extend(rename_dict[col['name']])
+            else:
+                projection.append(col['name'])
+
+        # let the Project operator do the rest
+        super(Rename, self).__init__(child, projection)
 
 
 class HashDistinct (PhysicalOperator):
@@ -427,7 +407,7 @@ class Unnest (PhysicalOperator):
             uuid.uuid1().hex,  # computed relation name for this projection
             column_defs=table_def['column_definitions'],
             # key_defs=[], -- key defs are empty because the unnested relation should break unique constraints
-            fkey_defs=table_def['foreign_keys'], # TODO: sanity check that unnest attr is not in a fkey
+            fkey_defs=table_def['foreign_keys'],  # TODO: sanity check that unnest attr is not in a fkey
             comment=table_def.get('comment', ''),
             acls=table_def.get('acls', {}),  # TODO: Filter these and handle renames
             acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
@@ -472,8 +452,6 @@ class CrossJoin (PhysicalOperator):
         self._left_renames, self._right_renames = dict(), dict()
         for table_def, renames in [(left_def, self._left_renames), (right_def, self._right_renames)]:
             for col_def in table_def['column_definitions']:
-                if col_def['name'] in syscols:  # TODO this exclusion should be removed
-                    continue
                 col_def = col_def.copy()
                 if col_def['name'] in conflicts:
                     old_name = col_def['name']

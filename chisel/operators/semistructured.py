@@ -32,7 +32,8 @@ class JSONScan (PhysicalOperator):
 
         if input_filename:
             with open(input_filename) as fp:
-                # TODO: use a streaming JSON parser, if possible
+                # consider using ijson, or writing a custom parser the reads one object at a time
+                # for now, this is not a high priority to optimize, so we use the 'json' library
                 self._data = json.load(fp)
             table_name = os.path.basename(input_filename)
         elif json_content:
@@ -111,7 +112,7 @@ class TabularFileScan (PhysicalOperator):
         for row in iter(self):
             # determine if column is not null (or empty string)
             if candidate_notnull:
-                candidate_notnull = [col for col in candidate_notnull if row[col] is not None and row[col] != ''] # TODO: should be set '{...}'
+                candidate_notnull = {col for col in candidate_notnull if row[col] is not None and row[col] != ''}
                 candidate_notnull = None if len(candidate_notnull) == 0 else candidate_notnull
 
             # determine if column is not unique

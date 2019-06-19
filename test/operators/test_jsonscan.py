@@ -1,4 +1,4 @@
-"""Tests for the JSONScan operator."""
+"""Tests for the JSONDataExtant operator."""
 import unittest
 import chisel.operators as _op
 

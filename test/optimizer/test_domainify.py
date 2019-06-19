@@ -1,4 +1,4 @@
-from test.catalog.utils import CatalogHelper, BaseTestCase
+from test.utils import CatalogHelper, BaseTestCase
 
 
 class TestDomainify (BaseTestCase):
