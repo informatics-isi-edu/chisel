@@ -244,7 +244,7 @@ physical_transformation_rules = Matcher([
         lambda graph, expression: _op.Shred(graph, expression)
     ),
     (
-        'Scan(filename)',
+        'TabularDataExtant(filename)',
         lambda filename: _op.TabularFileScan(filename)
     ),
     (

@@ -42,8 +42,8 @@ ERMrestExtant = namedtuple('ERMrestExtant', 'catalog sname tname')
 #: JSONDataExtant operator
 JSONDataExtant = namedtuple('JSONDataExtant', 'input_filename json_content object_payload key_regex')
 
-#: Scan operator
-Scan = namedtuple('Scan', 'filename')  # TODO: TabularDataExtant
+#: TabularDataExtant operator
+TabularDataExtant = namedtuple('TabularDataExtant', 'filename')
 
 
 #

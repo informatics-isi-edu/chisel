@@ -114,7 +114,7 @@ class SemistructuredTable (base.AbstractTable):
         """The logical plan used to compute this relation; intended for internal use."""
         filename = os.path.join(self.schema.catalog.path, self.sname, self.name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
-            return optimizer.Scan(filename=filename)
+            return optimizer.TabularDataExtant(filename=filename)
         elif filename.endswith('.json'):
             return optimizer.JSONDataExtant(input_filename=filename, json_content=None, object_payload=None, key_regex=None)
         else:
@@ -129,7 +129,7 @@ def csv_reader(filename):
     :param filename: a filename of a tabular data file in CSV format
     :return: a computed relation object
     """
-    return base.ComputedRelation(optimizer.Scan(filename))
+    return base.ComputedRelation(optimizer.TabularDataExtant(filename))
 
 
 def json_reader(input_filename=None, json_content=None, object_payload=None, key_regex='^RID$|^ID$|^id$|^name$|^Name$'):
