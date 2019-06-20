@@ -488,6 +488,15 @@ class AbstractTable (object):
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
 
+    def _refresh(self):
+        """Refreshes the internal state of this table object.
+
+        A shallow version of this is provided by the AbstractTable class, but
+        it should be overridden by subclass implementations that are capable
+        of a deep refresh.
+        """
+        self.columns._refresh()
+
     def fetch(self):
         """Returns an iterator for data for this relation."""
         return _op.physical_planner(_op.logical_planner(self.logical_plan))
@@ -659,7 +668,7 @@ class ColumnCollection (collections.OrderedDict):
         super(ColumnCollection, self).__init__()
         assert isinstance(table, AbstractTable)
         assert items is None or hasattr(items, '__iter__')
-        # bypass out overridden setter
+        # bypass our overridden setter
         for item in items:
             super(ColumnCollection, self).__setitem__(item[0], item[1])
         self._table = table
@@ -674,6 +683,14 @@ class ColumnCollection (collections.OrderedDict):
 
     def __setitem__(self, key, value):
         raise NotImplementedError()
+
+    def _refresh(self):
+        """Refreshes the collection indices to repair them after a column rename."""
+        columns = list(self.values())
+        self.clear()
+        for col in columns:
+            assert isinstance(col, Column)
+            super(ColumnCollection, self).__setitem__(col.name, col)
 
 
 class ComputedRelation (AbstractTable):
@@ -721,14 +738,38 @@ class Column (object):
     def __init__(self, column_doc, table):
         super(Column, self).__init__()
         self.table = table
-        self.name = column_doc['name']
-        self.type = column_doc['type']
-        self.default = column_doc['default']
-        self.nullok = column_doc['nullok']
-        self.comment = column_doc['comment']
+        self._name = column_doc['name']
+        self._type = column_doc['type']
+        self._default = column_doc['default']
+        self._nullok = column_doc['nullok']
+        self._comment = column_doc['comment']
 
     def __hash__(self):
         return super(Column, self).__hash__()
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._rename(value)
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def default(self):
+        return self._default
+
+    @property
+    def nullok(self):
+        return self._nullok
+
+    @property
+    def comment(self):
+        return self._comment
 
     def eq(self, other):
         return _op.Comparison(operand1=self.name, operator='=', operand2=str(other))
@@ -782,6 +823,27 @@ class Column (object):
         return _op.AttributeRemoval(self.name)
 
     __invert__ = inv
+
+    def _rename(self, new_name):
+        """Renames the column.
+
+        This method cannot be called within another 'evolve' block. It must be performed in isolation.
+
+        :param new_name: new name for the column
+        """
+        with self.table.schema.catalog.evolve():
+            projection = []
+            for cname in self.table.columns:
+                if cname == self.name:
+                    projection.append(self.alias(new_name))
+                else:
+                    projection.append(cname)
+            self.table.schema[self.table.name] = self.table.select(*projection)
+
+        # update local copy of name
+        self._name = new_name
+        # "refresh" the containing table
+        self.table._refresh()
 
     def to_atoms(self, delim=',', unnest_fn=None):
         """Computes a new relation from the 'atomic' values of this column.
