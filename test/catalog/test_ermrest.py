@@ -101,6 +101,53 @@ class TestERMrestCatalog (BaseTestCase):
             'Column not in altered table, but it should not have been removed.'
         )
 
+    def test_alter_select_alias(self):
+        projected_col_name = self.catalog_helper.FIELDS[1]
+        projected_col_alias = projected_col_name + ' Alias'
+
+        # get data for later validation
+        dp = self._catalog.ermrest_catalog.getPathBuilder()
+        dbptable = dp.schemas['public'].tables[self.catalog_helper.samples]
+        original_data = dbptable.attributes(
+            dbptable.column_definitions['RID'],
+            **{projected_col_alias: dbptable.column_definitions[projected_col_name]}
+        ).fetch(
+            sort=[dbptable.column_definitions['RID']]
+        )
+
+        # do the rename
+        with self._catalog.evolve():
+            self._catalog['public'][self.catalog_helper.samples] =\
+                self._catalog['public'][self.catalog_helper.samples].select(
+                self._catalog['public'][self.catalog_helper.samples][projected_col_name].alias(projected_col_alias)
+            )
+            self.assertIsInstance(self._catalog['public'][self.catalog_helper.samples], ComputedRelation)
+            self.assertIsInstance(
+                _op.physical_planner(_op.logical_planner(self._catalog['public'][self.catalog_helper.samples].logical_plan)),
+                Alter
+            )
+
+        # validate the schema names
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        col_defs = ermrest_schema['schemas']['public']['tables'][self.catalog_helper.samples]['column_definitions']
+        col_names = [col_def['name'] for col_def in col_defs]
+        self.assertIn(projected_col_alias, col_names)
+        self.assertTrue(
+            all([field not in col_names for field in self.catalog_helper.FIELDS]),
+            'Column in altered table that should have been removed.'
+        )
+
+        # validate the data
+        dp = self._catalog.ermrest_catalog.getPathBuilder()
+        dbptable = dp.schemas['public'].tables[self.catalog_helper.samples]
+        revised_data = dbptable.attributes(
+            dbptable.column_definitions['RID'],
+            dbptable.column_definitions[projected_col_alias]
+        ).fetch(
+            sort=[dbptable.column_definitions['RID']]
+        )
+        self.assertListEqual(list(original_data), list(revised_data), 'Data does not match')
+
     def test_ermrest_atomize(self):
         cname = 'list_of_closest_genes'
         with self._catalog.evolve():

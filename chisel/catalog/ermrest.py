@@ -49,19 +49,55 @@ class ERMrestCatalog (base.AbstractCatalog):
             model = self.ermrest_catalog.getCatalogModel()
             schema = model.schemas[plan.description['schema_name']]
             table = schema.tables[plan.description['table_name']]
-            columns = table.column_definitions
-            if plan.projection[0] != optimizer.AllAttributes():
-                logger.debug("Dropping columns not in the projection.")
-                for column in columns:
-                    if column.name not in plan.projection + ('RID', 'RCB', 'RMB', 'RCT', 'RMT'):
-                        logger.debug("Deleting column '{cname}'.".format(cname=column.name))
-                        column.delete(self.ermrest_catalog)
-            else:
+            original_columns = {c.name:c for c in table.column_definitions}
+
+            # Notes: currently, there are two distinct scenarios in a projection,
+            #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
+            #     aliased columns from the original columns. Also, columns may be aliased more than once.
+            #  2) 'special' case for deletes only: as a syntactic sugar, many formulations of project support the
+            #     notation of "-foo,-bar,..." meaning that the operator will project all _except_ those '-name' columns.
+            #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
+            #     symbols.
+
+            if plan.projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
                 logger.debug("Dropping columns that were explicitly removed.")
                 for removal in plan.projection[1:]:
                     assert isinstance(removal, optimizer.AttributeRemoval)
                     logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
-                    columns[removal.name].delete(self.ermrest_catalog)
+                    original_columns[removal.name].delete(self.ermrest_catalog)
+
+            else:  # 'general' case
+
+                # step 1: copy aliased columns, and record nonaliased column names
+                logger.debug("Copying 'aliased' columns in the projection")
+                nonaliased_column_names = set()
+                for projected in plan.projection:
+                    if isinstance(projected, optimizer.AttributeAlias):
+                        original_column = original_columns[projected.name]
+                        # 1.a: clone the column
+                        cloned_def = original_column.prejson()
+                        cloned_def['name'] = projected.alias
+                        table.create_column(self.ermrest_catalog, cloned_def)
+                        # 1.b: get the datapath table for column
+                        pb = self.ermrest_catalog.getPathBuilder()
+                        dp_table = pb.schemas[table.sname].tables[table.name]
+                        # 1.c: read the RID,column values
+                        data = dp_table.attributes(
+                            dp_table.column_definitions['RID'],
+                            **{projected.alias: dp_table.column_definitions[projected.name]}
+                        )
+                        # 1.d: write the RID,alias values
+                        dp_table.update(data)
+                    else:
+                        assert isinstance(projected, str)
+                        nonaliased_column_names.add(projected)
+
+                # step 2: remove columns that were not projected
+                logger.debug("Dropping columns not in the projection.")
+                for column in original_columns.values():
+                    if column.name not in nonaliased_column_names | {'RID', 'RCB', 'RMB', 'RCT', 'RMT'}:
+                        logger.debug("Deleting column '{cname}'.".format(cname=column.name))
+                        column.delete(self.ermrest_catalog)
 
         elif isinstance(plan, operators.Assign):
             # Redefine table from plan description (allows us to provide system columns)
