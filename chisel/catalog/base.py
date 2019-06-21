@@ -7,6 +7,7 @@ import logging
 import pprint as pp
 from graphviz import Digraph
 from deriva.core import ermrest_model as _em
+from deriva.core.ermrest_model import builtin_types
 from .. import optimizer as _op, operators, util
 
 logger = logging.getLogger(__name__)
@@ -509,6 +510,17 @@ class AbstractTable (object):
         """
         return Column(column_doc, self)
 
+    def _add_column(self, column_doc):
+        """Adds a column to this relation _in the catalog_.
+
+        This method should be implemented by subclasses that allow for adding columns to extant tables.
+
+        :param column_doc: a column definition dictionary as defined by `Column.define(...)`.
+        :return: a Column object representing the newly added column definition in the relation.
+        """
+        # TODO: refactor this into a form of generalized projection
+        raise NotImplementedError()
+
     def __getitem__(self, item):
         """Maps a column name to a column model object.
 
@@ -682,7 +694,18 @@ class ColumnCollection (collections.OrderedDict):
         # TODO: mark column as deleted and implement a deleted guard in column class
 
     def __setitem__(self, key, value):
-        raise NotImplementedError()
+        if not isinstance(value, collections.abc.Mapping):
+            raise ValueError('value must be a mapping object')
+        if 'name' not in value:
+            raise ValueError('value must have a "name" key in it')
+        if 'type' not in value:
+            raise ValueError('value must have a "type" key in it')
+        if value['name'] != key:
+            raise ValueError('column definition "name" field does not match "%s"' % key)
+
+        column = self._table._add_column(value)
+        assert isinstance(column, Column), "invalid column return type"
+        super().__setitem__(key, column)
 
     def _refresh(self):
         """Refreshes the collection indices to repair them after a column rename."""
@@ -743,6 +766,11 @@ class Column (object):
         self._default = column_doc['default']
         self._nullok = column_doc['nullok']
         self._comment = column_doc['comment']
+
+    @classmethod
+    def define(cls, cname, ctype, nullok=True, default=None, comment=None, acls={}, acl_bindings={}, annotations={}):
+        """Build a column definition."""
+        return _em.Column.define(cname, ctype, nullok, default, comment, acls, acl_bindings, annotations)
 
     def __hash__(self):
         return super(Column, self).__hash__()

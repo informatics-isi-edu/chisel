@@ -148,6 +148,14 @@ class ERMrestSchema (base.Schema):
 class ERMrestTable (base.AbstractTable):
     """Extant table in an ERMrest catalog."""
 
+    def _add_column(self, column_doc):
+        """ERMrest specific implementation of add column function."""
+        with self.schema.catalog.evolve():
+            model = self.schema.catalog.ermrest_catalog.getCatalogModel()
+            ermrest_table = model.schemas[self.schema.name].tables[self.name]
+            ermrest_table.create_column(self.schema.catalog.ermrest_catalog, column_doc)
+            return self._new_column_instance(column_doc)
+
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""

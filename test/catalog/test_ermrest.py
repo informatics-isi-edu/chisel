@@ -5,6 +5,7 @@ from chisel.catalog.base import ComputedRelation
 from chisel.operators.base import Alter
 from test.utils import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
+from chisel import builtin_types, Column
 
 ermrest_hostname = os.getenv('CHISEL_TEST_ERMREST_HOST')
 ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
@@ -195,6 +196,22 @@ class TestERMrestCatalog (BaseTestCase):
             sort=[dbptable.column_definitions['RID']]
         )
         self.assertListEqual(list(original_data), list(revised_data), 'Data does not match')
+
+    def test_alter_add_column(self):
+        # define new column
+        new_col_name = 'NEW COLUMN NAME'
+        col_def = Column.define(new_col_name, builtin_types['int8'])
+        self._catalog['public'][self.catalog_helper.samples].columns[new_col_name] = col_def
+
+        # validate the schema names
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        col_defs = ermrest_schema['schemas']['public']['tables'][self.catalog_helper.samples]['column_definitions']
+        col_names = [col_def['name'] for col_def in col_defs]
+        self.assertIn(new_col_name, col_names)
+        self.assertTrue(
+            all([field in col_names for field in self.catalog_helper.FIELDS]),
+            'Column not in altered table, but it should not have been removed.'
+        )
 
     def test_ermrest_atomize(self):
         cname = 'list_of_closest_genes'

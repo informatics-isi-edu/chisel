@@ -10,7 +10,7 @@ example:
 >>> help(chisel.connect)
 """
 
-from .catalog import connect, shred, CatalogMutationError
+from .catalog import connect, shred, CatalogMutationError, builtin_types, Schema, AbstractTable, Column
 from .catalog.semistructured import csv_reader, json_reader
 
 __version__ = "0.0.1"
