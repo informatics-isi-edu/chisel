@@ -99,6 +99,11 @@ class ERMrestCatalog (base.AbstractCatalog):
                         logger.debug("Deleting column '{cname}'.".format(cname=column.name))
                         column.delete(self.ermrest_catalog)
 
+                # TODO: repair the model following the alter table
+                #  invalidate the altered table model object
+                #  introspect the schema on the revised table
+                #  refresh the referenced_by of the catalog
+
         elif isinstance(plan, operators.Assign):
             # Redefine table from plan description (allows us to provide system columns)
             desc = plan.description

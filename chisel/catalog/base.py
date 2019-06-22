@@ -2,6 +2,7 @@
 
 import abc
 import collections
+from functools import wraps
 import itertools
 import logging
 import pprint as pp
@@ -11,6 +12,19 @@ from deriva.core.ermrest_model import builtin_types
 from .. import optimizer as _op, operators, util
 
 logger = logging.getLogger(__name__)
+
+
+def valid_model_object(fn):
+    """Decorator for guarding against invocations on methods of deleted model objects."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        model_object = args[0]
+        assert hasattr(model_object, 'valid'), "Decorated object does not have a valid flag"
+        if not getattr(model_object, 'valid'):
+            raise CatalogMutationError("The {model_type} object with name '{name}' was invalidated.".format(
+                model_type=type(model_object).__name__, name=model_object.name))
+        return fn(*args, **kwargs)
+    return wrapper
 
 
 class CatalogMutationError (Exception):
@@ -686,12 +700,15 @@ class ColumnCollection (collections.OrderedDict):
         self._table = table
 
     def __delitem__(self, key):
+        # get handle to the column
+        column = self[key]
         # delete column from catalog model
         with self._table.schema.catalog.evolve():
-            self._table.schema[self._table.name] = self._table.select(~self._table[key])
-        # delete from client-side collection
+            self._table.schema[self._table.name] = self._table.select(column.inv())
+        # invalidate model object
+        column.valid = False
+        # delete from column collection
         super(ColumnCollection, self).__delitem__(key)
-        # TODO: mark column as deleted and implement a deleted guard in column class
 
     def __setitem__(self, key, value):
         if not isinstance(value, collections.abc.Mapping):
@@ -766,6 +783,7 @@ class Column (object):
         self._default = column_doc['default']
         self._nullok = column_doc['nullok']
         self._comment = column_doc['comment']
+        self._valid = True
 
     @classmethod
     def define(cls, cname, ctype, nullok=True, default=None, comment=None, acls={}, acl_bindings={}, annotations={}):
@@ -782,6 +800,14 @@ class Column (object):
     @name.setter
     def name(self, value):
         self._rename(value)
+
+    @property
+    def valid(self):
+        return self._valid
+
+    @valid.setter
+    def valid(self, value):
+        self._valid = value
 
     @property
     def type(self):
@@ -852,6 +878,7 @@ class Column (object):
 
     __invert__ = inv
 
+    @valid_model_object
     def _rename(self, new_name):
         """Renames the column.
 
@@ -873,6 +900,7 @@ class Column (object):
         # "refresh" the containing table
         self.table._refresh()
 
+    @valid_model_object
     def to_atoms(self, delim=',', unnest_fn=None):
         """Computes a new relation from the 'atomic' values of this column.
 
@@ -890,6 +918,7 @@ class Column (object):
             raise ValueError('unnest_fn is not callable')
         return ComputedRelation(_op.Atomize(self.table.logical_plan, unnest_fn, self.name))
 
+    @valid_model_object
     def to_domain(self, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Computes a new 'domain' from this column.
 
@@ -900,6 +929,7 @@ class Column (object):
         """
         return ComputedRelation(_op.Domainify(self.table.logical_plan, self.name, similarity_fn, grouping_fn))
 
+    @valid_model_object
     def to_vocabulary(self, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Creates a canonical 'vocabulary' from this column.
 
@@ -910,6 +940,7 @@ class Column (object):
         """
         return ComputedRelation(_op.Canonicalize(self.table.logical_plan, self.name, similarity_fn, grouping_fn))
 
+    @valid_model_object
     def align(self, domain, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Align this column with a given domain
 
@@ -924,6 +955,7 @@ class Column (object):
 
         return ComputedRelation(_op.Align(domain.logical_plan, self.table.logical_plan, self.name, similarity_fn, grouping_fn))
 
+    @valid_model_object
     def to_tags(self, domain, delim=',', unnest_fn=None, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Computes a new relation from the unnested and aligned values of this column.
 

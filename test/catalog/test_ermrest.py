@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from chisel.catalog.base import ComputedRelation
+from chisel.catalog.base import ComputedRelation, CatalogMutationError
 from chisel.operators.base import Alter
 from test.utils import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
@@ -90,6 +90,7 @@ class TestERMrestCatalog (BaseTestCase):
 
     def test_alter_del_column(self):
         removed_col_name = self.catalog_helper.FIELDS[1]
+        removed_col = self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
         del self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
 
         # validate the schema names
@@ -101,6 +102,8 @@ class TestERMrestCatalog (BaseTestCase):
             all([field in col_names or field == removed_col_name for field in self.catalog_helper.FIELDS]),
             'Column not in altered table, but it should not have been removed.'
         )
+        with self.assertRaises(CatalogMutationError):
+            removed_col.to_domain()
 
     def test_alter_select_alias(self):
         projected_col_name = self.catalog_helper.FIELDS[1]
