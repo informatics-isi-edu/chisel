@@ -313,7 +313,7 @@ class Schema (object):
         self.name = schema_doc['schema_name']
         self.comment = schema_doc['comment']
         self._tables = {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
-        self.tables = SchemaTables(self, self._tables)
+        self.tables = TableCollection(self, self._tables)
 
     def __getitem__(self, item):
         """Maps a table name to a table model object.
@@ -402,7 +402,7 @@ class Schema (object):
         return dot
 
 
-class SchemaTables (collections.abc.MutableMapping):
+class TableCollection (collections.abc.MutableMapping):
     """Container class for schema tables (for internal use only).
 
     This class mostly passes through container methods to the underlying tables container. Its purpose is to facilitate
@@ -415,7 +415,7 @@ class SchemaTables (collections.abc.MutableMapping):
         :param schema: the parent schema
         :param tables: the original tables collection, which must be a mapping
         """
-        super(SchemaTables, self).__init__()
+        super(TableCollection, self).__init__()
         self._schema = schema
         self._backup = tables
         self._tables = tables.copy()
