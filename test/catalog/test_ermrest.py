@@ -22,6 +22,7 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertTrue(self.catalog_helper.exists(self.catalog_helper.samples))
 
     def test_alter_select_cname(self):
+        old_table_obj = self._catalog['public'][self.catalog_helper.samples]
         projected_col_name = self.catalog_helper.FIELDS[1]
         with self._catalog.evolve():
             self._catalog['public'][self.catalog_helper.samples] =\
@@ -41,6 +42,18 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertIn(projected_col_name, col_names)
         self.assertTrue(
             all([field == projected_col_name or field not in col_names for field in self.catalog_helper.FIELDS]))
+
+        # validate table object invalidation
+        with self.assertRaises(CatalogMutationError):
+            old_table_obj.select()
+        with self.assertRaises(CatalogMutationError):
+            old_table_obj.columns[projected_col_name].to_domain()
+
+        # validate new table model objects
+        schema = self._catalog['public']
+        new_table_obj = schema[self.catalog_helper.samples]
+        self.assertIsNotNone(new_table_obj.select(), 'Could not select from new table object.')
+        self.assertIsNotNone(new_table_obj.columns[projected_col_name], 'Could not get new column object.')
 
     def test_alter_select_column(self):
         projected_col_name = self.catalog_helper.FIELDS[1]

@@ -46,9 +46,10 @@ class ERMrestCatalog (base.AbstractCatalog):
         """
         if isinstance(plan, operators.Alter):
             logger.debug("Altering table '{tname}'.".format(tname=plan.description['table_name']))
+            altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
             model = self.ermrest_catalog.getCatalogModel()
-            schema = model.schemas[plan.description['schema_name']]
-            table = schema.tables[plan.description['table_name']]
+            schema = model.schemas[altered_schema_name]
+            table = schema.tables[altered_table_name]
             original_columns = {c.name:c for c in table.column_definitions}
 
             # Notes: currently, there are two distinct scenarios in a projection,
@@ -99,10 +100,20 @@ class ERMrestCatalog (base.AbstractCatalog):
                         logger.debug("Deleting column '{cname}'.".format(cname=column.name))
                         column.delete(self.ermrest_catalog)
 
-                # TODO: repair the model following the alter table
-                #  invalidate the altered table model object
-                #  introspect the schema on the revised table
-                #  refresh the referenced_by of the catalog
+            # Note: repair the model following the alter table
+            #  invalidate the altered table model object
+            #  introspect the schema on the revised table
+            invalidated_table = self[altered_schema_name][altered_table_name]
+            invalidated_table.valid = False
+            model_doc = self.ermrest_catalog.getCatalogSchema()
+            table_doc = model_doc['schemas'][altered_schema_name]['tables'][altered_table_name]
+            schema = self.schemas[altered_schema_name]
+            table = ERMrestTable(table_doc, schema=schema)
+            # TODO: this part is kludgy and needs to be revised
+            schema.tables._backup[altered_table_name] = table
+            schema.tables._tables[altered_table_name] = table
+            # TODO: refresh the referenced_by of the catalog
+
 
         elif isinstance(plan, operators.Assign):
             # Redefine table from plan description (allows us to provide system columns)

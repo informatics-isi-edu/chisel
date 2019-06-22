@@ -498,6 +498,21 @@ class AbstractTable (object):
         )
         self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
         self.referenced_by = []
+        self._valid = True
+
+    @property
+    def valid(self):
+        return self._valid
+
+    @valid.setter
+    def valid(self, value):
+        if not isinstance(value, bool):
+            raise ValueError('value must be bool')
+        if self._valid and not value:
+            self._valid = value
+            # invalidate all child model objects
+            for column in self.columns.values():
+                column.valid = False
 
     @abc.abstractmethod
     def logical_plan(self):
@@ -512,6 +527,7 @@ class AbstractTable (object):
         """
         self.columns._refresh()
 
+    @valid_model_object
     def fetch(self):
         """Returns an iterator for data for this relation."""
         return _op.physical_planner(_op.logical_planner(self.logical_plan))
@@ -524,6 +540,7 @@ class AbstractTable (object):
         """
         return Column(column_doc, self)
 
+    @valid_model_object
     def _add_column(self, column_doc):
         """Adds a column to this relation _in the catalog_.
 
@@ -553,6 +570,7 @@ class AbstractTable (object):
         """
         return self._table_doc
 
+    @valid_model_object
     def describe(self):
         """Returns a text (markdown) description."""
         def type2str(t):
@@ -577,6 +595,7 @@ class AbstractTable (object):
 
         return Description()
 
+    @valid_model_object
     def graph(self, engine='fdp'):
         """Generates and returns a graphviz Digraph.
 
@@ -614,6 +633,7 @@ class AbstractTable (object):
 
         return dot
 
+    @valid_model_object
     def select(self, *columns):
         """Selects this relation and projects the columns.
 
@@ -644,6 +664,7 @@ class AbstractTable (object):
         else:
             return ComputedRelation(self.logical_plan)
 
+    @valid_model_object
     def filter(self, formula):
         """Filters this relation according to the given formula.
 
@@ -659,6 +680,7 @@ class AbstractTable (object):
             # TODO: allow input of comparison or conjunction of comparisons
             return ComputedRelation(_op.Select(self.logical_plan, formula))
 
+    @valid_model_object
     def reify_sub(self, *cols):
         """Reifies a sub-concept of the relation by the specified columns. This relation is left unchanged.
 
@@ -669,6 +691,7 @@ class AbstractTable (object):
             raise ValueError("All positional arguments must be of type Column")
         return ComputedRelation(_op.ReifySub(self.logical_plan, tuple([col.name for col in cols])))
 
+    @valid_model_object
     def reify(self, new_key_cols, new_other_cols):
         """Splits out a new relation based on this table, which will be comprised of the new_key_cols as its keys and
         the new_other_columns as the rest of its columns.
