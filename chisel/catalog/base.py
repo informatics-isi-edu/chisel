@@ -483,7 +483,7 @@ class AbstractTable (object):
             self, [(col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']]
         )
         self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
-        self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
+        self.referenced_by = []
 
     @abc.abstractmethod
     def logical_plan(self):
