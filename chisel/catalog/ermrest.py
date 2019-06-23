@@ -213,12 +213,6 @@ class ERMrestTable (base.AbstractTable):
             ermrest_table.create_column(self.schema.catalog.ermrest_catalog, column_doc)
             return self._new_column_instance(column_doc)
 
-    # def _rename(self, new_name):
-    #     """ERMrest specific implementation method for renaming the table."""
-    #     with self.schema.catalog.evolve():
-    #         self.schema[new_name] = self.select()
-    #     del self.schema[self.name]
-
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""

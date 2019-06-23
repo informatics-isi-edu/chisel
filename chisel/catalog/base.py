@@ -509,13 +509,13 @@ class AbstractTable (object):
     def name(self, value):
         self._rename(value)
 
+    @valid_model_object
     def _rename(self, new_name):
-        """Internal implementation method for renaming the table.
-
-        This method should be overridden by subclasses in order to support this feature.
-        """
-        raise NotImplementedError(
-            'Changing table names is not supported by the "%s" catalog type.' % type(self.schema.catalog).__name__)
+        """Internal implementation method for renaming the table."""
+        with self.schema.catalog.evolve():
+            self.schema[new_name] = self.select()
+        del self.schema.tables[self.name]
+        # TODO: the table _could_ repair the model here
 
     @property
     def comment(self):
