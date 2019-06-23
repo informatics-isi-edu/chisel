@@ -484,18 +484,62 @@ class AbstractTable (object):
     def __init__(self, table_doc, schema=None):
         super(AbstractTable, self).__init__()
         self._table_doc = table_doc
-        self.schema = schema
-        self.name = table_doc['table_name']
-        self.comment = table_doc.get('comment', None)
-        self.sname = table_doc.get('schema_name', '')  # not present in computed relation
-        self.kind = table_doc.get('kind')  # not present in computed relation
-        self.columns = ColumnCollection(
+        self._schema = schema
+        self._name = table_doc['table_name']
+        self._comment = table_doc.get('comment', None)
+        self._sname = table_doc.get('schema_name', '')  # not present in computed relation
+        self._kind = table_doc.get('kind')  # not present in computed relation
+        self._columns = ColumnCollection(
             self, [(col['name'], self._new_column_instance(col)) for col in table_doc.get('column_definitions', [])]
         )
-        self.keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
-        self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
-        self.referenced_by = []
+        self._keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
+        self._foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
+        self._referenced_by = []
         self._valid = True
+
+    @property
+    def schema(self):
+        return self._schema
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._rename(value)
+
+    def _rename(self, new_name):
+        """Internal implementation method for renaming the table.
+
+        This method should be overridden by subclasses in order to support this feature.
+        """
+        raise NotImplementedError(
+            'Changing table names is not supported by the "%s" catalog type.' % type(self.schema.catalog).__name__)
+
+    @property
+    def comment(self):
+        return self._comment
+
+    @property
+    def sname(self):
+        return self._sname
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def keys(self):
+        return self._keys
+
+    @property
+    def foreign_keys(self):
+        return self._foreign_keys
 
     @property
     def valid(self):
@@ -659,7 +703,8 @@ class AbstractTable (object):
 
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
-            return ComputedRelation(self.logical_plan)
+            projection = [cname for cname in self.columns]
+            return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
 
     @valid_model_object
     def filter(self, formula):

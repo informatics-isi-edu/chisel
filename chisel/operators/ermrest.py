@@ -45,7 +45,7 @@ class ERMrestProjectSelect (Project):
         paths = self._catalog.ermrest_catalog.getPathBuilder()
         table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
-        cols = [table.column_definitions[a] for a in self._attributes if a != 'RID']
+        cols = [table.column_definitions[a] for a in self._attributes]
         kwargs = {alias: table.column_definitions[cname] for alias, cname in self._alias_to_cname.items()}
         rows = filtered_path.attributes(*cols, **kwargs)
         logger.debug("Fetching rows from '{}'".format(rows.uri))

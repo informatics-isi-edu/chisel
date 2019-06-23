@@ -31,6 +31,9 @@ class ERMrestCatalog (base.AbstractCatalog):
     """instance wide setting for providing system columns when creating new tables (default: True)"""
     provide_system = True
 
+    """The set of system columns."""
+    syscols = {'RID', 'RCB', 'RMB', 'RCT', 'RMT'}
+
     def __init__(self, ermrest_catalog):
         super(ERMrestCatalog, self).__init__(ermrest_catalog.getCatalogSchema())
         self.ermrest_catalog = ermrest_catalog
@@ -96,7 +99,7 @@ class ERMrestCatalog (base.AbstractCatalog):
                 # step 2: remove columns that were not projected
                 logger.debug("Dropping columns not in the projection.")
                 for column in original_columns.values():
-                    if column.name not in nonaliased_column_names | {'RID', 'RCB', 'RMB', 'RCT', 'RMT'}:
+                    if column.name not in nonaliased_column_names | self.syscols:
                         logger.debug("Deleting column '{cname}'.".format(cname=column.name))
                         column.delete(self.ermrest_catalog)
 
@@ -136,6 +139,7 @@ class ERMrestCatalog (base.AbstractCatalog):
 
         elif isinstance(plan, operators.Assign):
             logger.debug("Creating table '{tname}'.".format(tname=plan.description['table_name']))
+            assigned_schema_name, assigned_table_name = plan.description['schema_name'], plan.description['table_name']
 
             # Redefine table from plan description (allows us to provide system columns)
             desc = plan.description
@@ -150,6 +154,7 @@ class ERMrestCatalog (base.AbstractCatalog):
                 annotations=desc.get('annotations', {}),
                 provide_system=ERMrestCatalog.provide_system
             )
+
             # Create table
             # TODO: it should be possible to only refresh the model and paths each evolve context since destructive
             #  operations must be performed in isolation
@@ -157,8 +162,23 @@ class ERMrestCatalog (base.AbstractCatalog):
             schema.create_table(self.ermrest_catalog, tab_def)
             paths = self.ermrest_catalog.getPathBuilder()
             new_table = paths.schemas[schema.name].tables[plan.description['table_name']]
+
+            # Determine the nondefaults for the insert
+            new_table_cnames = set([col['name'] for col in desc['column_definitions']])
+            nondefaults = {'RID', 'RCB', 'RCT'} & new_table_cnames
             # Insert data
-            new_table.insert(plan)
+            new_table.insert(plan, nondefaults=nondefaults)
+
+            # Repair catalog model
+            #  introspect the schema on the revised table
+            model_doc = self.ermrest_catalog.getCatalogSchema()
+            table_doc = model_doc['schemas'][assigned_schema_name]['tables'][assigned_table_name]
+            table = ERMrestTable(table_doc, schema=schema)
+            # TODO: this part is kludgy and needs to be revised
+            schema = self.schemas[assigned_schema_name]
+            schema.tables._backup[assigned_table_name] = table
+            # TODO: refresh the referenced_by of the catalog
+
         else:
             raise ValueError('Plan cannot be materialized.')
 
@@ -192,6 +212,12 @@ class ERMrestTable (base.AbstractTable):
             ermrest_table = model.schemas[self.schema.name].tables[self.name]
             ermrest_table.create_column(self.schema.catalog.ermrest_catalog, column_doc)
             return self._new_column_instance(column_doc)
+
+    # def _rename(self, new_name):
+    #     """ERMrest specific implementation method for renaming the table."""
+    #     with self.schema.catalog.evolve():
+    #         self.schema[new_name] = self.select()
+    #     del self.schema[self.name]
 
     @property
     def logical_plan(self):

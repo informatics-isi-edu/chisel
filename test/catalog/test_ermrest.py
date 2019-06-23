@@ -15,7 +15,14 @@ ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
 class TestERMrestCatalog (BaseTestCase):
     """Units test suite for ermrest catalog functionality."""
 
-    catalog_helper = ERMrestHelper(ermrest_hostname, ermrest_catalog_id, unit_table_names=['list_of_closest_genes'])
+    _samples_copy_tname = "SAMPLES COPY"
+
+    catalog_helper = ERMrestHelper(
+        ermrest_hostname, ermrest_catalog_id,
+        unit_table_names=[
+            'list_of_closest_genes',
+            _samples_copy_tname
+        ])
 
     def test_precondition_check(self):
         self.assertTrue(self._catalog is not None)
@@ -231,7 +238,7 @@ class TestERMrestCatalog (BaseTestCase):
 
     def test_drop_table(self):
         # keep handle to table model object
-        deleted_table = self._catalog['public'].tables[self.catalog_helper.samples]
+        original_table = self._catalog['public'].tables[self.catalog_helper.samples]
 
         # delete the table
         del self._catalog['public'].tables[self.catalog_helper.samples]
@@ -239,13 +246,59 @@ class TestERMrestCatalog (BaseTestCase):
         # validate that it is no longer in catalog
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
         self.assertNotIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'],
-                         'Table was not deleted from ermrest catalog')
+                         'Table "%s" found in ermrest catalog schema' % self.catalog_helper.samples)
 
         # validate the model invalidation
-        self.assertFalse(deleted_table.valid, 'Table object not properly invalidated')
-        self.assertTrue(all([not c.valid for c in deleted_table.columns.values()]))
+        self.assertFalse(original_table.valid, 'Table object not invalidated')
+        self.assertTrue(all([not c.valid for c in original_table.columns.values()]))
         self.assertNotIn(self.catalog_helper.samples, self._catalog['public'].tables,
-                         'Table was not deleted from local catalog model')
+                         'Table "%s" found in local catalog model' % self.catalog_helper.samples)
+
+    def test_copy_table(self):
+        # keep handle to table model object
+        original_table = self._catalog['public'].tables[self.catalog_helper.samples]
+        new_table_name = self._samples_copy_tname
+
+        # copy the table
+        with self._catalog.evolve():
+            self._catalog['public'][new_table_name] = original_table.select()
+
+        # validate that original and copy are in the catalog
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        self.assertIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'],
+                      'Table "%s" not found in ermrest catalog schema' % self.catalog_helper.samples)
+        self.assertIn(new_table_name, ermrest_schema['schemas']['public']['tables'],
+                      'Table "%s" not found in ermrest catalog schema' % new_table_name)
+
+        # model objects should be valid
+        self.assertTrue(original_table.valid, 'Table object not valid')
+        self.assertIn(self.catalog_helper.samples, self._catalog['public'].tables,
+                      'Table "%s" found in local catalog model' % self.catalog_helper.samples)
+        self.assertIn(new_table_name, self._catalog['public'].tables,
+                      'Table "%s" not found in local catalog model' % new_table_name)
+
+    # def test_rename_table(self):
+    #     # keep handle to table model object
+    #     original_table = self._catalog['public'].tables[self.catalog_helper.samples]
+    #     new_table_name = original_table.name + " RENAMED"
+    #
+    #     # rename the table
+    #     original_table.name = new_table_name
+    #
+    #     # validate that it is no longer in catalog
+    #     ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+    #     self.assertNotIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'],
+    #                      'Table "%s" found in ermrest catalog schema' % self.catalog_helper.samples)
+    #     self.assertIn(new_table_name, ermrest_schema['schemas']['public']['tables'],
+    #                   'Table "%s" not found in ermrest catalog schema' % new_table_name)
+    #
+    #     # model objects should be invalidated
+    #     self.assertFalse(original_table.valid, 'Table object not invalidated')
+    #     self.assertTrue(all([not c.valid for c in original_table.columns.values()]))
+    #     self.assertNotIn(self.catalog_helper.samples, self._catalog['public'].tables,
+    #                      'Table "%s" found in local catalog model' % self.catalog_helper.samples)
+    #     self.assertIn(new_table_name, self._catalog['public'].tables,
+    #                   'Table "%s" not found in local catalog model' % new_table_name)
 
     def test_ermrest_atomize(self):
         cname = 'list_of_closest_genes'
