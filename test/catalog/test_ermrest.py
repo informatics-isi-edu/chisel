@@ -229,6 +229,24 @@ class TestERMrestCatalog (BaseTestCase):
             'Column not in altered table, but it should not have been removed.'
         )
 
+    def test_drop_table(self):
+        # keep handle to table model object
+        deleted_table = self._catalog['public'].tables[self.catalog_helper.samples]
+
+        # delete the table
+        del self._catalog['public'].tables[self.catalog_helper.samples]
+
+        # validate that it is no longer in catalog
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        self.assertNotIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'],
+                         'Table was not deleted from ermrest catalog')
+
+        # validate the model invalidation
+        self.assertFalse(deleted_table.valid, 'Table object not properly invalidated')
+        self.assertTrue(all([not c.valid for c in deleted_table.columns.values()]))
+        self.assertNotIn(self.catalog_helper.samples, self._catalog['public'].tables,
+                         'Table was not deleted from local catalog model')
+
     def test_ermrest_atomize(self):
         cname = 'list_of_closest_genes'
         with self._catalog.evolve():

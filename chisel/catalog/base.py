@@ -156,6 +156,10 @@ class AbstractCatalog (object):
                     logging.debug("Committing current catalog model mutation operations.")
                     self.parent._commit(self.dry_run, self.consolidate)
             finally:
+                # resent the schemas
+                for schema in self.parent.schemas.values():
+                    schema.tables.reset()
+                # remove the evolve context
                 self.parent._evolve_ctx = None
 
         def abort(self):
@@ -200,7 +204,7 @@ class AbstractCatalog (object):
         :param consolidate: if set to True, attempt to consolidate shared work between pending operations.
         :return: a catalog model mutation context object for use in 'with' statements
         """
-        if self._evolve_ctx:
+        if self._evolve_ctx:  # TODO: make this thread safe
             raise CatalogMutationError('A catalog mutation context already exists.')
 
         return self._CatalogMutationContextManager(self, dry_run, consolidate)
@@ -218,9 +222,6 @@ class AbstractCatalog (object):
         if not self._evolve_ctx:
             raise CatalogMutationError("No catalog mutation context set. This method should not be called directly")
 
-        for schema in self.schemas.values():
-            schema.tables.reset()
-
     def _commit(self, dry_run=False, consolidate=True):
         """Commits pending computed relation assignments to the catalog.
 
@@ -236,7 +237,6 @@ class AbstractCatalog (object):
             for value in schema.tables.pending:
                 assert isinstance(value, ComputedRelation)
                 computed_relations.append(value)
-            schema.tables.reset()
 
         logger.info('Committing {num} pending computed relations'.format(num=len(computed_relations)))
 
@@ -463,17 +463,13 @@ class TableCollection (collections.abc.MutableMapping):
         return newval
 
     def __delitem__(self, key):
-        table = self._tables[key]  # allow exception if key not in tables
-        if not self._schema.catalog._evolve_ctx:
-            raise CatalogMutationError("No catalog mutation context set.")
-        if self._pending:
-            raise CatalogMutationError("Destructive operations must be performed in isolation.")
-        self._destructive_pending = True
-        # create a computed relation <- assign(nil, sname, tname)
-        #  ...add computed relation to _pending list
-        #  ...delete key/table from _tables
-        #  ...add rule to translate logical 'assign(nil...)' into 'drop_table' physical operator
-        raise NotImplemented("Delete is not yet supported.")
+        """Deletes a table from the catalog.
+
+        Note that this operation must be performed in isolation. That is, it cannot be performed within a
+        catalog.evolve() block.
+        """
+        with self._schema.catalog.evolve():
+            self._pending[key] = ComputedRelation(_op.Assign(_op.Nil(), self._schema.name, key))
 
     def __iter__(self):
         return iter(self._tables)
@@ -490,13 +486,14 @@ class AbstractTable (object):
         self._table_doc = table_doc
         self.schema = schema
         self.name = table_doc['table_name']
-        self.comment = table_doc['comment']
-        self.sname = table_doc.get('schema_name')  # not present in computed relation
+        self.comment = table_doc.get('comment', None)
+        self.sname = table_doc.get('schema_name', '')  # not present in computed relation
         self.kind = table_doc.get('kind')  # not present in computed relation
         self.columns = ColumnCollection(
-            self, [(col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']]
+            self, [(col['name'], self._new_column_instance(col)) for col in table_doc.get('column_definitions', [])]
         )
-        self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
+        self.keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
+        self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
         self.referenced_by = []
         self._valid = True
 

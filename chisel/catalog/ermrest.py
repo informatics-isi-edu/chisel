@@ -102,20 +102,41 @@ class ERMrestCatalog (base.AbstractCatalog):
 
             # Note: repair the model following the alter table
             #  invalidate the altered table model object
-            #  introspect the schema on the revised table
-            invalidated_table = self[altered_schema_name][altered_table_name]
+            schema = self.schemas[altered_schema_name]
+            invalidated_table = self[altered_schema_name].tables._backup[altered_table_name]  # get the original table
             invalidated_table.valid = False
+
+            #  introspect the schema on the revised table
             model_doc = self.ermrest_catalog.getCatalogSchema()
             table_doc = model_doc['schemas'][altered_schema_name]['tables'][altered_table_name]
-            schema = self.schemas[altered_schema_name]
             table = ERMrestTable(table_doc, schema=schema)
             # TODO: this part is kludgy and needs to be revised
             schema.tables._backup[altered_table_name] = table
-            schema.tables._tables[altered_table_name] = table
             # TODO: refresh the referenced_by of the catalog
 
+        elif isinstance(plan, operators.Drop):
+            logger.debug("Dropping table '{tname}'.".format(tname=plan.description['table_name']))
+            dropped_schema_name, dropped_table_name = plan.description['schema_name'], plan.description['table_name']
+
+            # Delete table from the ermrest catalog
+            model = self.ermrest_catalog.getCatalogModel()
+            schema = model.schemas[dropped_schema_name]
+            table = schema.tables[dropped_table_name]
+            table.delete(self.ermrest_catalog)
+
+            # Note: repair the model following the drop table
+            #  invalidate the dropped table model object
+            #  remove dropped table model object from schema
+            schema = self.schemas[dropped_schema_name]
+            dropped_table = schema.tables[dropped_table_name]
+            dropped_table.valid = False
+            # TODO: this part is kludgy and needs to be revised
+            del schema.tables._backup[dropped_table_name]
+            # TODO: refresh the referenced_by of the catalog
 
         elif isinstance(plan, operators.Assign):
+            logger.debug("Creating table '{tname}'.".format(tname=plan.description['table_name']))
+
             # Redefine table from plan description (allows us to provide system columns)
             desc = plan.description
             tab_def = _em.Table.define(

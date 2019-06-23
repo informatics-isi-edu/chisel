@@ -53,26 +53,29 @@ logical_optimization_rules = Matcher([
         'Distinct(Nil(), _)',
         lambda: Nil()
     ),
-    (
-        'Distinct(_, tuple())',
-        lambda: Nil()
-    ),
+    # TODO: this should turn into a distinct on all attributes in relation
+    # (
+    #     'Distinct(_, tuple())',
+    #     lambda: ...
+    # ),
     (
         'Deduplicate(Nil(), _, _, _)',
         lambda: Nil()
     ),
-    (
-        'Deduplicate(_, tuple(), _, _)',
-        lambda: Nil()
-    ),
+    # TODO: this should turn into a deduplicate on all attributes in relation
+    # (
+    #     'Deduplicate(_, tuple(), _, _)',
+    #     lambda: ...
+    # ),
     (
         'Deduplicate(child, attributes, None, _)',
         lambda child, attributes: Distinct(child, attributes)
     ),
-    (
-        'Project(_, tuple())',
-        lambda: Nil()
-    ),
+    # TODO: this should turn into project of all attributes
+    # (
+    #     'Project(_, tuple())',
+    #     lambda: Nil()
+    # ),
     (
         'Project(Nil(), _)',
         lambda: Nil()
@@ -111,18 +114,20 @@ logical_composition_rules = Matcher([
         'Reify(child, keys, attributes)',
         lambda child, keys, attributes: Distinct(Project(child, keys + attributes), keys + attributes)
     ),
-    (
-        'ReifySub(_, tuple())',
-        lambda: Nil()
-    ),
+    # TODO: raise exception
+    # (
+    #     'ReifySub(_, tuple())',
+    #     lambda: ...
+    # ),
     (
         'ReifySub(child, attributes)',
         lambda child, attributes: Project(child, (IntrospectionFunction(util.introspect_key_fn),) + attributes)
     ),
-    (
-        'Atomize(_, _, "")',
-        lambda: Nil()
-    ),
+    # TODO: raise exception
+    # (
+    #     'Atomize(_, _, "")',
+    #     lambda: ...
+    # ),
     (
         'Atomize(child, unnest_fn, attribute)',
         lambda child, unnest_fn, attribute: Unnest(ReifySub(child, (attribute,)), unnest_fn, attribute)
@@ -182,6 +187,10 @@ physical_transformation_rules = Matcher([
         '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
         lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
         _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), dst_sname, dst_tname, attributes)
+    ),
+    (   # TODO: this rule is a little risky in the case of null propagation occurring in the logical optimization step
+        'Assign(Nil(), schema, table_name)',
+        lambda schema, table_name: _op.Drop(_op.Metadata({'schema_name': schema, 'table_name': table_name }), schema, table_name)
     ),
     (
         'TempVar(child)',

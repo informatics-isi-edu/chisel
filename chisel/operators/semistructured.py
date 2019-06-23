@@ -55,7 +55,7 @@ class JSONScan (PhysicalOperator):
         key_defs = [_em.Key.define([name]) for name in row_0_keys if re.match(key_regex, name)]
         assert key_defs, "Expected to find at least one key, but none were identified."
         self._description = _em.Table.define(table_name, column_defs=col_defs, key_defs=key_defs, provide_system=False)
-        self._description['schema_name'] = os.path.dirname(input_filename) if input_filename else None
+        self._description['schema_name'] = os.path.dirname(input_filename) if input_filename else ''
         self._description['kind'] = 'file' if input_filename else 'json'
         # TODO: do deeper introspection of JSON input
 
