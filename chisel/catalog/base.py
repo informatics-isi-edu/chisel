@@ -515,7 +515,7 @@ class AbstractTable (object):
         with self.schema.catalog.evolve():
             self.schema[new_name] = self.select()
         del self.schema.tables[self.name]
-        # TODO: the table _could_ repair the model here
+        # TODO: _could_ repair the model here
 
     @property
     def comment(self):
@@ -524,6 +524,18 @@ class AbstractTable (object):
     @property
     def sname(self):
         return self._sname
+
+    @sname.setter
+    def sname(self, value):
+        self._set_schema(value)
+
+    @valid_model_object
+    def _set_schema(self, new_sname):
+        """Internal implementation method for setting the schema."""
+        with self.schema.catalog.evolve():
+            self.schema.catalog[new_sname][self.name] = self.select()
+        del self.schema.tables[self.name]
+        # TODO: _could_ repair the model here
 
     @property
     def kind(self):
