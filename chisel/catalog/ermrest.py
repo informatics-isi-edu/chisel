@@ -201,6 +201,30 @@ class ERMrestSchema (base.Schema):
     def _new_table_instance(self, table_doc):
         return ERMrestTable(table_doc, self)
 
+    @base.valid_model_object
+    def _create_table(self, table_doc):
+        """ERMrest specific implementation of create table function."""
+
+        # Revise table doc to include sys columns, per static flag
+        table_doc_w_syscols = _em.Table.define(
+            table_doc['table_name'],
+            column_defs=table_doc.get('column_definitions', []),
+            key_defs=table_doc.get('keys', []),
+            fkey_defs=table_doc.get('foreign_keys', []),
+            comment=table_doc.get('comment', None),
+            acls=table_doc.get('acls', {}),
+            acl_bindings=table_doc.get('acl_bindings', {}),
+            annotations=table_doc.get('annotations', {}),
+            provide_system=ERMrestCatalog.provide_system
+        )
+
+        # Create the table using evolve block for isolation
+        with self.catalog.evolve():
+            model = self.catalog.ermrest_catalog.getCatalogModel()
+            ermrest_schema = model.schemas[self.name]
+            ermrest_schema.create_table(self.catalog.ermrest_catalog, table_doc_w_syscols)
+            return self._new_table_instance(table_doc_w_syscols)
+
 
 class ERMrestTable (base.AbstractTable):
     """Extant table in an ERMrest catalog."""

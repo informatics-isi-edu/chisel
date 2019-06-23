@@ -309,11 +309,38 @@ class Schema (object):
 
     def __init__(self, schema_doc, catalog):
         super(Schema, self).__init__()
-        self.catalog = catalog
-        self.name = schema_doc['schema_name']
-        self.comment = schema_doc['comment']
-        self._tables = {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
-        self.tables = TableCollection(self, self._tables)
+        self._catalog = catalog
+        self._name = schema_doc['schema_name']
+        self._comment = schema_doc['comment']
+        self._tables = TableCollection(
+            self,
+            {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
+        )
+        self._valid = True
+
+    @property
+    def catalog(self):
+        return self._catalog
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def comment(self):
+        return self._comment
+
+    @property
+    def tables(self):
+        return self._tables
+
+    @property
+    def valid(self):
+        return self._valid
+
+    @valid.setter
+    def valid(self, value):
+        raise NotImplementedError('Invalidation of schemas not supported')
 
     def __getitem__(self, item):
         """Maps a table name to a table model object.
@@ -339,6 +366,18 @@ class Schema (object):
         :return: table model object
         """
         return AbstractTable(table_doc)
+
+    @valid_model_object
+    def _create_table(self, table_doc):
+        """Creates a table _in the catalog_.
+
+        This method should be implemented by subclasses that allow for creating tables in extant schemas.
+
+        :param table_doc: a table definition dictionary as defined by `Table.define(...)`.
+        :return: a Table object representing the newly created table.
+        """
+        # TODO: refactor this into a form of generalized projection
+        raise NotImplementedError()
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -443,10 +482,24 @@ class TableCollection (collections.abc.MutableMapping):
         return self._tables[item]
 
     def __setitem__(self, key, value):
+        # for directly creating a table...
         if not self._schema.catalog._evolve_ctx:
-            raise CatalogMutationError("No catalog mutation context set.")
+            if not isinstance(value, collections.abc.Mapping):
+                raise CatalogMutationError("No catalog mutation context set.")
+            if 'table_name' not in value:
+                raise ValueError('value must have a "table_name" key in it')
+            if value['table_name'] != key:
+                raise ValueError('table definition "table_name" field does not match "%s"' % key)
+
+            table = self._schema._create_table(value)
+            assert isinstance(table, AbstractTable), "invalid table return type"
+            self._backup[key] = table
+            self.reset()
+            return table
+
+        # for evolution based on computed relations...
         if not isinstance(value, ComputedRelation):
-            raise ValueError("Value must be a computed relations.")
+            raise ValueError("Value must be a computed relation.")
         if self._destructive_pending:
             raise CatalogMutationError("A destructive operation is pending.")
         if key in self._tables:
@@ -496,6 +549,11 @@ class AbstractTable (object):
         self._foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
         self._referenced_by = []
         self._valid = True
+
+    @classmethod
+    def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}):
+        """Build a table definition."""
+        return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls={}, acl_bindings=acl_bindings, annotations=annotations, provide_system=False)
 
     @property
     def schema(self):
