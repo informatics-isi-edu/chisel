@@ -17,11 +17,11 @@ class TestERMrestCatalog (BaseTestCase):
 
     catalog_helper = ERMrestHelper(ermrest_hostname, ermrest_catalog_id, unit_table_names=['list_of_closest_genes'])
 
-    def test_basic_setup(self):
+    def test_precondition_check(self):
         self.assertTrue(self._catalog is not None)
         self.assertTrue(self.catalog_helper.exists(self.catalog_helper.samples))
 
-    def test_alter_select_cname(self):
+    def test_alter_columsn_via_select_cname(self):
         old_table_obj = self._catalog['public'][self.catalog_helper.samples]
         projected_col_name = self.catalog_helper.FIELDS[1]
         with self._catalog.evolve():
@@ -55,7 +55,7 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertIsNotNone(new_table_obj.select(), 'Could not select from new table object.')
         self.assertIsNotNone(new_table_obj.columns[projected_col_name], 'Could not get new column object.')
 
-    def test_alter_select_column(self):
+    def test_alter_columns_via_select_cols(self):
         projected_col_name = self.catalog_helper.FIELDS[1]
         with self._catalog.evolve():
             self._catalog['public'][self.catalog_helper.samples] =\
@@ -78,7 +78,7 @@ class TestERMrestCatalog (BaseTestCase):
             'Column in altered table that should have been removed.'
         )
 
-    def test_alter_remove_column(self):
+    def test_alter_drop_column_via_select(self):
         removed_col_name = self.catalog_helper.FIELDS[1]
         with self._catalog.evolve():
             self._catalog['public'][self.catalog_helper.samples] =\
@@ -101,7 +101,7 @@ class TestERMrestCatalog (BaseTestCase):
             'Column not in altered table, but it should not have been removed.'
         )
 
-    def test_alter_del_column(self):
+    def test_alter_drop_column_via_del(self):
         removed_col_name = self.catalog_helper.FIELDS[1]
         removed_col = self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
         del self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
@@ -118,7 +118,7 @@ class TestERMrestCatalog (BaseTestCase):
         with self.assertRaises(CatalogMutationError):
             removed_col.to_domain()
 
-    def test_alter_select_alias(self):
+    def test_alter_rename_column_via_select(self):
         projected_col_name = self.catalog_helper.FIELDS[1]
         projected_col_alias = projected_col_name + ' Alias'
 
@@ -165,7 +165,7 @@ class TestERMrestCatalog (BaseTestCase):
         )
         self.assertListEqual(list(original_data), list(revised_data), 'Data does not match')
 
-    def test_alter_col_rename(self):
+    def test_alter_rename_column_direct(self):
         projected_col_name = self.catalog_helper.FIELDS[1]
         projected_col_alias = projected_col_name + ' Alias'
 
