@@ -110,7 +110,7 @@ class SemistructuredSchema (base.Schema):
         return SemistructuredTable(table_doc, self)
 
 
-class SemistructuredTable (base.AbstractTable):
+class SemistructuredTable (base.Table):
     """Extant table in a semistructured catalog."""
 
     @property

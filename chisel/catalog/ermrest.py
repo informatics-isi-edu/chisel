@@ -226,7 +226,7 @@ class ERMrestSchema (base.Schema):
             return self._new_table_instance(table_doc_w_syscols)
 
 
-class ERMrestTable (base.AbstractTable):
+class ERMrestTable (base.Table):
     """Extant table in an ERMrest catalog."""
 
     def _add_column(self, column_doc):

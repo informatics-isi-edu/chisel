@@ -5,7 +5,7 @@ from chisel.catalog.base import ComputedRelation, CatalogMutationError
 from chisel.operators.base import Alter
 from test.utils import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
-from chisel import builtin_types, Column, AbstractTable
+from chisel import builtin_types, Column, Table
 
 ermrest_hostname = os.getenv('CHISEL_TEST_ERMREST_HOST')
 ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
@@ -307,7 +307,7 @@ class TestERMrestCatalog (BaseTestCase):
     def test_create_table(self):
         # define new table
         new_tname = self._test_create_table_tname
-        table_def = AbstractTable.define(new_tname)
+        table_def = Table.define(new_tname)
 
         # create the table
         self._catalog['public'].tables[new_tname] = table_def
@@ -320,7 +320,7 @@ class TestERMrestCatalog (BaseTestCase):
         # is the returned model object valid?
         new_table = self._catalog['public'].tables[new_tname]
         self.assertIsNotNone(new_table, 'New table model object not returned')
-        self.assertTrue(isinstance(new_table, AbstractTable), 'Wrong type for new table object: %s' % type(new_table).__name__)
+        self.assertTrue(isinstance(new_table, Table), 'Wrong type for new table object: %s' % type(new_table).__name__)
         self.assertTrue(new_table.valid, 'New table object is not "valid"')
 
     def test_ermrest_atomize(self):

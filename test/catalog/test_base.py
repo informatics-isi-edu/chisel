@@ -1,5 +1,5 @@
 import chisel
-from chisel.catalog.base import AbstractTable
+from chisel.catalog.base import Table
 from test.utils import CatalogHelper, BaseTestCase
 
 
@@ -29,7 +29,7 @@ class TestBaseCatalog (BaseTestCase):
             self._catalog['.'][self.catalog_helper.samples] = temp
             ctx.abort()
         # table should be restored
-        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], AbstractTable, "Failed to restore tables")
+        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], Table, "Failed to restore tables")
 
     def test_evolve_block_private_abort(self):
         with self.assertRaises(chisel.CatalogMutationError):
@@ -64,7 +64,7 @@ class TestBaseCatalog (BaseTestCase):
                 self._catalog.schemas['.'].tables['domain1'] = temp
                 self._catalog['.'][self.catalog_helper.samples] = temp
         # table should be restored
-        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], AbstractTable, "Failed to restore tables")
+        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], Table, "Failed to restore tables")
 
     def test_setter_after_desctructive_not_in_isolation_err(self):
         with self.assertRaises(chisel.CatalogMutationError):
@@ -73,4 +73,4 @@ class TestBaseCatalog (BaseTestCase):
                 self._catalog['.'][self.catalog_helper.samples] = temp
                 self._catalog.schemas['.'].tables['domain1'] = temp
         # table should be restored
-        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], AbstractTable, "Failed to restore tables")
+        self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], Table, "Failed to restore tables")

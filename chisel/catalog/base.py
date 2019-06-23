@@ -365,7 +365,7 @@ class Schema (object):
         :param table_doc: the table document
         :return: table model object
         """
-        return AbstractTable(table_doc)
+        return Table(table_doc)
 
     @valid_model_object
     def _create_table(self, table_doc):
@@ -492,7 +492,7 @@ class TableCollection (collections.abc.MutableMapping):
                 raise ValueError('table definition "table_name" field does not match "%s"' % key)
 
             table = self._schema._create_table(value)
-            assert isinstance(table, AbstractTable), "invalid table return type"
+            assert isinstance(table, Table), "invalid table return type"
             self._backup[key] = table
             self.reset()
             return table
@@ -531,11 +531,11 @@ class TableCollection (collections.abc.MutableMapping):
         return self._tables
 
 
-class AbstractTable (object):
-    """Abstract base class for database tables."""
+class Table (object):
+    """Abstract base class for tables."""
 
     def __init__(self, table_doc, schema=None):
-        super(AbstractTable, self).__init__()
+        super(Table, self).__init__()
         self._table_doc = table_doc
         self._schema = schema
         self._name = table_doc['table_name']
@@ -632,7 +632,7 @@ class AbstractTable (object):
     def _refresh(self):
         """Refreshes the internal state of this table object.
 
-        A shallow version of this is provided by the AbstractTable class, but
+        A shallow version of this is provided by the Table class, but
         it should be overridden by subclass implementations that are capable
         of a deep refresh.
         """
@@ -827,7 +827,7 @@ class ColumnCollection (collections.OrderedDict):
 
     def __init__(self, table, items):
         super(ColumnCollection, self).__init__()
-        assert isinstance(table, AbstractTable)
+        assert isinstance(table, Table)
         assert items is None or hasattr(items, '__iter__')
         # bypass our overridden setter
         for item in items:
@@ -868,7 +868,7 @@ class ColumnCollection (collections.OrderedDict):
             super(ColumnCollection, self).__setitem__(col.name, col)
 
 
-class ComputedRelation (AbstractTable):
+class ComputedRelation (Table):
     """Computed relation."""
 
     def __init__(self, logical_plan):
@@ -1085,7 +1085,7 @@ class Column (object):
         determine the final groupings.
         :return: a computed relation that represents the containing table with this attribute aligned to the domain
         """
-        if not isinstance(domain, AbstractTable):
+        if not isinstance(domain, Table):
             raise ValueError("domain must be a table instance")
 
         return ComputedRelation(_op.Align(domain.logical_plan, self.table.logical_plan, self.name, similarity_fn, grouping_fn))
@@ -1102,7 +1102,7 @@ class Column (object):
         determine the final groupings.
         :return: a computed relation that can be assigned to a newly named table in the catalog.
         """
-        if not isinstance(domain, AbstractTable):
+        if not isinstance(domain, Table):
             raise ValueError("domain must be a table instance")
 
         if not unnest_fn:
