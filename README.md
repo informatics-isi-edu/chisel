@@ -152,8 +152,9 @@ catalog['a_schema']['foobar'] = catalog['a_schema']['foo']['bar'].to_domain()
 
 ### More examples
 
-See the [examples](./examples) directory of the source, for more examples on 
-chisel's usage. To run the examples, you must set your 
+For more details, see the brief [usage guide](./docs/usage.md). In addition, 
+the [examples](./examples) directory incudes several scripts to illustrate
+usage of chisel. To run the example scripts, you must set your 
 `CHISEL_EXAMPLE_CATALOG_URL` environment variable to an ERMrest catalog URL.
 
 ## API
