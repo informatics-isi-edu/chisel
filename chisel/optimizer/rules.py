@@ -54,24 +54,12 @@ logical_optimization_rules = Matcher([
         lambda: Nil()
     ),
     (
-        'Distinct(_, tuple())',
-        lambda: Nil()
-    ),
-    (
         'Deduplicate(Nil(), _, _, _)',
-        lambda: Nil()
-    ),
-    (
-        'Deduplicate(_, tuple(), _, _)',
         lambda: Nil()
     ),
     (
         'Deduplicate(child, attributes, None, _)',
         lambda child, attributes: Distinct(child, attributes)
-    ),
-    (
-        'Project(_, tuple())',
-        lambda: Nil()
     ),
     (
         'Project(Nil(), _)',
@@ -182,6 +170,10 @@ physical_transformation_rules = Matcher([
         '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
         lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
         _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), dst_sname, dst_tname, attributes)
+    ),
+    (
+        'Assign(Nil(), schema, table_name)',
+        lambda schema, table_name: _op.Drop(_op.Metadata({'schema_name': schema, 'table_name': table_name }), schema, table_name)
     ),
     (
         'TempVar(child)',

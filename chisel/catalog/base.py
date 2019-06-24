@@ -2,6 +2,7 @@
 
 import abc
 import collections
+from functools import wraps
 import itertools
 import logging
 import pprint as pp
@@ -10,6 +11,21 @@ from deriva.core import ermrest_model as _em
 from .. import optimizer as _op, operators, util
 
 logger = logging.getLogger(__name__)
+
+data_types = _em.builtin_types
+
+
+def valid_model_object(fn):
+    """Decorator for guarding against invocations on methods of deleted model objects."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        model_object = args[0]
+        assert hasattr(model_object, 'valid'), "Decorated object does not have a valid flag"
+        if not getattr(model_object, 'valid'):
+            raise CatalogMutationError("The {model_type} object with name '{name}' was invalidated.".format(
+                model_type=type(model_object).__name__, name=model_object.name))
+        return fn(*args, **kwargs)
+    return wrapper
 
 
 class CatalogMutationError (Exception):
@@ -116,9 +132,11 @@ class AbstractCatalog (object):
         class _CatalogMutationAbort (Exception):
             pass
 
-        def __init__(self, catalog, dry_run=False, consolidate=True):
+        def __init__(self, catalog, allow_alter, allow_drop, dry_run, consolidate):
             assert isinstance(catalog, AbstractCatalog), "'catalog' must be an 'AbstractCatalog'"
             self.parent = catalog
+            self.allow_alter = allow_alter
+            self.allow_drop = allow_drop
             self.dry_run = dry_run
             self.consolidate = consolidate
 
@@ -141,13 +159,17 @@ class AbstractCatalog (object):
                     logging.debug("Committing current catalog model mutation operations.")
                     self.parent._commit(self.dry_run, self.consolidate)
             finally:
+                # resent the schemas
+                for schema in self.parent.schemas.values():
+                    schema.tables.reset()
+                # remove the evolve context
                 self.parent._evolve_ctx = None
 
         def abort(self):
             """Aborts a catalog mutation context by raising an exception to be handled on exit of current context."""
             raise self._CatalogMutationAbort()
 
-    def evolve(self, dry_run=False, consolidate=True):
+    def evolve(self, allow_alter=False, allow_drop=False, dry_run=False, consolidate=True):
         """Begins a catalog model evolution block.
 
         This should be called in a `with` statement block. At the end of the block, the pending changes will be
@@ -181,14 +203,16 @@ class AbstractCatalog (object):
             # at the end of the block, the pending operations (above) will be aborted.
         ```
 
+        :param allow_alter: if set to True, existing tables may be altered (default=False).
+        :param allow_drop: if set to True, existing tables may be deleted (default=False).
         :param dry_run: if set to True, the pending commits will be drained, debug output printed, but not committed.
         :param consolidate: if set to True, attempt to consolidate shared work between pending operations.
         :return: a catalog model mutation context object for use in 'with' statements
         """
-        if self._evolve_ctx:
+        if self._evolve_ctx:  # TODO: make this thread safe
             raise CatalogMutationError('A catalog mutation context already exists.')
 
-        return self._CatalogMutationContextManager(self, dry_run, consolidate)
+        return self._CatalogMutationContextManager(self, allow_alter, allow_drop, dry_run, consolidate)
 
     @abc.abstractmethod
     def _materialize_relation(self, plan):
@@ -202,9 +226,6 @@ class AbstractCatalog (object):
         """Abort pending catalog model mutations."""
         if not self._evolve_ctx:
             raise CatalogMutationError("No catalog mutation context set. This method should not be called directly")
-
-        for schema in self.schemas.values():
-            schema.tables.reset()
 
     def _commit(self, dry_run=False, consolidate=True):
         """Commits pending computed relation assignments to the catalog.
@@ -221,7 +242,6 @@ class AbstractCatalog (object):
             for value in schema.tables.pending:
                 assert isinstance(value, ComputedRelation)
                 computed_relations.append(value)
-            schema.tables.reset()
 
         logger.info('Committing {num} pending computed relations'.format(num=len(computed_relations)))
 
@@ -294,11 +314,38 @@ class Schema (object):
 
     def __init__(self, schema_doc, catalog):
         super(Schema, self).__init__()
-        self.catalog = catalog
-        self.name = schema_doc['schema_name']
-        self.comment = schema_doc['comment']
-        self._tables = {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
-        self.tables = SchemaTables(self, self._tables)
+        self._catalog = catalog
+        self._name = schema_doc['schema_name']
+        self._comment = schema_doc['comment']
+        self._tables = TableCollection(
+            self,
+            {table_name: self._new_table_instance(schema_doc['tables'][table_name]) for table_name in schema_doc['tables']}
+        )
+        self._valid = True
+
+    @property
+    def catalog(self):
+        return self._catalog
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def comment(self):
+        return self._comment
+
+    @property
+    def tables(self):
+        return self._tables
+
+    @property
+    def valid(self):
+        return self._valid
+
+    @valid.setter
+    def valid(self, value):
+        raise NotImplementedError('Invalidation of schemas not supported')
 
     def __getitem__(self, item):
         """Maps a table name to a table model object.
@@ -323,7 +370,28 @@ class Schema (object):
         :param table_doc: the table document
         :return: table model object
         """
-        return AbstractTable(table_doc)
+        return Table(table_doc)
+
+    @valid_model_object
+    def _create_table(self, table_doc):
+        """Creates a table _in the catalog_.
+
+        This method should be implemented by subclasses that allow for creating tables in extant schemas.
+
+        :param table_doc: a table definition dictionary as defined by `Table.define(...)`.
+        :return: a Table object representing the newly created table.
+        """
+        # TODO: refactor this into a form of generalized projection
+        raise NotImplementedError()
+
+    @valid_model_object
+    def _drop_table(self, table_name):
+        """Drops the table.
+
+        :param table_name: name of the table to be dropped.
+        """
+        with self.catalog.evolve(allow_drop=True):
+            self._tables._pending[table_name] = ComputedRelation(_op.Assign(_op.Nil(), self._name, table_name))
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -387,7 +455,7 @@ class Schema (object):
         return dot
 
 
-class SchemaTables (collections.abc.MutableMapping):
+class TableCollection (collections.abc.MutableMapping):
     """Container class for schema tables (for internal use only).
 
     This class mostly passes through container methods to the underlying tables container. Its purpose is to facilitate
@@ -400,7 +468,7 @@ class SchemaTables (collections.abc.MutableMapping):
         :param schema: the parent schema
         :param tables: the original tables collection, which must be a mapping
         """
-        super(SchemaTables, self).__init__()
+        super(TableCollection, self).__init__()
         self._schema = schema
         self._backup = tables
         self._tables = tables.copy()
@@ -409,6 +477,10 @@ class SchemaTables (collections.abc.MutableMapping):
 
     def _ipython_key_completions_(self):
         return self._tables.keys()
+
+    @property
+    def valid(self):
+        return self._schema.valid
 
     @property
     def pending(self):
@@ -427,11 +499,26 @@ class SchemaTables (collections.abc.MutableMapping):
     def __getitem__(self, item):
         return self._tables[item]
 
+    @valid_model_object
     def __setitem__(self, key, value):
+        # for directly creating a table...
         if not self._schema.catalog._evolve_ctx:
-            raise CatalogMutationError("No catalog mutation context set.")
+            if not isinstance(value, collections.abc.Mapping):
+                raise CatalogMutationError("No catalog mutation context set.")
+            if 'table_name' not in value:
+                raise ValueError('value must have a "table_name" key in it')
+            if value['table_name'] != key:
+                raise ValueError('table definition "table_name" field does not match "%s"' % key)
+
+            table = self._schema._create_table(value)
+            assert isinstance(table, Table), "invalid table return type"
+            self._backup[key] = table
+            self.reset()
+            return table
+
+        # for evolution based on computed relations...
         if not isinstance(value, ComputedRelation):
-            raise ValueError("Value must be a computed relations.")
+            raise ValueError("Value must be a computed relation.")
         if self._destructive_pending:
             raise CatalogMutationError("A destructive operation is pending.")
         if key in self._tables:
@@ -447,18 +534,9 @@ class SchemaTables (collections.abc.MutableMapping):
         assert self._tables[key] == self._pending[key]
         return newval
 
+    @valid_model_object
     def __delitem__(self, key):
-        table = self._tables[key]  # allow exception if key not in tables
-        if not self._schema.catalog._evolve_ctx:
-            raise CatalogMutationError("No catalog mutation context set.")
-        if self._pending:
-            raise CatalogMutationError("Destructive operations must be performed in isolation.")
-        self._destructive_pending = True
-        # create a computed relation <- assign(nil, sname, tname)
-        #  ...add computed relation to _pending list
-        #  ...delete key/table from _tables
-        #  ...add rule to translate logical 'assign(nil...)' into 'drop_table' physical operator
-        raise NotImplemented("Delete is not yet supported.")
+        self._schema._drop_table(key)
 
     def __iter__(self):
         return iter(self._tables)
@@ -467,27 +545,119 @@ class SchemaTables (collections.abc.MutableMapping):
         return self._tables
 
 
-class AbstractTable (object):
-    """Abstract base class for database tables."""
+class Table (object):
+    """Abstract base class for tables."""
 
     def __init__(self, table_doc, schema=None):
-        super(AbstractTable, self).__init__()
+        super(Table, self).__init__()
         self._table_doc = table_doc
-        self.schema = schema
-        self.name = table_doc['table_name']
-        self.comment = table_doc['comment']
-        self.sname = table_doc.get('schema_name')  # not present in computed relation
-        self.kind = table_doc.get('kind')  # not present in computed relation
-        self.columns = collections.OrderedDict([
-            (col['name'], self._new_column_instance(col)) for col in table_doc['column_definitions']
-        ])
-        self.foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc['foreign_keys']]
-        self.referenced_by = []  # TODO: need to add to the catalog a method to compute these
+        self._schema = schema
+        self._name = table_doc['table_name']
+        self._comment = table_doc.get('comment', None)
+        self._sname = table_doc.get('schema_name', '')  # not present in computed relation
+        self._kind = table_doc.get('kind')  # not present in computed relation
+        self._columns = ColumnCollection(
+            self, [(col['name'], self._new_column_instance(col)) for col in table_doc.get('column_definitions', [])]
+        )
+        self._keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
+        self._foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
+        self._referenced_by = []
+        self._valid = True
 
+    @classmethod
+    def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}):
+        """Build a table definition."""
+        return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls={}, acl_bindings=acl_bindings, annotations=annotations, provide_system=False)
+
+    @property
+    def schema(self):
+        return self._schema
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._rename(value)
+
+    @valid_model_object
+    def _rename(self, new_name):
+        """Internal implementation method for renaming the table."""
+        with self.schema.catalog.evolve():
+            self.schema[new_name] = self.select()
+        del self.schema.tables[self.name]
+        # TODO: _could_ repair the model here
+
+    @property
+    def comment(self):
+        return self._comment
+
+    @property
+    def sname(self):
+        return self._sname
+
+    @sname.setter
+    def sname(self, value):
+        self._set_schema(value)
+
+    @valid_model_object
+    def _set_schema(self, new_sname):
+        """Internal implementation method for setting the schema."""
+        with self.schema.catalog.evolve():
+            self.schema.catalog[new_sname][self.name] = self.select()
+        del self.schema.tables[self.name]
+        # TODO: _could_ repair the model here
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def keys(self):
+        return self._keys
+
+    @property
+    def foreign_keys(self):
+        return self._foreign_keys
+
+    @property
+    def valid(self):
+        return self._valid
+
+    @valid.setter
+    def valid(self, value):
+        if not isinstance(value, bool):
+            raise ValueError('value must be bool')
+        if self._valid and not value:
+            self._valid = value
+            # invalidate all child model objects
+            for column in self.columns.values():
+                column.valid = False
+
+    @property
+    def referenced_by(self):
+        return self._referenced_by
+
+    @property
     @abc.abstractmethod
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
 
+    def _refresh(self):
+        """Refreshes the internal state of this table object.
+
+        A shallow version of this is provided by the Table class, but
+        it should be overridden by subclass implementations that are capable
+        of a deep refresh.
+        """
+        self.columns._refresh()
+
+    @valid_model_object
     def fetch(self):
         """Returns an iterator for data for this relation."""
         return _op.physical_planner(_op.logical_planner(self.logical_plan))
@@ -499,6 +669,28 @@ class AbstractTable (object):
         :return: column model object
         """
         return Column(column_doc, self)
+
+    @valid_model_object
+    def _add_column(self, column_doc):
+        """Adds a column to this relation _in the catalog_.
+
+        This method should be implemented by subclasses that allow for adding columns to extant tables.
+
+        :param column_doc: a column definition dictionary as defined by `Column.define(...)`.
+        :return: a Column object representing the newly added column definition in the relation.
+        """
+        # TODO: refactor this into a form of generalized projection
+        raise NotImplementedError()
+
+    @valid_model_object
+    def _drop_column(self, column_name):
+        """Drops a column of this relation.
+
+        :param column_name: the name of the column to be dropped.
+        """
+        column = self.columns[column_name]
+        with self.schema.catalog.evolve(allow_alter=True):
+            self.schema[self._name] = self.select(column.inv())
 
     def __getitem__(self, item):
         """Maps a column name to a column model object.
@@ -518,6 +710,7 @@ class AbstractTable (object):
         """
         return self._table_doc
 
+    @valid_model_object
     def describe(self):
         """Returns a text (markdown) description."""
         def type2str(t):
@@ -542,6 +735,7 @@ class AbstractTable (object):
 
         return Description()
 
+    @valid_model_object
     def graph(self, engine='fdp'):
         """Generates and returns a graphviz Digraph.
 
@@ -570,7 +764,7 @@ class AbstractTable (object):
 
         # add inbound edges
         head_name = tail_name
-        for reference in self.referenced_by:
+        for reference in self._referenced_by:
             tail_name = "%s.%s" % (reference.sname, reference.tname)
             if tail_name not in seen:
                 dot.node(tail_name, tail_name)
@@ -579,6 +773,7 @@ class AbstractTable (object):
 
         return dot
 
+    @valid_model_object
     def select(self, *columns):
         """Selects this relation and projects the columns.
 
@@ -607,8 +802,10 @@ class AbstractTable (object):
 
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
-            return ComputedRelation(self.logical_plan)
+            projection = [cname for cname in self.columns]
+            return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
 
+    @valid_model_object
     def filter(self, formula):
         """Filters this relation according to the given formula.
 
@@ -624,6 +821,7 @@ class AbstractTable (object):
             # TODO: allow input of comparison or conjunction of comparisons
             return ComputedRelation(_op.Select(self.logical_plan, formula))
 
+    @valid_model_object
     def reify_sub(self, *cols):
         """Reifies a sub-concept of the relation by the specified columns. This relation is left unchanged.
 
@@ -634,6 +832,7 @@ class AbstractTable (object):
             raise ValueError("All positional arguments must be of type Column")
         return ComputedRelation(_op.ReifySub(self.logical_plan, tuple([col.name for col in cols])))
 
+    @valid_model_object
     def reify(self, new_key_cols, new_other_cols):
         """Splits out a new relation based on this table, which will be comprised of the new_key_cols as its keys and
         the new_other_columns as the rest of its columns.
@@ -652,7 +851,58 @@ class AbstractTable (object):
         return ComputedRelation(_op.Reify(self.logical_plan, tuple([col.name for col in new_key_cols]), tuple([col.name for col in new_other_cols])))
 
 
-class ComputedRelation (AbstractTable):
+class ColumnCollection (collections.OrderedDict):
+    """An OrderedDict sub-class for managing table columns."""
+
+    def __init__(self, table, items):
+        super(ColumnCollection, self).__init__()
+        assert isinstance(table, Table)
+        assert items is None or hasattr(items, '__iter__')
+        # bypass our overridden setter
+        for item in items:
+            super(ColumnCollection, self).__setitem__(item[0], item[1])
+        self._table = table
+
+    @property
+    def valid(self):
+        return self._table.valid
+
+    @valid_model_object
+    def __delitem__(self, key):
+        # get handle to the column
+        column = self[key]
+        # drop column from catalog model
+        self._table._drop_column(key)
+        # invalidate model object
+        column.valid = False
+        # delete from column collection
+        super(ColumnCollection, self).__delitem__(key)
+
+    @valid_model_object
+    def __setitem__(self, key, value):
+        if not isinstance(value, collections.abc.Mapping):
+            raise ValueError('value must be a mapping object')
+        if 'name' not in value:
+            raise ValueError('value must have a "name" key in it')
+        if 'type' not in value:
+            raise ValueError('value must have a "type" key in it')
+        if value['name'] != key:
+            raise ValueError('column definition "name" field does not match "%s"' % key)
+
+        column = self._table._add_column(value)
+        assert isinstance(column, Column), "invalid column return type"
+        super().__setitem__(key, column)
+
+    def _refresh(self):
+        """Refreshes the collection indices to repair them after a column rename."""
+        columns = list(self.values())
+        self.clear()
+        for col in columns:
+            assert isinstance(col, Column)
+            super(ColumnCollection, self).__setitem__(col.name, col)
+
+
+class ComputedRelation (Table):
     """Computed relation."""
 
     def __init__(self, logical_plan):
@@ -697,14 +947,52 @@ class Column (object):
     def __init__(self, column_doc, table):
         super(Column, self).__init__()
         self.table = table
-        self.name = column_doc['name']
-        self.type = column_doc['type']
-        self.default = column_doc['default']
-        self.nullok = column_doc['nullok']
-        self.comment = column_doc['comment']
+        self._name = column_doc['name']
+        self._type = column_doc['type']
+        self._default = column_doc['default']
+        self._nullok = column_doc['nullok']
+        self._comment = column_doc['comment']
+        self._valid = True
+
+    @classmethod
+    def define(cls, cname, ctype, nullok=True, default=None, comment=None, acls={}, acl_bindings={}, annotations={}):
+        """Build a column definition."""
+        return _em.Column.define(cname, ctype, nullok, default, comment, acls, acl_bindings, annotations)
 
     def __hash__(self):
         return super(Column, self).__hash__()
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._rename(value)
+
+    @property
+    def valid(self):
+        return self._valid
+
+    @valid.setter
+    def valid(self, value):
+        self._valid = value
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def default(self):
+        return self._default
+
+    @property
+    def nullok(self):
+        return self._nullok
+
+    @property
+    def comment(self):
+        return self._comment
 
     def eq(self, other):
         return _op.Comparison(operand1=self.name, operator='=', operand2=str(other))
@@ -759,6 +1047,29 @@ class Column (object):
 
     __invert__ = inv
 
+    @valid_model_object
+    def _rename(self, new_name):
+        """Renames the column.
+
+        This method cannot be called within another 'evolve' block. It must be performed in isolation.
+
+        :param new_name: new name for the column
+        """
+        with self.table.schema.catalog.evolve(allow_alter=True):
+            projection = []
+            for cname in self.table.columns:
+                if cname == self.name:
+                    projection.append(self.alias(new_name))
+                else:
+                    projection.append(cname)
+            self.table.schema[self.table.name] = self.table.select(*projection)
+
+        # update local copy of name
+        self._name = new_name
+        # "refresh" the containing table
+        self.table._refresh()
+
+    @valid_model_object
     def to_atoms(self, delim=',', unnest_fn=None):
         """Computes a new relation from the 'atomic' values of this column.
 
@@ -776,6 +1087,7 @@ class Column (object):
             raise ValueError('unnest_fn is not callable')
         return ComputedRelation(_op.Atomize(self.table.logical_plan, unnest_fn, self.name))
 
+    @valid_model_object
     def to_domain(self, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Computes a new 'domain' from this column.
 
@@ -786,6 +1098,7 @@ class Column (object):
         """
         return ComputedRelation(_op.Domainify(self.table.logical_plan, self.name, similarity_fn, grouping_fn))
 
+    @valid_model_object
     def to_vocabulary(self, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Creates a canonical 'vocabulary' from this column.
 
@@ -796,6 +1109,7 @@ class Column (object):
         """
         return ComputedRelation(_op.Canonicalize(self.table.logical_plan, self.name, similarity_fn, grouping_fn))
 
+    @valid_model_object
     def align(self, domain, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Align this column with a given domain
 
@@ -805,11 +1119,12 @@ class Column (object):
         determine the final groupings.
         :return: a computed relation that represents the containing table with this attribute aligned to the domain
         """
-        if not isinstance(domain, AbstractTable):
+        if not isinstance(domain, Table):
             raise ValueError("domain must be a table instance")
 
         return ComputedRelation(_op.Align(domain.logical_plan, self.table.logical_plan, self.name, similarity_fn, grouping_fn))
 
+    @valid_model_object
     def to_tags(self, domain, delim=',', unnest_fn=None, similarity_fn=util.edit_distance_fn, grouping_fn=None):
         """Computes a new relation from the unnested and aligned values of this column.
 
@@ -821,7 +1136,7 @@ class Column (object):
         determine the final groupings.
         :return: a computed relation that can be assigned to a newly named table in the catalog.
         """
-        if not isinstance(domain, AbstractTable):
+        if not isinstance(domain, Table):
             raise ValueError("domain must be a table instance")
 
         if not unnest_fn:

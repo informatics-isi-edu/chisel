@@ -6,6 +6,7 @@ import json
 import logging
 from deriva.core import ermrest_model as _em
 from .. import optimizer
+from .. import operators
 from .. import util
 from . import base
 
@@ -83,7 +84,13 @@ class SemistructuredCatalog (base.AbstractCatalog):
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
+        if isinstance(plan, operators.Alter) or isinstance(plan, operators.Drop):
+            raise NotImplementedError('"%s" operation not supported' % type(plan).__name__)
+
         filename = os.path.join(self.path, plan.description['schema_name'], plan.description['table_name'])
+        if os.path.exists(filename) and not self._evolve_ctx.allow_alter:
+            raise base.CatalogMutationError('"allow_alter" flag is not True')
+
         if filename.endswith('.json'):
             with open(filename, 'w') as jsonfile:
                 json.dump(list(plan), jsonfile, indent=2)
@@ -106,7 +113,7 @@ class SemistructuredSchema (base.Schema):
         return SemistructuredTable(table_doc, self)
 
 
-class SemistructuredTable (base.AbstractTable):
+class SemistructuredTable (base.Table):
     """Extant table in a semistructured catalog."""
 
     @property
