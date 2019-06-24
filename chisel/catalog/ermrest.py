@@ -229,6 +229,7 @@ class ERMrestSchema (base.Schema):
 class ERMrestTable (base.Table):
     """Extant table in an ERMrest catalog."""
 
+    @base.valid_model_object
     def _add_column(self, column_doc):
         """ERMrest specific implementation of add column function."""
         with self.schema.catalog.evolve():
