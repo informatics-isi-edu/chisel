@@ -86,15 +86,26 @@ column.name = 'qux'
 Here are more advanced usage examples that cover chisel features that go beyond
 SQL DDL types of operations.
 
+### Catalog `evolve` block
+
 These operations must be performed within a `with catalog.evolve(): ...` block.
-The actualy schema evolution is executed after the block exits successfully. If
+The actual schema evolution is executed after the block exits successfully. If
 an exception is raised (and not caught), the evolution is aborted and the
 catalog model is restored to its original state.
+
+### Testing with `dry_run` flag
 
 In order to do a "dry run," call the evolve method with `dry_run=True` and at 
 the exit of the evolve block the plan and sample data of computed relations
 will be dumped to standard output. No changes to the catalog will be executed
 and the catalog model will be restored to its original state.
+
+### Guarding with `allow_alter` and `allow_drop`
+
+In order to guard against accidental table alteration or destruction, the 
+`evolve` method accepts `allow_alter` and `allow_drop` Boolean parameters. 
+Unless these parameters are set, the evolve block may not cause an existing
+table to be altered or deleted, respectively.
 
 ### Create table as domain from existing column
 

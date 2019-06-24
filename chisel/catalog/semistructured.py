@@ -88,6 +88,9 @@ class SemistructuredCatalog (base.AbstractCatalog):
             raise NotImplementedError('"%s" operation not supported' % type(plan).__name__)
 
         filename = os.path.join(self.path, plan.description['schema_name'], plan.description['table_name'])
+        if os.path.exists(filename) and not self._evolve_ctx.allow_alter:
+            raise base.CatalogMutationError('"allow_alter" flag is not True')
+
         if filename.endswith('.json'):
             with open(filename, 'w') as jsonfile:
                 json.dump(list(plan), jsonfile, indent=2)

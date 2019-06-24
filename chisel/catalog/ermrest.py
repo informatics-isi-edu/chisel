@@ -49,6 +49,9 @@ class ERMrestCatalog (base.AbstractCatalog):
         """
         if isinstance(plan, operators.Alter):
             logger.debug("Altering table '{tname}'.".format(tname=plan.description['table_name']))
+            if not self._evolve_ctx.allow_alter:
+                raise base.CatalogMutationError('"allow_alter" flag is not True')
+
             altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
             model = self.ermrest_catalog.getCatalogModel()
             schema = model.schemas[altered_schema_name]
@@ -119,6 +122,9 @@ class ERMrestCatalog (base.AbstractCatalog):
 
         elif isinstance(plan, operators.Drop):
             logger.debug("Dropping table '{tname}'.".format(tname=plan.description['table_name']))
+            if not self._evolve_ctx.allow_drop:
+                raise base.CatalogMutationError('"allow_drop" flag is not True')
+
             dropped_schema_name, dropped_table_name = plan.description['schema_name'], plan.description['table_name']
 
             # Delete table from the ermrest catalog

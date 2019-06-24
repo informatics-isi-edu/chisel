@@ -132,9 +132,11 @@ class AbstractCatalog (object):
         class _CatalogMutationAbort (Exception):
             pass
 
-        def __init__(self, catalog, dry_run=False, consolidate=True):
+        def __init__(self, catalog, allow_alter, allow_drop, dry_run, consolidate):
             assert isinstance(catalog, AbstractCatalog), "'catalog' must be an 'AbstractCatalog'"
             self.parent = catalog
+            self.allow_alter = allow_alter
+            self.allow_drop = allow_drop
             self.dry_run = dry_run
             self.consolidate = consolidate
 
@@ -167,7 +169,7 @@ class AbstractCatalog (object):
             """Aborts a catalog mutation context by raising an exception to be handled on exit of current context."""
             raise self._CatalogMutationAbort()
 
-    def evolve(self, dry_run=False, consolidate=True):
+    def evolve(self, allow_alter=False, allow_drop=False, dry_run=False, consolidate=True):
         """Begins a catalog model evolution block.
 
         This should be called in a `with` statement block. At the end of the block, the pending changes will be
@@ -201,6 +203,8 @@ class AbstractCatalog (object):
             # at the end of the block, the pending operations (above) will be aborted.
         ```
 
+        :param allow_alter: if set to True, existing tables may be altered (default=False).
+        :param allow_drop: if set to True, existing tables may be deleted (default=False).
         :param dry_run: if set to True, the pending commits will be drained, debug output printed, but not committed.
         :param consolidate: if set to True, attempt to consolidate shared work between pending operations.
         :return: a catalog model mutation context object for use in 'with' statements
@@ -208,7 +212,7 @@ class AbstractCatalog (object):
         if self._evolve_ctx:  # TODO: make this thread safe
             raise CatalogMutationError('A catalog mutation context already exists.')
 
-        return self._CatalogMutationContextManager(self, dry_run, consolidate)
+        return self._CatalogMutationContextManager(self, allow_alter, allow_drop, dry_run, consolidate)
 
     @abc.abstractmethod
     def _materialize_relation(self, plan):
@@ -380,6 +384,15 @@ class Schema (object):
         # TODO: refactor this into a form of generalized projection
         raise NotImplementedError()
 
+    @valid_model_object
+    def _drop_table(self, table_name):
+        """Drops the table.
+
+        :param table_name: name of the table to be dropped.
+        """
+        with self.catalog.evolve(allow_drop=True):
+            self._tables._pending[table_name] = ComputedRelation(_op.Assign(_op.Nil(), self._name, table_name))
+
     def describe(self):
         """Returns a text (markdown) description."""
 
@@ -466,6 +479,10 @@ class TableCollection (collections.abc.MutableMapping):
         return self._tables.keys()
 
     @property
+    def valid(self):
+        return self._schema.valid
+
+    @property
     def pending(self):
         """List of 'pending' assignments to this schema."""
         return self._pending.values()
@@ -482,6 +499,7 @@ class TableCollection (collections.abc.MutableMapping):
     def __getitem__(self, item):
         return self._tables[item]
 
+    @valid_model_object
     def __setitem__(self, key, value):
         # for directly creating a table...
         if not self._schema.catalog._evolve_ctx:
@@ -516,14 +534,9 @@ class TableCollection (collections.abc.MutableMapping):
         assert self._tables[key] == self._pending[key]
         return newval
 
+    @valid_model_object
     def __delitem__(self, key):
-        """Deletes a table from the catalog.
-
-        Note that this operation must be performed in isolation. That is, it cannot be performed within a
-        catalog.evolve() block.
-        """
-        with self._schema.catalog.evolve():
-            self._pending[key] = ComputedRelation(_op.Assign(_op.Nil(), self._schema.name, key))
+        self._schema._drop_table(key)
 
     def __iter__(self):
         return iter(self._tables)
@@ -626,6 +639,11 @@ class Table (object):
             for column in self.columns.values():
                 column.valid = False
 
+    @property
+    def referenced_by(self):
+        return self._referenced_by
+
+    @property
     @abc.abstractmethod
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
@@ -663,6 +681,16 @@ class Table (object):
         """
         # TODO: refactor this into a form of generalized projection
         raise NotImplementedError()
+
+    @valid_model_object
+    def _drop_column(self, column_name):
+        """Drops a column of this relation.
+
+        :param column_name: the name of the column to be dropped.
+        """
+        column = self.columns[column_name]
+        with self.schema.catalog.evolve(allow_alter=True):
+            self.schema[self._name] = self.select(column.inv())
 
     def __getitem__(self, item):
         """Maps a column name to a column model object.
@@ -736,7 +764,7 @@ class Table (object):
 
         # add inbound edges
         head_name = tail_name
-        for reference in self.referenced_by:
+        for reference in self._referenced_by:
             tail_name = "%s.%s" % (reference.sname, reference.tname)
             if tail_name not in seen:
                 dot.node(tail_name, tail_name)
@@ -835,17 +863,22 @@ class ColumnCollection (collections.OrderedDict):
             super(ColumnCollection, self).__setitem__(item[0], item[1])
         self._table = table
 
+    @property
+    def valid(self):
+        return self._table.valid
+
+    @valid_model_object
     def __delitem__(self, key):
         # get handle to the column
         column = self[key]
-        # delete column from catalog model
-        with self._table.schema.catalog.evolve():
-            self._table.schema[self._table.name] = self._table.select(column.inv())
+        # drop column from catalog model
+        self._table._drop_column(key)
         # invalidate model object
         column.valid = False
         # delete from column collection
         super(ColumnCollection, self).__delitem__(key)
 
+    @valid_model_object
     def __setitem__(self, key, value):
         if not isinstance(value, collections.abc.Mapping):
             raise ValueError('value must be a mapping object')
@@ -1022,7 +1055,7 @@ class Column (object):
 
         :param new_name: new name for the column
         """
-        with self.table.schema.catalog.evolve():
+        with self.table.schema.catalog.evolve(allow_alter=True):
             projection = []
             for cname in self.table.columns:
                 if cname == self.name:
