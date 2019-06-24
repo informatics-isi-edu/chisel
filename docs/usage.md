@@ -78,7 +78,7 @@ import chisel
 catalog = chisel.connect(...)
 table = catalog['public'].tables['foo']
 column = table.columns['baz']
-column.name = 'zob'
+column.name = 'qux'
 ```
 
 ## Advanced usage
