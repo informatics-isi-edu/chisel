@@ -1,5 +1,6 @@
 """Core physical operators."""
 
+import abc
 import collections
 import logging
 from operator import itemgetter
@@ -37,9 +38,9 @@ class PhysicalOperator (collections.Iterable):
         else:
             return None
 
+    @abc.abstractmethod
     def __iter__(self):
         """Returns a generator function. Must be implemented by subclasses."""
-        pass
 
     @classmethod
     def _rename_row_attributes(cls, row, renames, always_copy=False):
@@ -92,6 +93,9 @@ class Metadata (PhysicalOperator):
     def __init__(self, description):
         super(Metadata, self).__init__()
         self._description = description
+
+    def __iter__(self):
+        raise NotImplementedError('The "Metadata" operator cannot be iterated.')
 
 
 class TempVarRef (PhysicalOperator):

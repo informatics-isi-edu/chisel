@@ -32,10 +32,18 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertTrue(self._catalog is not None)
         self.assertTrue(self.catalog_helper.exists(self.catalog_helper.samples))
 
+    def test_allow_alter_err(self):
+        with self.assertRaises(CatalogMutationError):
+            with self._catalog.evolve():
+                self._catalog['public'][self.catalog_helper.samples] = \
+                    self._catalog['public'][self.catalog_helper.samples].select(self.catalog_helper.FIELDS[1])
+
     def test_alter_columns_via_select_cname(self):
         old_table_obj = self._catalog['public'][self.catalog_helper.samples]
         projected_col_name = self.catalog_helper.FIELDS[1]
-        with self._catalog.evolve():
+
+        # evolve table
+        with self._catalog.evolve(allow_alter=True):
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
                 projected_col_name
@@ -68,7 +76,7 @@ class TestERMrestCatalog (BaseTestCase):
 
     def test_alter_columns_via_select_cols(self):
         projected_col_name = self.catalog_helper.FIELDS[1]
-        with self._catalog.evolve():
+        with self._catalog.evolve(allow_alter=True):
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
                 self._catalog['public'][self.catalog_helper.samples][projected_col_name]
@@ -91,7 +99,7 @@ class TestERMrestCatalog (BaseTestCase):
 
     def test_alter_drop_column_via_select(self):
         removed_col_name = self.catalog_helper.FIELDS[1]
-        with self._catalog.evolve():
+        with self._catalog.evolve(allow_alter=True):
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
                 ~self._catalog['public'][self.catalog_helper.samples][removed_col_name]
@@ -144,7 +152,7 @@ class TestERMrestCatalog (BaseTestCase):
         )
 
         # do the rename
-        with self._catalog.evolve():
+        with self._catalog.evolve(allow_alter=True):
             self._catalog['public'][self.catalog_helper.samples] =\
                 self._catalog['public'][self.catalog_helper.samples].select(
                 self._catalog['public'][self.catalog_helper.samples][projected_col_name].alias(projected_col_alias)
