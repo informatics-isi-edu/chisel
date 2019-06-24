@@ -5,7 +5,7 @@ from chisel.catalog.base import ComputedRelation, CatalogMutationError
 from chisel.operators.base import Alter
 from test.utils import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
-from chisel import builtin_types, Column, Table
+from chisel import data_types, Column, Table
 
 ermrest_hostname = os.getenv('CHISEL_TEST_ERMREST_HOST')
 ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
@@ -227,7 +227,7 @@ class TestERMrestCatalog (BaseTestCase):
     def test_alter_add_column(self):
         # define new column
         new_col_name = 'NEW COLUMN NAME'
-        col_def = Column.define(new_col_name, builtin_types['int8'])
+        col_def = Column.define(new_col_name, data_types['int8'])
         self._catalog['public'][self.catalog_helper.samples].columns[new_col_name] = col_def
 
         # validate the schema names

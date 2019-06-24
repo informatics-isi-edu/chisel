@@ -8,10 +8,11 @@ import logging
 import pprint as pp
 from graphviz import Digraph
 from deriva.core import ermrest_model as _em
-from deriva.core.ermrest_model import builtin_types
 from .. import optimizer as _op, operators, util
 
 logger = logging.getLogger(__name__)
+
+data_types = _em.builtin_types
 
 
 def valid_model_object(fn):
