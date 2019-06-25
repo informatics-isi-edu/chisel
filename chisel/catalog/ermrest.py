@@ -142,13 +142,14 @@ class ERMrestCatalog (base.AbstractCatalog):
         src_table = src_schema.tables[src_table_name]
         dst_schema.tables[dst_table_name] = src_table.select()  # requires that this be performed w/in evolve block
 
-    def _do_rename_table(self, schema_name, table_name, new_name):
+    def _do_move_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
         """Rename table in the catalog."""
-        schema = self.schemas[schema_name]
-        table = schema.tables[table_name]
+        src_schema = self.schemas[src_schema_name]
+        src_table = src_schema.tables[src_table_name]
+        dst_schema = self.schemas[dst_schema_name]
         with self.evolve():  # TODO: should refactor this so that it doesn't have to be performed in a evolve block
-            schema.tables[new_name] = table.select()
-        del schema.tables[table_name]
+            dst_schema.tables[dst_table_name] = src_table.select()
+        del src_schema.tables[src_table_name]
 
     def _do_alter_table_add_column(self, schema_name, table_name, column_doc):
         """Alter table Add column in the catalog"""
@@ -277,14 +278,19 @@ class ERMrestTable (base.Table):
         return optimizer.ERMrestExtant(self.schema.catalog, self.schema.name, self.name)
 
     @base.valid_model_object
-    def _rename(self, new_name):
-        """Internal implementation method for renaming the table."""
-        # TODO: do rename table should be refactored so that this can be done in an evolve block
-        self.schema.catalog._do_rename_table(self.schema.name, self.name, new_name)
+    def _move(self, dst_schema_name, dst_table_name):
+        """An internal method to 'move' a table either to rename it, change its schema, or both.
+
+        :param dst_schema_name: destination schema name, may be same
+        :param dst_table_name: destination table name, may be same
+        """
+        assert self.sname != dst_schema_name or self.name != dst_table_name
+        # TODO: should be refactored so that this can be done in an evolve block
+        self.schema.catalog._do_move_table(self.schema.name, self.name, dst_schema_name, dst_table_name)
         # repair local model state
         self.valid = False
         if self.name in self.schema.tables._backup:
-            del self.schema.tables._backup[self.name]
+            del self.schema.tables._backup[self.name]  # TODO: this is kludgy should revise
             self.schema.tables.reset()
 
     @base.valid_model_object
@@ -326,19 +332,22 @@ class DerivaCatalog (ERMrestCatalog):
         table = ERMrestTable(table_doc, schema=schema)
         schema.tables._backup[dst_table_name] = table  # TODO: this part is kludgy and needs to be revised
 
-    def _do_rename_table(self, schema_name, table_name, new_name):
+    def _do_move_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
-        deriva_schema = deriva_catalog.schema(schema_name)
-        deriva_table = deriva_schema.table(table_name)
+        deriva_schema = deriva_catalog.schema(src_schema_name)
+        deriva_table = deriva_schema.table(src_table_name)
         with self.evolve():  # TODO: should remove this guard when other rename function is refactored
-            deriva_table.move_table(schema_name, new_name)
+            deriva_table.move_table(dst_schema_name, dst_table_name)
 
         #  repair local model state
         model_doc = self.ermrest_catalog.getCatalogSchema()
-        table_doc = model_doc['schemas'][schema_name]['tables'][new_name]
-        schema = self.schemas[schema_name]
-        table = ERMrestTable(table_doc, schema=schema)
-        schema.tables._backup[new_name] = table  # TODO: this part is kludgy and needs to be revised
+        table_doc = model_doc['schemas'][dst_schema_name]['tables'][dst_table_name]
+        dst_schema = self.schemas[dst_schema_name]
+        table = ERMrestTable(table_doc, schema=dst_schema)
+        dst_schema.tables._backup[dst_table_name] = table  # TODO: this part is kludgy and needs to be revised
+        src_schema = self.schemas[src_schema_name]
+        del src_schema.tables._backup[src_table_name]  # TODO: this is kludgy should revise
+        src_schema.tables.reset()
 
     def _do_alter_table(self, schema_name, table_name, projection):
         """Alter table (general) in the catalog."""
