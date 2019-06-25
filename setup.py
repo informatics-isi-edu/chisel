@@ -18,6 +18,7 @@ setup(
     test_suite='tests',
     requires=[
         'deriva',
+        'deriva-catalog-manage',
         'graphviz',
         'nltk',
         'pyfpm',

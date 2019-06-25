@@ -340,3 +340,18 @@ class TestERMrestCatalog (BaseTestCase):
         # validate new table is in ermrest
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
         self.assertIn(cname, ermrest_schema['schemas']['public']['tables'])
+
+
+@unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined. Set "CHISEL_TEST_ERMREST_HOST" to enable test.')
+class TestDerivaCatalog (TestERMrestCatalog):
+
+    catalog_helper = ERMrestHelper(
+        ermrest_hostname, ermrest_catalog_id,
+        unit_table_names=[
+            'list_of_closest_genes',
+            TestERMrestCatalog._samples_copy_tname,
+            TestERMrestCatalog._samples_renamed_tname,
+            TestERMrestCatalog._test_create_table_tname
+        ],
+        use_deriva_catalog_manage=True
+    )

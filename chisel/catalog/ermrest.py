@@ -3,6 +3,7 @@
 import logging
 from deriva import core as _deriva_core
 from deriva.core import ermrest_model as _em
+from deriva.utils.catalog.components import deriva_model as _dm
 from .. import optimizer
 from .. import operators
 from .. import util
@@ -11,18 +12,22 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def connect(url, credentials=None):
+def connect(url, credentials=None, use_deriva_catalog_manage=False):
     """Connect to an ERMrest data source.
 
     :param url: connection string url
     :param credentials: user credentials
+    :param use_deriva_catalog_manage: flag to use deriva catalog manage implementation rather than deriva core
     :return: catalog for data source
     """
     parsed_url = util.urlparse(url)
     if not credentials:
         credentials = _deriva_core.get_credential(parsed_url.netloc)
     ec = _deriva_core.ErmrestCatalog(parsed_url.scheme, parsed_url.netloc, parsed_url.path.split('/')[-1], credentials)
-    return ERMrestCatalog(ec)
+    if use_deriva_catalog_manage:
+        return DerivaCatalog(ec)
+    else:
+        return ERMrestCatalog(ec)
 
 
 class ERMrestCatalog (base.AbstractCatalog):
@@ -53,58 +58,61 @@ class ERMrestCatalog (base.AbstractCatalog):
                 raise base.CatalogMutationError('"allow_alter" flag is not True')
 
             altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
-            model = self.ermrest_catalog.getCatalogModel()
-            schema = model.schemas[altered_schema_name]
-            table = schema.tables[altered_table_name]
-            original_columns = {c.name:c for c in table.column_definitions}
+            self._materialize_alter_table(plan)
 
-            # Notes: currently, there are two distinct scenarios in a projection,
-            #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
-            #     aliased columns from the original columns. Also, columns may be aliased more than once.
-            #  2) 'special' case for deletes only: as a syntactic sugar, many formulations of project support the
-            #     notation of "-foo,-bar,..." meaning that the operator will project all _except_ those '-name' columns.
-            #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
-            #     symbols.
-
-            if plan.projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
-                logger.debug("Dropping columns that were explicitly removed.")
-                for removal in plan.projection[1:]:
-                    assert isinstance(removal, optimizer.AttributeRemoval)
-                    logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
-                    original_columns[removal.name].delete(self.ermrest_catalog)
-
-            else:  # 'general' case
-
-                # step 1: copy aliased columns, and record nonaliased column names
-                logger.debug("Copying 'aliased' columns in the projection")
-                nonaliased_column_names = set()
-                for projected in plan.projection:
-                    if isinstance(projected, optimizer.AttributeAlias):
-                        original_column = original_columns[projected.name]
-                        # 1.a: clone the column
-                        cloned_def = original_column.prejson()
-                        cloned_def['name'] = projected.alias
-                        table.create_column(self.ermrest_catalog, cloned_def)
-                        # 1.b: get the datapath table for column
-                        pb = self.ermrest_catalog.getPathBuilder()
-                        dp_table = pb.schemas[table.sname].tables[table.name]
-                        # 1.c: read the RID,column values
-                        data = dp_table.attributes(
-                            dp_table.column_definitions['RID'],
-                            **{projected.alias: dp_table.column_definitions[projected.name]}
-                        )
-                        # 1.d: write the RID,alias values
-                        dp_table.update(data)
-                    else:
-                        assert isinstance(projected, str)
-                        nonaliased_column_names.add(projected)
-
-                # step 2: remove columns that were not projected
-                logger.debug("Dropping columns not in the projection.")
-                for column in original_columns.values():
-                    if column.name not in nonaliased_column_names | self.syscols:
-                        logger.debug("Deleting column '{cname}'.".format(cname=column.name))
-                        column.delete(self.ermrest_catalog)
+            # TODO: remove this
+            # model = self.ermrest_catalog.getCatalogModel()
+            # schema = model.schemas[altered_schema_name]
+            # table = schema.tables[altered_table_name]
+            # original_columns = {c.name: c for c in table.column_definitions}
+            #
+            # # Notes: currently, there are two distinct scenarios in a projection,
+            # #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
+            # #     aliased columns from the original columns. Also, columns may be aliased more than once.
+            # #  2) 'special' case for deletes only: as a syntactic sugar, many formulations of project support the
+            # #     notation of "-foo,-bar,..." meaning that the operator will project all _except_ those '-name' columns.
+            # #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
+            # #     symbols.
+            #
+            # if plan.projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
+            #     logger.debug("Dropping columns that were explicitly removed.")
+            #     for removal in plan.projection[1:]:
+            #         assert isinstance(removal, optimizer.AttributeRemoval)
+            #         logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
+            #         original_columns[removal.name].delete(self.ermrest_catalog)
+            #
+            # else:  # 'general' case
+            #
+            #     # step 1: copy aliased columns, and record nonaliased column names
+            #     logger.debug("Copying 'aliased' columns in the projection")
+            #     nonaliased_column_names = set()
+            #     for projected in plan.projection:
+            #         if isinstance(projected, optimizer.AttributeAlias):
+            #             original_column = original_columns[projected.name]
+            #             # 1.a: clone the column
+            #             cloned_def = original_column.prejson()
+            #             cloned_def['name'] = projected.alias
+            #             table.create_column(self.ermrest_catalog, cloned_def)
+            #             # 1.b: get the datapath table for column
+            #             pb = self.ermrest_catalog.getPathBuilder()
+            #             dp_table = pb.schemas[table.sname].tables[table.name]
+            #             # 1.c: read the RID,column values
+            #             data = dp_table.attributes(
+            #                 dp_table.column_definitions['RID'],
+            #                 **{projected.alias: dp_table.column_definitions[projected.name]}
+            #             )
+            #             # 1.d: write the RID,alias values
+            #             dp_table.update(data)
+            #         else:
+            #             assert isinstance(projected, str)
+            #             nonaliased_column_names.add(projected)
+            #
+            #     # step 2: remove columns that were not projected
+            #     logger.debug("Dropping columns not in the projection.")
+            #     for column in original_columns.values():
+            #         if column.name not in nonaliased_column_names | self.syscols:
+            #             logger.debug("Deleting column '{cname}'.".format(cname=column.name))
+            #             column.delete(self.ermrest_catalog)
 
             # Note: repair the model following the alter table
             #  invalidate the altered table model object
@@ -127,11 +135,13 @@ class ERMrestCatalog (base.AbstractCatalog):
 
             dropped_schema_name, dropped_table_name = plan.description['schema_name'], plan.description['table_name']
 
-            # Delete table from the ermrest catalog
-            model = self.ermrest_catalog.getCatalogModel()
-            schema = model.schemas[dropped_schema_name]
-            table = schema.tables[dropped_table_name]
-            table.delete(self.ermrest_catalog)
+            self._materialize_drop_table(dropped_schema_name, dropped_table_name)
+            # TODO: remove this
+            # # Delete table from the ermrest catalog
+            # model = self.ermrest_catalog.getCatalogModel()
+            # schema = model.schemas[dropped_schema_name]
+            # table = schema.tables[dropped_table_name]
+            # table.delete(self.ermrest_catalog)
 
             # Note: repair the model following the drop table
             #  invalidate the dropped table model object
@@ -149,7 +159,7 @@ class ERMrestCatalog (base.AbstractCatalog):
 
             # Redefine table from plan description (allows us to provide system columns)
             desc = plan.description
-            tab_def = _em.Table.define(
+            table_doc = _em.Table.define(
                 desc['table_name'],
                 column_defs=desc['column_definitions'],
                 key_defs=desc['keys'],
@@ -164,29 +174,101 @@ class ERMrestCatalog (base.AbstractCatalog):
             # Create table
             # TODO: it should be possible to only refresh the model and paths each evolve context since destructive
             #  operations must be performed in isolation
-            schema = self.ermrest_catalog.getCatalogModel().schemas[plan.description['schema_name']]
-            schema.create_table(self.ermrest_catalog, tab_def)
-            paths = self.ermrest_catalog.getPathBuilder()
-            new_table = paths.schemas[schema.name].tables[plan.description['table_name']]
 
-            # Determine the nondefaults for the insert
+            self._materialize_create_table(plan.description['schema_name'], table_doc)
+            # TODO: remove this
+            # schema = self.ermrest_catalog.getCatalogModel().schemas[plan.description['schema_name']]
+            # schema.create_table(self.ermrest_catalog, tab_def)
+
+            # Insert tuple in new table
+            paths = self.ermrest_catalog.getPathBuilder()
+            new_table = paths.schemas[assigned_schema_name].tables[assigned_table_name]
+            # ...Determine the nondefaults for the insert
             new_table_cnames = set([col['name'] for col in desc['column_definitions']])
             nondefaults = {'RID', 'RCB', 'RCT'} & new_table_cnames
-            # Insert data
             new_table.insert(plan, nondefaults=nondefaults)
 
             # Repair catalog model
-            #  introspect the schema on the revised table
+            #  ...introspect the schema on the revised table
             model_doc = self.ermrest_catalog.getCatalogSchema()
             table_doc = model_doc['schemas'][assigned_schema_name]['tables'][assigned_table_name]
-            table = ERMrestTable(table_doc, schema=schema)
-            # TODO: this part is kludgy and needs to be revised
             schema = self.schemas[assigned_schema_name]
+            table = schema._new_table_instance(table_doc)
+            # TODO: this part is kludgy and needs to be revised
             schema.tables._backup[assigned_table_name] = table
             # TODO: refresh the referenced_by of the catalog
 
         else:
             raise ValueError('Plan cannot be materialized.')
+
+    def _materialize_create_table(self, schema_name, table_doc):
+        """Create table in the catalog."""
+        schema = self.ermrest_catalog.getCatalogModel().schemas[schema_name]
+        schema.create_table(self.ermrest_catalog, table_doc)
+
+    def _materialize_alter_table(self, plan):
+        """Alter table in the catalog."""
+        altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
+        model = self.ermrest_catalog.getCatalogModel()
+        schema = model.schemas[altered_schema_name]
+        table = schema.tables[altered_table_name]
+        original_columns = {c.name: c for c in table.column_definitions}
+
+        # Notes: currently, there are two distinct scenarios in a projection,
+        #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
+        #     aliased columns from the original columns. Also, columns may be aliased more than once.
+        #  2) 'special' case for deletes only: as a syntactic sugar, many formulations of project support the
+        #     notation of "-foo,-bar,..." meaning that the operator will project all _except_ those '-name' columns.
+        #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
+        #     symbols.
+
+        if plan.projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
+            logger.debug("Dropping columns that were explicitly removed.")
+            for removal in plan.projection[1:]:
+                assert isinstance(removal, optimizer.AttributeRemoval)
+                logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
+                original_columns[removal.name].delete(self.ermrest_catalog)
+
+        else:  # 'general' case
+
+            # step 1: copy aliased columns, and record nonaliased column names
+            logger.debug("Copying 'aliased' columns in the projection")
+            nonaliased_column_names = set()
+            for projected in plan.projection:
+                if isinstance(projected, optimizer.AttributeAlias):
+                    original_column = original_columns[projected.name]
+                    # 1.a: clone the column
+                    cloned_def = original_column.prejson()
+                    cloned_def['name'] = projected.alias
+                    table.create_column(self.ermrest_catalog, cloned_def)
+                    # 1.b: get the datapath table for column
+                    pb = self.ermrest_catalog.getPathBuilder()
+                    dp_table = pb.schemas[table.sname].tables[table.name]
+                    # 1.c: read the RID,column values
+                    data = dp_table.attributes(
+                        dp_table.column_definitions['RID'],
+                        **{projected.alias: dp_table.column_definitions[projected.name]}
+                    )
+                    # 1.d: write the RID,alias values
+                    dp_table.update(data)
+                else:
+                    assert isinstance(projected, str)
+                    nonaliased_column_names.add(projected)
+
+            # step 2: remove columns that were not projected
+            logger.debug("Dropping columns not in the projection.")
+            for column in original_columns.values():
+                if column.name not in nonaliased_column_names | self.syscols:
+                    logger.debug("Deleting column '{cname}'.".format(cname=column.name))
+                    column.delete(self.ermrest_catalog)
+
+    def _materialize_drop_table(self, schema_name, table_name):
+        """Drop table in the catalog."""
+        # Delete table from the ermrest catalog
+        model = self.ermrest_catalog.getCatalogModel()
+        schema = model.schemas[schema_name]
+        table = schema.tables[table_name]
+        table.delete(self.ermrest_catalog)
 
     def _determine_model_changes(self, computed_relation):
         """Determines the model changes to be produced by this computed relation."""
@@ -248,3 +330,29 @@ class ERMrestTable (base.Table):
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
         return optimizer.ERMrestExtant(self.schema.catalog, self.schema.name, self.name)
+
+
+class DerivaCatalog (ERMrestCatalog):
+    """ERMrest catalog with implementation using the deriva-catalog-manage package."""
+
+    def _materialize_create_table(self, schema_name, table_doc):
+        deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
+        deriva_schema = deriva_catalog.schema(schema_name)
+
+        # TODO: convert definition; this is just enough to pass a basic test
+        deriva_schema.create_table(
+            table_doc['table_name'],
+            column_defs=[_dm.DerivaColumn.define(col['name'], col['type']['typename'], nullok=col['nullok']) for col in table_doc['column_definitions']],
+            key_defs=[],  # TODO: convert -> table_doc['keys'],
+            fkey_defs=[],  # TODO: convert -> table_doc['foreign_keys'],
+            comment=table_doc['comment'],
+            acls=table_doc.get('acls', {}),
+            acl_bindings=table_doc.get('acl_bindings', {}),
+            annotations=table_doc.get('annotations', {})
+        )
+
+    def _materialize_drop_table(self, schema_name, table_name):
+        deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
+        deriva_schema = deriva_catalog.schema(schema_name)
+        deriva_table = deriva_schema.table(table_name)
+        deriva_table.delete()
