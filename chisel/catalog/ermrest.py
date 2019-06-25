@@ -58,7 +58,7 @@ class ERMrestCatalog (base.AbstractCatalog):
                 raise base.CatalogMutationError('"allow_alter" flag is not True')
 
             altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
-            self._materialize_alter_table(plan)
+            self._do_alter_table(plan)
 
             # TODO: remove this
             # model = self.ermrest_catalog.getCatalogModel()
@@ -135,7 +135,7 @@ class ERMrestCatalog (base.AbstractCatalog):
 
             dropped_schema_name, dropped_table_name = plan.description['schema_name'], plan.description['table_name']
 
-            self._materialize_drop_table(dropped_schema_name, dropped_table_name)
+            self._do_drop_table(dropped_schema_name, dropped_table_name)
             # TODO: remove this
             # # Delete table from the ermrest catalog
             # model = self.ermrest_catalog.getCatalogModel()
@@ -175,7 +175,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             # TODO: it should be possible to only refresh the model and paths each evolve context since destructive
             #  operations must be performed in isolation
 
-            self._materialize_create_table(plan.description['schema_name'], table_doc)
+            self._do_create_table(plan.description['schema_name'], table_doc)
             # TODO: remove this
             # schema = self.ermrest_catalog.getCatalogModel().schemas[plan.description['schema_name']]
             # schema.create_table(self.ermrest_catalog, tab_def)
@@ -201,13 +201,20 @@ class ERMrestCatalog (base.AbstractCatalog):
         else:
             raise ValueError('Plan cannot be materialized.')
 
-    def _materialize_create_table(self, schema_name, table_doc):
+    def _do_create_table(self, schema_name, table_doc):
         """Create table in the catalog."""
         schema = self.ermrest_catalog.getCatalogModel().schemas[schema_name]
         schema.create_table(self.ermrest_catalog, table_doc)
 
-    def _materialize_alter_table(self, plan):
-        """Alter table in the catalog."""
+    def _do_alter_table_add_column(self, schema_name, table_name, column_doc):
+        """Alter table Add column in the catalog"""
+        model = self.ermrest_catalog.getCatalogModel()
+        ermrest_table = model.schemas[schema_name].tables[table_name]
+        ermrest_table.create_column(self.ermrest_catalog, column_doc)
+
+    def _do_alter_table(self, plan):
+        """Alter table (general) in the catalog."""
+        # TODO: refactor this to take: schema_name, table_name, projection
         altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
         model = self.ermrest_catalog.getCatalogModel()
         schema = model.schemas[altered_schema_name]
@@ -262,7 +269,7 @@ class ERMrestCatalog (base.AbstractCatalog):
                     logger.debug("Deleting column '{cname}'.".format(cname=column.name))
                     column.delete(self.ermrest_catalog)
 
-    def _materialize_drop_table(self, schema_name, table_name):
+    def _do_drop_table(self, schema_name, table_name):
         """Drop table in the catalog."""
         # Delete table from the ermrest catalog
         model = self.ermrest_catalog.getCatalogModel()
@@ -321,9 +328,7 @@ class ERMrestTable (base.Table):
     def _add_column(self, column_doc):
         """ERMrest specific implementation of add column function."""
         with self.schema.catalog.evolve():
-            model = self.schema.catalog.ermrest_catalog.getCatalogModel()
-            ermrest_table = model.schemas[self.schema.name].tables[self.name]
-            ermrest_table.create_column(self.schema.catalog.ermrest_catalog, column_doc)
+            self.schema.catalog._do_alter_table_add_column(self.schema.name, self.name, column_doc)
             return self._new_column_instance(column_doc)
 
     @property
@@ -335,7 +340,7 @@ class ERMrestTable (base.Table):
 class DerivaCatalog (ERMrestCatalog):
     """ERMrest catalog with implementation using the deriva-catalog-manage package."""
 
-    def _materialize_create_table(self, schema_name, table_doc):
+    def _do_create_table(self, schema_name, table_doc):
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
         deriva_schema = deriva_catalog.schema(schema_name)
 
@@ -351,7 +356,14 @@ class DerivaCatalog (ERMrestCatalog):
             annotations=table_doc.get('annotations', {})
         )
 
-    def _materialize_drop_table(self, schema_name, table_name):
+    def _do_alter_table_add_column(self, schema_name, table_name, column_doc):
+        """Alter table Add column in the catalog"""
+        deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
+        deriva_table = deriva_catalog.schema(schema_name).table(table_name)
+        deriva_table.create_columns(  # TODO: do the conversion
+            _dm.DerivaColumn.define(column_doc['name'], column_doc['type']['typename'], nullok=column_doc['nullok']))
+
+    def _do_drop_table(self, schema_name, table_name):
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
         deriva_schema = deriva_catalog.schema(schema_name)
         deriva_table = deriva_schema.table(table_name)
