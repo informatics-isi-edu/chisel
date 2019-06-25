@@ -46,6 +46,22 @@ This installation method gets a copy of the source and then installs it.
     Run with `sudo` and without `--user` for a system-wide install.
 4. See examples in the `./examples` directory.
 
+### Testing
+
+The package includes unit tests. They may be run without any configuration, 
+however, certain test cases and suites will be skipped without the following
+environment variables defined.
+
+* `CHISEL_TEST_ERMREST_HOST`
+  To run the ERMrest catalog test suite, set this variable to the hostname of
+  a server running an ERMrest service. You will also need to establish valid
+  user credentials (e.g., by using the Deriva-Auth client).
+* `CHISEL_TEST_ERMREST_CATALOG`
+  In addition, set this variable to reuse a catalog. This variable is typically
+  only used during development activities that would motivate frequently
+  repeated test runs.
+
+
 ## Usage
 
 ### Connect to a data source
@@ -62,6 +78,17 @@ import chisel
 
 # Connect to a data source
 catalog = chisel.connect('https://example.org/ermrest/catalog/1')
+```
+
+To use the `deriva-catalog-manage` implementation of the chisel catalog, pass 
+the `use_deriva_catalog_manage=True` parameter in the connect call.
+
+```python
+import chisel
+
+# Connect to a Deriva catalog and use the deriva-catalog-manage package
+catalog = chisel.connect(
+    'https://example.org/ermrest/catalog/1', use_deriva_catalog_manage=True)
 ```
 
 ### Reference a table in the catalog
