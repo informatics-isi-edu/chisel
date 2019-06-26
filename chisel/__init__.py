@@ -13,4 +13,4 @@ example:
 from .catalog import connect, shred, CatalogMutationError, data_types, Schema, Table, Column
 from .catalog.semistructured import csv_reader, json_reader
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
