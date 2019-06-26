@@ -16,18 +16,14 @@ setup(
     packages=find_packages(),
     package_data={},
     test_suite='tests',
-    requires=[
-        'deriva',
+    install_requires=[
         'deriva-catalog-manage',
+        'deriva',
         'graphviz',
         'nltk',
         'pyfpm',
         'pyparsing',
-        'rdflib',
-        'requests'
-    ],
-    install_requires=[
-        'setuptools'
+        'rdflib'
     ],
     license='Apache 2.0',
     classifiers=[
