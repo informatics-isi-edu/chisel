@@ -825,7 +825,7 @@ class Table (object):
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
 
     @valid_model_object
-    def filter(self, formula):
+    def where(self, formula):
         """Filters this relation according to the given formula.
 
         :param formula: a comparison
