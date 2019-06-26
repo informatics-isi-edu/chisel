@@ -6,7 +6,7 @@ from .semistructured import connect as _semistructured_connect
 from .base import CatalogMutationError, data_types, Schema, Table, Column
 
 
-def connect(url, credentials=None):
+def connect(url, credentials=None, **kwargs):
     """Connect to a data source.
 
     The `connect` function will attempt to connect to the remote or local data
@@ -39,9 +39,9 @@ def connect(url, credentials=None):
     :return: catalog for data source
     """
     if url.startswith('http'):
-        return _ermrest_connect(url, credentials)
+        return _ermrest_connect(url, credentials, **kwargs)
     else:
-        return _semistructured_connect(url, credentials)
+        return _semistructured_connect(url, credentials, **kwargs)
 
 
 def shred(graph, expression):

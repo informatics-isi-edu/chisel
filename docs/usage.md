@@ -41,7 +41,7 @@ table.name = 'bar'
 import chisel
 catalog = chisel.connect(...)
 table = catalog['public'].tables['foo']
-catalog['public'].tables['bar'] = table.select()
+table.copy('new talbe name', schema_name='optional new schema name')
 ```
 
 ### Move a table to a different schema
@@ -104,8 +104,16 @@ and the catalog model will be restored to its original state.
 
 In order to guard against accidental table alteration or destruction, the 
 `evolve` method accepts `allow_alter` and `allow_drop` Boolean parameters. 
-Unless these parameters are set, the evolve block may not cause an existing
-table to be altered or deleted, respectively.
+By default, these parameters are `False` and the evolve block will prevent
+table alter or drop operations, respectively.
+
+### Basic versus advanced operations
+
+A key difference between the basic and advanced operations is that the basic
+operations are performed in isolation. They cannot be called within an evolve
+context block. Internally, the basic (DDL like) operations will setup an 
+evolve block and set the appropriate flags to allow alter and drop operations
+to succeed.
 
 ### Create table as domain from existing column
 

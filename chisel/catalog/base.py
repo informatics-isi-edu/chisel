@@ -579,15 +579,25 @@ class Table (object):
 
     @name.setter
     def name(self, value):
-        self._rename(value)
+        if self.name == value:
+            raise ValueError('The table is already named "%s"' % value)
+        self._move(self.sname, value)
 
     @valid_model_object
-    def _rename(self, new_name):
-        """Internal implementation method for renaming the table."""
+    def _move(self, dst_schema_name, dst_table_name):
+        """An internal method to 'move' a table either to rename it, change its schema, or both.
+
+        :param dst_schema_name: destination schema name, may be same
+        :param dst_table_name: destination table name, may be same
+        """
+        assert self.sname != dst_schema_name or self.name != dst_table_name
+        catalog = self.schema.catalog
         with self.schema.catalog.evolve():
-            self.schema[new_name] = self.select()
-        del self.schema.tables[self.name]
-        # TODO: _could_ repair the model here
+            # copy table to destination
+            catalog.schemas[dst_schema_name].tables[dst_table_name] = self.select()
+        # drop table from origin
+        del catalog.schemas[self.sname].tables[self.name]
+        self.valid = False  # TODO: could attempt to repair this table object
 
     @property
     def comment(self):
@@ -599,15 +609,9 @@ class Table (object):
 
     @sname.setter
     def sname(self, value):
-        self._set_schema(value)
-
-    @valid_model_object
-    def _set_schema(self, new_sname):
-        """Internal implementation method for setting the schema."""
-        with self.schema.catalog.evolve():
-            self.schema.catalog[new_sname][self.name] = self.select()
-        del self.schema.tables[self.name]
-        # TODO: _could_ repair the model here
+        if self.sname == value:
+            raise ValueError('The schema is already set to "%s"' % value)
+        self._move(value, self.name)
 
     @property
     def kind(self):
@@ -774,6 +778,21 @@ class Table (object):
         return dot
 
     @valid_model_object
+    def copy(self, table_name, schema_name=None):
+        """Makes a copy of this table.
+
+        This operation must be performed in isolation of other evolve operations. It will setup the evolve block
+        internally.
+
+        :param table_name: the table copy will be given this name
+        :param schema_name: the table copy will be created in this schema; if None, then it will be copied to the same
+                            schema as this table.
+        """
+        schema = self.schema.catalog.schemas[schema_name] if schema_name else self.schema
+        with schema.catalog.evolve():
+            schema.tables[table_name] = self.select()
+
+    @valid_model_object
     def select(self, *columns):
         """Selects this relation and projects the columns.
 
@@ -806,7 +825,7 @@ class Table (object):
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
 
     @valid_model_object
-    def filter(self, formula):
+    def where(self, formula):
         """Filters this relation according to the given formula.
 
         :param formula: a comparison

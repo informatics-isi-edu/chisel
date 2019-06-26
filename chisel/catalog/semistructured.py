@@ -13,7 +13,7 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def connect(url, credentials=None):
+def connect(url, credentials=None, **kwargs):
     """Connect to a local, semi-structured (i.e., CSV, JSON) data source.
 
     :param url: connection string url

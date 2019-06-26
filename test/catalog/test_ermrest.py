@@ -266,7 +266,7 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertNotIn(self.catalog_helper.samples, self._catalog['public'].tables,
                          'Table "%s" found in local catalog model' % self.catalog_helper.samples)
 
-    def test_copy_table(self):
+    def test_copy_table_as_select(self):
         # keep handle to table model object
         original_table = self._catalog['public'].tables[self.catalog_helper.samples]
         new_table_name = self._samples_copy_tname
@@ -274,6 +274,28 @@ class TestERMrestCatalog (BaseTestCase):
         # copy the table
         with self._catalog.evolve():
             self._catalog['public'][new_table_name] = original_table.select()
+
+        # validate that original and copy are in the catalog
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        self.assertIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'],
+                      'Table "%s" not found in ermrest catalog schema' % self.catalog_helper.samples)
+        self.assertIn(new_table_name, ermrest_schema['schemas']['public']['tables'],
+                      'Table "%s" not found in ermrest catalog schema' % new_table_name)
+
+        # model objects should be valid
+        self.assertTrue(original_table.valid, 'Table object not valid')
+        self.assertIn(self.catalog_helper.samples, self._catalog['public'].tables,
+                      'Table "%s" found in local catalog model' % self.catalog_helper.samples)
+        self.assertIn(new_table_name, self._catalog['public'].tables,
+                      'Table "%s" not found in local catalog model' % new_table_name)
+
+    def test_copy_table(self):
+        # keep handle to table model object
+        original_table = self._catalog['public'].tables[self.catalog_helper.samples]
+        new_table_name = self._samples_copy_tname
+
+        # copy the table
+        original_table.copy(new_table_name, schema_name='public')
 
         # validate that original and copy are in the catalog
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -340,3 +362,18 @@ class TestERMrestCatalog (BaseTestCase):
         # validate new table is in ermrest
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
         self.assertIn(cname, ermrest_schema['schemas']['public']['tables'])
+
+
+@unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined. Set "CHISEL_TEST_ERMREST_HOST" to enable test.')
+class TestDerivaCatalog (TestERMrestCatalog):
+
+    catalog_helper = ERMrestHelper(
+        ermrest_hostname, ermrest_catalog_id,
+        unit_table_names=[
+            'list_of_closest_genes',
+            TestERMrestCatalog._samples_copy_tname,
+            TestERMrestCatalog._samples_renamed_tname,
+            TestERMrestCatalog._test_create_table_tname
+        ],
+        use_deriva_catalog_manage=True
+    )
