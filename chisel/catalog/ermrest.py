@@ -1,5 +1,6 @@
 """Catalog model for remote ERMrest catalog services."""
 
+import collections
 import logging
 from deriva import core as _deriva_core
 from deriva.core import ermrest_model as _em
@@ -307,12 +308,11 @@ class DerivaCatalog (ERMrestCatalog):
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
         deriva_schema = deriva_catalog.schema(schema_name)
 
-        # TODO: convert definition; this is just enough to pass a basic test
         deriva_schema.create_table(
             table_doc['table_name'],
-            column_defs=[_dm.DerivaColumn.define(col['name'], col['type']['typename'], nullok=col['nullok']) for col in table_doc['column_definitions']],
-            key_defs=[],  # TODO: convert -> table_doc['keys'],
-            fkey_defs=[],  # TODO: convert -> table_doc['foreign_keys'],
+            column_defs=[self._deriva_column_from_column_doc(col_doc) for col_doc in table_doc['column_definitions']],
+            key_defs=[self._deriva_key_from_key_doc(key_doc) for key_doc in table_doc['keys']],
+            fkey_defs=[self._deriva_foreign_key_from_foreign_key_doc(fkey_doc) for fkey_doc in table_doc['foreign_keys']],
             comment=table_doc['comment'],
             acls=table_doc.get('acls', {}),
             acl_bindings=table_doc.get('acl_bindings', {}),
@@ -411,11 +411,53 @@ class DerivaCatalog (ERMrestCatalog):
         """Alter table Add column in the catalog"""
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
         deriva_table = deriva_catalog.schema(schema_name).table(table_name)
-        deriva_table.create_columns(  # TODO: do the conversion more completely
-            _dm.DerivaColumn.define(column_doc['name'], column_doc['type']['typename'], nullok=column_doc['nullok']))
+        deriva_table.create_columns(self._deriva_column_from_column_doc(column_doc))
 
     def _do_drop_table(self, schema_name, table_name):
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
         deriva_schema = deriva_catalog.schema(schema_name)
         deriva_table = deriva_schema.table(table_name)
         deriva_table.delete()
+
+    @classmethod
+    def _deriva_column_from_column_doc(cls, column_doc):
+        """Converts a column doc into a DerivaColumn object."""
+        return _dm.DerivaColumn.define(
+            column_doc['name'],
+            column_doc['type']['typename'],
+            nullok=column_doc['nullok'],
+            default=column_doc['default'],
+            acls=column_doc['acls'],
+            acl_bindings=column_doc['acl_bindings'],
+            annotations=column_doc['annotations']
+        )
+
+    @classmethod
+    def _deriva_key_from_key_doc(cls, key_doc):
+        """Converts a key doc into a DerivaKey object."""
+        return _dm.DerivaKey(
+            None,
+            key_doc['unique_columns'],
+            name=tuple(key_doc['names'][0]) if len(key_doc['names']) > 0 else None,
+            comment=key_doc['comment'],
+            annotations=key_doc['annotations'],
+            define=True
+        )
+
+    _DerivaTablePrototype = collections.namedtuple('DerivaTablePrototype', ['schema_name', 'name'])
+
+    @classmethod
+    def _deriva_foreign_key_from_foreign_key_doc(cls, fkey_doc):
+        dest_table = cls._DerivaTablePrototype(fkey_doc['referenced_columns'][0][0], fkey_doc['referenced_columns'][0][1])
+        return _dm.DerivaForeignKey.define(
+            [fkey_col[2] for fkey_col in fkey_doc['foreign_key_columns']],
+            dest_table,  # destination table
+            [fkey_col[2] for fkey_col in fkey_doc['referenced_columns']],  # destination column names
+            name=fkey_doc['names'][0][1] if len(fkey_doc['names']) > 0 else None,
+            comment=fkey_doc.get('comment', None),
+            on_update=fkey_doc.get('on_update', 'NO ACTION'),
+            on_delete=fkey_doc.get('on_delete', 'NO ACTION'),
+            acls=fkey_doc('acls', {}),
+            acl_bindings=fkey_doc('acl_bindings', {}),
+            annotations=fkey_doc('annotations', {})
+        )
