@@ -566,7 +566,20 @@ class Table (object):
 
     @classmethod
     def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}):
-        """Build a table definition."""
+        """Define a table.
+
+        Currently, this is a thin wrapper on `deriva.core.ermrest_model.Table.define`.
+
+        :param tname: table name string
+        :param column_defs: optional list of column definitions returned by `Column.define()`
+        :param key_defs: optional list of key definitions returned by `Key.define()`
+        :param fkey_defs: optional list of foreign key definitions returned by `ForeignKey.define()`
+        :param comment: optional comment string
+        :param acls: optional dictionary of Access Control Lists
+        :param acl_bindings: optional dictionary of Access Control List bindings
+        :param annotations: optional dictionary of model annotations
+        :return: a table definition dictionary
+        """
         return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls={}, acl_bindings=acl_bindings, annotations=annotations, provide_system=False)
 
     @property
@@ -975,7 +988,20 @@ class Column (object):
 
     @classmethod
     def define(cls, cname, ctype, nullok=True, default=None, comment=None, acls={}, acl_bindings={}, annotations={}):
-        """Build a column definition."""
+        """Define a column.
+
+        Currently, this is a thin wrapper over `deriva.core.ermrest_model.Column.define`.
+
+        :param cname: column name string
+        :param ctype: column type object from `chisel.data_types`
+        :param nullok: optional NULL OK boolean flag (default: `True`)
+        :param default: optional "default" literal value of same time as `ctype` (default: `None`)
+        :param comment: optional comment string
+        :param acls: optional dictionary of Access Control Lists
+        :param acl_bindings: optional dictionary of Access Control List bindings
+        :param annotations: optional dictionary of model annotations
+        :return: a column definition dictionary
+        """
         return _em.Column.define(cname, ctype, nullok, default, comment, acls, acl_bindings, annotations)
 
     def __hash__(self):
