@@ -12,6 +12,7 @@ from .. import optimizer as _op, operators, util
 
 logger = logging.getLogger(__name__)
 
+"""Chisel data types, based on deriva.core.ermrest_model.builtin_types."""
 data_types = _em.builtin_types
 
 
@@ -566,7 +567,20 @@ class Table (object):
 
     @classmethod
     def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}):
-        """Build a table definition."""
+        """Define a table.
+
+        Currently, this is a thin wrapper on `deriva.core.ermrest_model.Table.define`.
+
+        :param tname: table name string
+        :param column_defs: optional list of column definitions returned by `Column.define()`
+        :param key_defs: optional list of key definitions returned by `Key.define()`
+        :param fkey_defs: optional list of foreign key definitions returned by `ForeignKey.define()`
+        :param comment: optional comment string
+        :param acls: optional dictionary of Access Control Lists
+        :param acl_bindings: optional dictionary of Access Control List bindings
+        :param annotations: optional dictionary of model annotations
+        :return: a table definition dictionary
+        """
         return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls={}, acl_bindings=acl_bindings, annotations=annotations, provide_system=False)
 
     @property
@@ -975,7 +989,20 @@ class Column (object):
 
     @classmethod
     def define(cls, cname, ctype, nullok=True, default=None, comment=None, acls={}, acl_bindings={}, annotations={}):
-        """Build a column definition."""
+        """Define a column.
+
+        Currently, this is a thin wrapper over `deriva.core.ermrest_model.Column.define`.
+
+        :param cname: column name string
+        :param ctype: column type object from `chisel.data_types`
+        :param nullok: optional NULL OK boolean flag (default: `True`)
+        :param default: optional "default" literal value of same time as `ctype` (default: `None`)
+        :param comment: optional comment string
+        :param acls: optional dictionary of Access Control Lists
+        :param acl_bindings: optional dictionary of Access Control List bindings
+        :param annotations: optional dictionary of model annotations
+        :return: a column definition dictionary
+        """
         return _em.Column.define(cname, ctype, nullok, default, comment, acls, acl_bindings, annotations)
 
     def __hash__(self):
@@ -1164,3 +1191,66 @@ class Column (object):
             raise ValueError('unnest_fn must be callable')
 
         return ComputedRelation(_op.Tagify(domain.logical_plan, self.table.logical_plan, self.name, unnest_fn, similarity_fn, grouping_fn))
+
+
+class Key (object):
+    """Key constraint class."""
+
+    @classmethod
+    def define(cls, colnames, constrain_name=None, comment=None, annotations={}):
+        """Define a key.
+
+        Currently, this is a thin wrapper around `deriva.core.ermrest_model.Key.define`.
+
+        :param colnames: list of column name strings (must exist in the table on which the key is defined)
+        :param constrain_name: optional constraint name string, i.e., name of this key (default: system generated)
+        :param comment: optional comment
+        :param annotations: optional model annotations
+        :return: a key definition dictionary
+        """
+        return _em.Key.define(
+            colnames,
+            constraint_names=[constrain_name] if constrain_name else [],
+            comment=comment,
+            annotations=annotations
+        )
+
+
+class ForeignKey (object):
+    """Foreign Key class."""
+
+    NO_ACTION = 'NO ACTION'
+    RESTRICT = 'RESTRICT'
+    CASCADE = 'CASCADE'
+    SET_NULL = 'SET NULL'
+    SET_DEFAULT = 'SET DEFAULT'
+
+    @classmethod
+    def define(cls, fk_colnames, pk_sname, pk_tname, pk_colnames, constraint_name=None, comment=None,
+               on_update=NO_ACTION, on_delete=NO_ACTION, acls={}, acl_bindings={}, annotations={}):
+        """Define a foreign key.
+
+        Currently, this is a thin wrapper around `deriva.core.ermrest_model.ForeignKey.define`.
+
+        :param fk_colnames: list of foreign key column name strings (must exist in the table on which the fkey is defined)
+        :param pk_sname: schema name of the referenced table
+        :param pk_tname: table name of the referenced table
+        :param pk_colnames: list of key column name strings (i.e., columns of the key being referenced)
+        :param constraint_name: optional constraint name string, i.e., name of this foreign key (default: system generated)
+        :param comment: optional comment
+        :param on_update: optional update action (default:`ForeignKey.NO_ACTION`)
+        :param on_delete: optional delete action (default:`ForeignKey.NO_ACTION`)
+        :param acls: optional dictionary of Access Control Lists
+        :param acl_bindings: optional dictionary of Access Control List bindings
+        :param annotations: optional dictionary of model annotations
+        :return: a foreign key definition dictionary
+        """
+        return _em.ForeignKey.define(
+            fk_colnames,
+            pk_sname, pk_tname, pk_colnames,
+            on_update=on_update, on_delete=on_delete,
+            constraint_names=[constraint_name] if constraint_name else [],
+            comment=comment,
+            acls=acls, acl_bindings=acl_bindings,
+            annotations=annotations
+        )

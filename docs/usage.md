@@ -14,8 +14,22 @@ used within the `with catalog.evolve(): ...` blocks.
 
 ```python
 import chisel
+from chisel import Table, Column, Key, ForeignKey
 catalog = chisel.connect(...)
-catalog['public'].tables['foo'] = chisel.Table.define('foo')
+
+# define table and assign to a schema in order to create it in the catalog
+catalog['public'].tables['foo'] = Table.define(
+    'foo',
+    column_defs=[Column.define(...), ...],
+    key_defs=[Key.define(...), ...],
+    fkey_defs=[ForeignKey.define(...), ...],
+    ...)
+
+# get the newly created table in order to use it in operations    
+foo = catalog['public'].tables['foo']
+
+# perform operations on new table 'foo'...
+list(foo.select().fetch())
 ```
 
 ### Drop a table
