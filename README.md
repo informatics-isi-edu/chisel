@@ -80,17 +80,6 @@ import chisel
 catalog = chisel.connect('https://example.org/ermrest/catalog/1')
 ```
 
-To use the `deriva-catalog-manage` implementation of the chisel catalog, pass 
-the `use_deriva_catalog_manage=True` parameter in the connect call.
-
-```python
-import chisel
-
-# Connect to a Deriva catalog and use the deriva-catalog-manage package
-catalog = chisel.connect(
-    'https://example.org/ermrest/catalog/1', use_deriva_catalog_manage=True)
-```
-
 ### Reference a table in the catalog
 
 Catalogs are organized by _schemas_ (a.k.a., namespaces). Within a schema are 

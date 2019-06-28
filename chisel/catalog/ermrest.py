@@ -13,12 +13,12 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def connect(url, credentials=None, use_deriva_catalog_manage=False):
+def connect(url, credentials=None, use_deriva_catalog_manage=True):
     """Connect to an ERMrest data source.
 
     :param url: connection string url
     :param credentials: user credentials
-    :param use_deriva_catalog_manage: flag to use deriva catalog manage implementation rather than deriva core
+    :param use_deriva_catalog_manage: flag to use deriva catalog manage rather than deriva core only (default: `True`)
     :return: catalog for data source
     """
     parsed_url = util.urlparse(url)
