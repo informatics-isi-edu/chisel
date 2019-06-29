@@ -883,6 +883,16 @@ class Table (object):
             raise ValueError("Key columns and Other columns must not overlap")
         return ComputedRelation(_op.Reify(self.logical_plan, tuple([col.name for col in new_key_cols]), tuple([col.name for col in new_other_cols])))
 
+    @valid_model_object
+    def link(self, target):
+        """Creates a reference from this table to the target table."""
+        raise NotImplementedError('This catalog does not support this method.')
+
+    @valid_model_object
+    def associate(self, target):
+        """Creates a many-to-many "association" between this table and "target" table."""
+        raise NotImplementedError('This catalog does not support this method.')
+
 
 class ColumnCollection (collections.OrderedDict):
     """An OrderedDict sub-class for managing table columns."""

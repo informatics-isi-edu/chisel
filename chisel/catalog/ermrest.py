@@ -221,6 +221,14 @@ class ERMrestCatalog (base.AbstractCatalog):
         table = schema.tables[table_name]
         table.delete(self.ermrest_catalog)
 
+    def _do_link_tables(self, schema_name, table_name, target_schema_name, target_table_name):
+        """Link tables in the catalog."""
+        raise NotImplementedError('Not supported by %s.' % type(self).__name__)
+
+    def _do_associate_tables(self, schema_name, table_name, target_schema_name, target_table_name):
+        """Associate tables in the catalog."""
+        raise NotImplementedError('Not supported by %s.' % type(self).__name__)
+
     def _determine_model_changes(self, computed_relation):
         """Determines the model changes to be produced by this computed relation."""
         return dict(mappings=[], constraints=[], policies=[])
@@ -300,9 +308,25 @@ class ERMrestTable (base.Table):
         with self.schema.catalog.evolve():
             self.schema.catalog._do_copy_table(self.schema.name, self.name, schema_name or self.schema.name, table_name)
 
+    @base.valid_model_object
+    def link(self, target):
+        """Creates a reference from this table to the target table."""
+        with self.schema.catalog.evolve():
+            self.schema.catalog._do_link_tables(self.schema.name, self.name, target.schema.name, target.name)
+
+    @base.valid_model_object
+    def associate(self, target):
+        """Creates a many-to-many "association" between this table and "target" table."""
+        with self.schema.catalog.evolve():
+            self.schema.catalog._do_associate_tables(self.schema.name, self.name, target.schema.name, target.name)
+
 
 class DerivaCatalog (ERMrestCatalog):
     """ERMrest catalog with implementation using the deriva-catalog-manage package."""
+
+    # Prototype of the `DerivaTable` where a real instance is not needed. It mimics the interface when needed as a
+    # parameter to deriva-catalog-manage APIs.
+    _DerivaTablePrototype = collections.namedtuple('DerivaTablePrototype', ['schema_name', 'name'])
 
     def _do_create_table(self, schema_name, table_doc):
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
@@ -419,6 +443,20 @@ class DerivaCatalog (ERMrestCatalog):
         deriva_table = deriva_schema.table(table_name)
         deriva_table.delete()
 
+    def _do_link_tables(self, schema_name, table_name, target_schema_name, target_table_name):
+        """Link tables in the catalog."""
+        deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
+        source_table = deriva_catalog.schema(schema_name).table(table_name)
+        target_table = deriva_catalog.schema(target_schema_name).table(target_table_name)
+        source_table.link_tables(target_table)
+
+    def _do_associate_tables(self, schema_name, table_name, target_schema_name, target_table_name):
+        """Associate tables in the catalog."""
+        deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
+        source_table = deriva_catalog.schema(schema_name).table(table_name)
+        target_table = deriva_catalog.schema(target_schema_name).table(target_table_name)
+        source_table.associate_tables(target_table)
+
     @classmethod
     def _deriva_column_from_column_doc(cls, column_doc):
         """Converts a column doc into a DerivaColumn object."""
@@ -443,8 +481,6 @@ class DerivaCatalog (ERMrestCatalog):
             annotations=key_doc['annotations'],
             define=True
         )
-
-    _DerivaTablePrototype = collections.namedtuple('DerivaTablePrototype', ['schema_name', 'name'])
 
     @classmethod
     def _deriva_foreign_key_from_foreign_key_doc(cls, fkey_doc):
