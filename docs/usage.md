@@ -2,9 +2,9 @@
 
 This guide covers usage examples.
 
-## Basic usage
+## Simple operations
 
-Basic usage operators are generally equivalent to operations available in SQL 
+The simpler operators are generally equivalent to operations available in SQL 
 DDL (data definition language).
 
 These operations need to be performed in _isolation_ and therefore cannot be 
@@ -95,10 +95,36 @@ column = table.columns['baz']
 column.name = 'qux'
 ```
 
-## Advanced usage
+### Link tables
 
-Here are more advanced usage examples that cover chisel features that go beyond
-SQL DDL types of operations.
+This operation adds a foreign key reference from the source table (`foo`) to 
+the destination table (`bar`).
+
+```python
+import chisel
+catalog = chisel.connect(...)
+foo = catalog['public'].tables['foo']
+bar = catalog['public'].tables['bar']
+foo.link(bar)
+```
+
+### Associate tables
+
+This operation adds an association table (`foo_bar`) with foreign key 
+references between two tables (`foo` and `bar`).
+
+```python
+import chisel
+catalog = chisel.connect(...)
+foo = catalog['public'].tables['foo']
+bar = catalog['public'].tables['bar']
+foo.associate(bar)
+```
+
+## Complex operations
+
+The complex operations cover chisel features that go beyond SQL DDL types of 
+operations.
 
 ### Catalog `evolve` block
 
@@ -121,9 +147,9 @@ In order to guard against accidental table alteration or destruction, the
 By default, these parameters are `False` and the evolve block will prevent
 table alter or drop operations, respectively.
 
-### Basic versus advanced operations
+### Simple versus complex operations
 
-A key difference between the basic and advanced operations is that the basic
+A key difference between the simple and complex operations is that the simple
 operations are performed in isolation. They cannot be called within an evolve
 context block. Internally, the basic (DDL like) operations will setup an 
 evolve block and set the appropriate flags to allow alter and drop operations
