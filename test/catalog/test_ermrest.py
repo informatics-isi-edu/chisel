@@ -363,6 +363,12 @@ class TestERMrestCatalog (BaseTestCase):
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
         self.assertIn(cname, ermrest_schema['schemas']['public']['tables'])
 
+    def test_link_tables(self):
+        pass
+
+    def test_associate_tables(self):
+        pass
+
 
 @unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined. Set "CHISEL_TEST_ERMREST_HOST" to enable test.')
 class TestDerivaCatalog (TestERMrestCatalog):
@@ -373,7 +379,43 @@ class TestDerivaCatalog (TestERMrestCatalog):
             'list_of_closest_genes',
             TestERMrestCatalog._samples_copy_tname,
             TestERMrestCatalog._samples_renamed_tname,
+            "{}_{}".format(ERMrestHelper.samples, TestERMrestCatalog._test_create_table_tname),
             TestERMrestCatalog._test_create_table_tname
         ],
         use_deriva_catalog_manage=True
     )
+
+    def _create_new_table(self, table_name):
+        """Helper method to create new table with name "table_name"."""
+        new_tname = self._test_create_table_tname
+        table_def = Table.define(new_tname)
+        self._catalog['public'].tables[new_tname] = table_def
+        return self._catalog['public'].tables[new_tname]
+
+    def test_link_tables(self):
+        dst_table = self._catalog['public'][self.catalog_helper.samples]
+        src_table = self._create_new_table(self._test_create_table_tname)
+
+        # link tables
+        src_table.link(dst_table)
+
+        # validate new fkey column is in ermrest
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        column_names = {
+            c['name']
+            for c in ermrest_schema['schemas']['public']['tables'][self._test_create_table_tname]['column_definitions']
+        }
+        self.assertIn(self.catalog_helper.samples, column_names,
+                      "Association table not found in ERMrest schema resource.")
+
+    def test_associate_tables(self):
+        src_table = self._catalog['public'][self.catalog_helper.samples]
+        dst_table = self._create_new_table(self._test_create_table_tname)
+
+        # associate tables
+        src_table.associate(dst_table)
+
+        # validate new table is in ermrest
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        self.assertIn("{}_{}".format(src_table.name, dst_table.name), ermrest_schema['schemas']['public']['tables'],
+                      "Association table not found in ERMrest schema resource.")

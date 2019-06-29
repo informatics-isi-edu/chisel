@@ -1,14 +1,18 @@
 import abc
 import csv
+import logging
 import json
 import os
 from os.path import dirname as up
 import unittest
+from requests import HTTPError
 
 from deriva.core import DerivaServer, ErmrestCatalog, urlquote, get_credential
 from deriva.core.ermrest_model import Schema, Table, Column, Key, builtin_types
 
 import chisel
+
+logger = logging.getLogger(__name__)
 
 
 class TestHelper:
@@ -142,6 +146,8 @@ class ERMrestHelper (AbstractCatalogHelper):
     """Helper class that sets up and tears down an ERMrest catalog.
     """
 
+    samples = 'samples'
+
     def __init__(self, hostname, catalog_id=None, unit_table_names=[], use_deriva_catalog_manage=False):
         """Initializes the ERMrest catalog helper
 
@@ -151,7 +157,6 @@ class ERMrestHelper (AbstractCatalogHelper):
         :param use_deriva_catalog_manage: flag to use deriva catalog manage classes instead of deriva core classes
         """
         super(ERMrestHelper, self).__init__()
-        self.samples = 'samples'
         self._hostname = hostname
         self._ermrest_catalog = None
         self._reuse_catalog_id = catalog_id
@@ -227,12 +232,15 @@ class ERMrestHelper (AbstractCatalogHelper):
         # delete any mutated tables
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
         model = self._ermrest_catalog.getCatalogModel()
-        for tablename in [self.samples] + self._unit_table_names + other:
+        for tablename in self._unit_table_names + other + [self.samples]:
             try:
                 s, t = self._parse_table_name(tablename)
-                model.schemas[s].tables[t].delete(self._ermrest_catalog)
-            except Exception:
-                pass
+                if t in model.schemas[s].tables:
+                    logger.debug('Deleting table "%s"' % t)
+                    model.schemas[s].tables[t].delete(self._ermrest_catalog, schema=model.schemas[s])
+            except HTTPError as e:
+                if e.response.status_code != 404:  # suppress the expected 404
+                    raise e
 
     def exists(self, tablename):
         # check if table exists in ermrest catalog
@@ -245,8 +253,11 @@ class ERMrestHelper (AbstractCatalogHelper):
             r.raise_for_status()
             resp = r.json()
             return resp is not None
-        except Exception:
-            return False
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                return False
+            else:
+                raise e
 
     def connect(self):
         # connect to catalog
