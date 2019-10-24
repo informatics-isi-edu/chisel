@@ -36,14 +36,16 @@ This installation method gets a copy of the source and then installs it.
     ```
 2. Install
     ```sh
+    $ cd chisel
     $ pip install .
     ```
     You may need to use `sudo` for system-wide install or add the `--user` option for current user only install.
 3. Run the tests
     ```sh
-    $ cd chisel
+    $ export CHISEL_TEST_ERMREST_HOST=my-ermrest-host.example.org
     $ python -m unittest discover
     ```
+    See [the notes below on setting environment variables for testing](#testing).
 4. See examples in the `./examples` directory.
 
 ### Testing
