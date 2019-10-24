@@ -46,7 +46,7 @@ This installation method gets a copy of the source and then installs it.
     $ python -m unittest discover
     ```
     See [the notes below on setting environment variables for testing](#testing).
-4. See examples in the `./examples` directory.
+4. See examples in the [`./examples` directory](./examples) of this repository.
 
 ### Testing
 
