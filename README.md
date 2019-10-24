@@ -20,7 +20,7 @@ Install the library directly from its source code repository. You will
 _not_ get the `examples` and `tests` with the quick install instructions.
 
 ```
-$ pip install --user git+https://github.com/robes/chisel.git
+$ pip install git+https://github.com/robes/chisel.git
 ```
 
 For system-wide installations, use `sudo` and execute the command without the 
@@ -34,16 +34,16 @@ This installation method gets a copy of the source and then installs it.
     ```sh
     $ git clone git+https://github.com/robes/chisel.git
     ```
-2. Run the tests
+2. Install
+    ```sh
+    $ pip install .
+    ```
+    You may need to use `sudo` for system-wide install or add the `--user` option for current user only install.
+3. Run the tests
     ```sh
     $ cd chisel
     $ python -m unittest discover
     ```
-3. Install
-    ```sh
-    $ pip install --user .
-    ```
-    Run with `sudo` and without `--user` for a system-wide install.
 4. See examples in the `./examples` directory.
 
 ### Testing
