@@ -326,7 +326,7 @@ class DerivaCatalog (ERMrestCatalog):
 
     # Prototype of the `DerivaTable` where a real instance is not needed. It mimics the interface when needed as a
     # parameter to deriva-catalog-manage APIs.
-    _DerivaTablePrototype = collections.namedtuple('DerivaTablePrototype', ['schema_name', 'name'])
+    _DerivaTablePrototype = collections.namedtuple('DerivaTablePrototype', ['schema', 'name'])
 
     def _do_create_table(self, schema_name, table_doc):
         deriva_catalog = _dm.DerivaCatalog(None, None, None, ermrest_catalog=self.ermrest_catalog, validate=False)
@@ -335,8 +335,8 @@ class DerivaCatalog (ERMrestCatalog):
         deriva_schema.create_table(
             table_doc['table_name'],
             column_defs=[self._deriva_column_from_column_doc(col_doc) for col_doc in table_doc['column_definitions']],
-            key_defs=[self._deriva_key_from_key_doc(key_doc) for key_doc in table_doc['keys']],
-            fkey_defs=[self._deriva_foreign_key_from_foreign_key_doc(fkey_doc) for fkey_doc in table_doc['foreign_keys']],
+            key_defs=[self._deriva_key_from_key_doc(deriva_catalog, key_doc) for key_doc in table_doc['keys']],
+            fkey_defs=[self._deriva_foreign_key_from_foreign_key_doc(deriva_catalog, fkey_doc) for fkey_doc in table_doc['foreign_keys']],
             comment=table_doc['comment'],
             acls=table_doc.get('acls', {}),
             acl_bindings=table_doc.get('acl_bindings', {}),
@@ -471,7 +471,7 @@ class DerivaCatalog (ERMrestCatalog):
         )
 
     @classmethod
-    def _deriva_key_from_key_doc(cls, key_doc):
+    def _deriva_key_from_key_doc(cls, deriva_catalog, key_doc):
         """Converts a key doc into a DerivaKey object."""
         return _dm.DerivaKey(
             None,
@@ -483,17 +483,23 @@ class DerivaCatalog (ERMrestCatalog):
         )
 
     @classmethod
-    def _deriva_foreign_key_from_foreign_key_doc(cls, fkey_doc):
-        dest_table = cls._DerivaTablePrototype(fkey_doc['referenced_columns'][0][0], fkey_doc['referenced_columns'][0][1])
+    def _deriva_foreign_key_from_foreign_key_doc(cls, deriva_catalog, fkey_doc):
+        assert fkey_doc['referenced_columns'], 'No referenced columns specified'
+
+        dest_table = cls._DerivaTablePrototype(
+            deriva_catalog.schema(fkey_doc['referenced_columns'][0]['schema_name']),
+            fkey_doc['referenced_columns'][0]['table_name']
+        )
+
         return _dm.DerivaForeignKey.define(
-            [fkey_col[2] for fkey_col in fkey_doc['foreign_key_columns']],
+            [fkey_col['column_name'] for fkey_col in fkey_doc['foreign_key_columns']],
             dest_table,  # destination table
-            [fkey_col[2] for fkey_col in fkey_doc['referenced_columns']],  # destination column names
+            [fkey_col['column_name'] for fkey_col in fkey_doc['referenced_columns']],  # destination column names
             name=fkey_doc['names'][0][1] if len(fkey_doc['names']) > 0 else None,
             comment=fkey_doc.get('comment', None),
             on_update=fkey_doc.get('on_update', 'NO ACTION'),
             on_delete=fkey_doc.get('on_delete', 'NO ACTION'),
-            acls=fkey_doc('acls', {}),
-            acl_bindings=fkey_doc('acl_bindings', {}),
-            annotations=fkey_doc('annotations', {})
+            acls=fkey_doc.get('acls', {}),
+            acl_bindings=fkey_doc.get('acl_bindings', {}),
+            annotations=fkey_doc.get('annotations', {})
         )

@@ -5,7 +5,7 @@ from chisel.catalog.base import ComputedRelation, CatalogMutationError
 from chisel.operators.base import Alter
 from test.utils import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
-from chisel import data_types, Column, Table
+from chisel import data_types, Column, Table, ForeignKey
 
 ermrest_hostname = os.getenv('CHISEL_TEST_ERMREST_HOST')
 ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
@@ -13,7 +13,7 @@ ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
 
 @unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined. Set "CHISEL_TEST_ERMREST_HOST" to enable test.')
 class TestERMrestCatalog (BaseTestCase):
-    """Units test suite for ermrest catalog functionality."""
+    """Unit test suite for ermrest catalog functionality."""
 
     _samples_copy_tname = "SAMPLES COPY"
     _samples_renamed_tname = "SAMPLES RENAMED"
@@ -31,6 +31,61 @@ class TestERMrestCatalog (BaseTestCase):
     def test_precondition_check(self):
         self.assertTrue(self._catalog is not None)
         self.assertTrue(self.catalog_helper.exists(self.catalog_helper.samples))
+
+    def _is_table_valid(self, new_tname):
+        """Helper function to test if named table exists and is valid.
+        """
+        # is it in the ermrest schema?
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        self.assertIn(new_tname, ermrest_schema['schemas']['public']['tables'], 'New table not found in ermrest schema')
+        # is it in the local model?
+        self.assertIn(new_tname, self._catalog['public'].tables)
+        # is the returned model object valid?
+        new_table = self._catalog['public'].tables[new_tname]
+        self.assertIsNotNone(new_table, 'New table model object not returned')
+        self.assertTrue(isinstance(new_table, Table), 'Wrong type for new table object: %s' % type(new_table).__name__)
+        self.assertTrue(new_table.valid, 'New table object is not "valid"')
+
+    def test_create_table(self):
+        # define new table
+        new_tname = self._test_create_table_tname
+        table_def = Table.define(new_tname)
+
+        # create the table
+        self._catalog['public'].tables[new_tname] = table_def
+        self._is_table_valid(new_tname)
+
+    def test_create_table_w_fkey(self):
+        # define new table
+        new_tname = self._test_create_table_tname
+        table_def = Table.define(
+            new_tname,
+            column_defs=[
+                Column.define(
+                    'samples_fk',
+                    data_types.text
+                )
+            ],
+            fkey_defs=[
+                ForeignKey.define(
+                    ['samples_fk'],
+                    'public',
+                    self.catalog_helper.samples,
+                    ['RID'],
+                    constraint_name=['public', 'NEW_TABLE_samples_fk_FKey'],
+                    comment='This is a unit test generated fkey',
+                    on_update='NO ACTION',
+                    on_delete='NO ACTION'
+                )
+            ]
+        )
+
+        from pprint import pprint
+        pprint(table_def)
+
+        # create the table
+        self._catalog['public'].tables[new_tname] = table_def
+        self._is_table_valid(new_tname)
 
     def test_allow_alter_err(self):
         with self.assertRaises(CatalogMutationError):
@@ -334,25 +389,6 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertIn(new_table_name, self._catalog['public'].tables,
                       'Table "%s" not found in local catalog model' % new_table_name)
 
-    def test_create_table(self):
-        # define new table
-        new_tname = self._test_create_table_tname
-        table_def = Table.define(new_tname)
-
-        # create the table
-        self._catalog['public'].tables[new_tname] = table_def
-
-        # is it in the ermrest schema?
-        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
-        self.assertIn(new_tname, ermrest_schema['schemas']['public']['tables'], 'New table not found in ermrest schema')
-        # is it in the local model?
-        self.assertIn(new_tname, self._catalog['public'].tables)
-        # is the returned model object valid?
-        new_table = self._catalog['public'].tables[new_tname]
-        self.assertIsNotNone(new_table, 'New table model object not returned')
-        self.assertTrue(isinstance(new_table, Table), 'Wrong type for new table object: %s' % type(new_table).__name__)
-        self.assertTrue(new_table.valid, 'New table object is not "valid"')
-
     def test_ermrest_atomize(self):
         cname = 'list_of_closest_genes'
         with self._catalog.evolve():
@@ -419,3 +455,7 @@ class TestDerivaCatalog (TestERMrestCatalog):
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
         self.assertIn("{}_{}".format(src_table.name, dst_table.name), ermrest_schema['schemas']['public']['tables'],
                       "Association table not found in ERMrest schema resource.")
+
+    @unittest.skip
+    def test_create_table_w_fkey(self):
+        pass
