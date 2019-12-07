@@ -133,7 +133,7 @@ class ERMrestCatalog (base.AbstractCatalog):
     def _do_create_table(self, schema_name, table_doc):
         """Create table in the catalog."""
         schema = self.ermrest_catalog.getCatalogModel().schemas[schema_name]
-        schema.create_table(self.ermrest_catalog, table_doc)
+        schema.create_table(table_doc)
 
     def _do_copy_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
         """Copy table in the catalog."""
@@ -155,7 +155,7 @@ class ERMrestCatalog (base.AbstractCatalog):
         """Alter table Add column in the catalog"""
         model = self.ermrest_catalog.getCatalogModel()
         ermrest_table = model.schemas[schema_name].tables[table_name]
-        ermrest_table.create_column(self.ermrest_catalog, column_doc)
+        ermrest_table.create_column(column_doc)
 
     def _do_alter_table(self, schema_name, table_name, projection):
         """Alter table (general) in the catalog."""
@@ -177,7 +177,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             for removal in projection[1:]:
                 assert isinstance(removal, optimizer.AttributeRemoval)
                 logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
-                original_columns[removal.name].delete(self.ermrest_catalog)
+                original_columns[removal.name].drop()
 
         else:  # 'general' case
 
@@ -190,14 +190,14 @@ class ERMrestCatalog (base.AbstractCatalog):
                     # 1.a: clone the column
                     cloned_def = original_column.prejson()
                     cloned_def['name'] = projected.alias
-                    table.create_column(self.ermrest_catalog, cloned_def)
+                    table.create_column(cloned_def)
                     # 1.b: get the datapath table for column
                     pb = self.ermrest_catalog.getPathBuilder()
-                    dp_table = pb.schemas[table.sname].tables[table.name]
+                    dp_table = pb.schemas[table.schema.name].tables[table.name]
                     # 1.c: read the RID,column values
                     data = dp_table.attributes(
                         dp_table.column_definitions['RID'],
-                        **{projected.alias: dp_table.column_definitions[projected.name]}
+                        dp_table.column_definitions[projected.name].alias(projected.alias)
                     )
                     # 1.d: write the RID,alias values
                     dp_table.update(data)
@@ -210,7 +210,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             for column in original_columns.values():
                 if column.name not in nonaliased_column_names | self.syscols:
                     logger.debug("Deleting column '{cname}'.".format(cname=column.name))
-                    column.delete(self.ermrest_catalog)
+                    column.drop()
 
     def _do_drop_table(self, schema_name, table_name):
         """Drop table in the catalog."""
@@ -218,7 +218,7 @@ class ERMrestCatalog (base.AbstractCatalog):
         model = self.ermrest_catalog.getCatalogModel()
         schema = model.schemas[schema_name]
         table = schema.tables[table_name]
-        table.delete(self.ermrest_catalog)
+        table.drop()
 
     def _do_link_tables(self, schema_name, table_name, target_schema_name, target_table_name):
         """Link tables in the catalog."""
