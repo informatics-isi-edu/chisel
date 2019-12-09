@@ -199,7 +199,6 @@ class ERMrestHelper (AbstractCatalogHelper):
 
         # create table
         public.create_table(
-            self._ermrest_catalog,
             Table.define(
                 self.samples,
                 column_defs=[
@@ -237,7 +236,7 @@ class ERMrestHelper (AbstractCatalogHelper):
                 s, t = self._parse_table_name(tablename)
                 if t in model.schemas[s].tables:
                     logger.debug('Deleting table "%s"' % t)
-                    model.schemas[s].tables[t].delete(self._ermrest_catalog, schema=model.schemas[s])
+                    model.schemas[s].tables[t].drop()
             except HTTPError as e:
                 if e.response.status_code != 404:  # suppress the expected 404
                     raise e

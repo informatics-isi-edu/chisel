@@ -560,8 +560,12 @@ class Table (object):
         self._columns = ColumnCollection(
             self, [(col['name'], self._new_column_instance(col)) for col in table_doc.get('column_definitions', [])]
         )
-        self._keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
-        self._foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
+        # TODO: eventually these need chisel model objects
+        # self._keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
+        self._keys = [key_doc for key_doc in table_doc.get('keys', [])]
+        # TODO: eventually these need chisel model objects
+        # self._foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
+        self._foreign_keys = [fkey_doc for fkey_doc in table_doc.get('foreign_keys', [])]
         self._referenced_by = []
         self._valid = True
 
