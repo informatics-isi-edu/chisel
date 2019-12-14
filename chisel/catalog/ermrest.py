@@ -57,13 +57,14 @@ class ERMrestCatalog (base.AbstractCatalog):
             if not self._evolve_ctx.allow_alter:
                 raise base.CatalogMutationError('"allow_alter" flag is not True')
 
+            # TODO: need to get -- orig_sname, orig_tname = plan.child.description['...'], plan.child.description['...']
             altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
-            self._do_alter_table(altered_schema_name, altered_table_name, plan.projection)
+            self._do_alter_table(altered_schema_name, altered_table_name, plan.projection)  # TODO: orig_sname/tname, ...
 
             # Note: repair the model following the alter table
             #  invalidate the altered table model object
             schema = self.schemas[altered_schema_name]
-            invalidated_table = self[altered_schema_name].tables._backup[altered_table_name]  # get the original table
+            invalidated_table = self[altered_schema_name].tables._backup[altered_table_name]  # TODO: get the original table
             invalidated_table.valid = False
             #  introspect the schema on the revised table
             model_doc = self.ermrest_catalog.getCatalogSchema()
@@ -157,11 +158,11 @@ class ERMrestCatalog (base.AbstractCatalog):
         ermrest_table = model.schemas[schema_name].tables[table_name]
         ermrest_table.create_column(column_doc)
 
-    def _do_alter_table(self, schema_name, table_name, projection):
+    def _do_alter_table(self, schema_name, table_name, projection):  # TODO: sname, tname, new_sname, new_tname, projection
         """Alter table (general) in the catalog."""
         model = self.ermrest_catalog.getCatalogModel()
-        schema = model.schemas[schema_name]
-        table = schema.tables[table_name]
+        schema = model.schemas[schema_name]  # TODO: sname
+        table = schema.tables[table_name]    # TODO: tname
         original_columns = {c.name: c for c in table.column_definitions}
 
         # Notes: currently, there are two distinct scenarios in a projection,
@@ -172,6 +173,17 @@ class ERMrestCatalog (base.AbstractCatalog):
         #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
         #     symbols.
 
+        # TODO:
+        #  3) change schema name
+        #  4) change table name
+
+        # if sname != new_sname:  # rename schema name
+        #     # ...
+        #
+        # elif tname != new_tname:  # rename table name
+        #     # ...
+
+        # elif ...  TODO: will probably be mutually exclusive with column renames
         if projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
             logger.debug("Dropping columns that were explicitly removed.")
             for removal in projection[1:]:

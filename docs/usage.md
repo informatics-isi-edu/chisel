@@ -37,7 +37,8 @@ list(foo.select().fetch())
 ```python
 import chisel
 catalog = chisel.connect(...)
-del catalog['public'].tables['foo']
+with catalog.evolve(allow_drop=True):  # TODO
+  del catalog['public'].tables['foo']
 ```
 
 ### Rename a table
@@ -45,8 +46,9 @@ del catalog['public'].tables['foo']
 ```python
 import chisel
 catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.name = 'bar'
+with catalog.evolve():  # TODO
+  table = catalog['public'].tables['foo']
+  table.name = 'bar'
 ```
 
 ### Copy a table
@@ -63,8 +65,9 @@ table.copy('new talbe name', schema_name='optional new schema name')
 ```python
 import chisel
 catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.sname = 'bar'  # where 'bar' is a different schema in the catalog
+with catalog.evolve():  # TODO
+  table = catalog.schemas['public'].tables['foo']
+  table.schema = catalog.schemas['bar']  # where 'bar' is a different schema in the catalog
 ```
 
 ### Alter table add a column

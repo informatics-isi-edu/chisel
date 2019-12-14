@@ -21,7 +21,7 @@ def valid_model_object(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         model_object = args[0]
-        assert hasattr(model_object, 'valid'), "Decorated object does not have a valid flag"
+        assert hasattr(model_object, 'valid'), "Decorated object does not have 'valid' attribute"
         if not getattr(model_object, 'valid'):
             raise CatalogMutationError("The {model_type} object with name '{name}' was invalidated.".format(
                 model_type=type(model_object).__name__, name=model_object.name))
@@ -386,12 +386,12 @@ class Schema (object):
         raise NotImplementedError()
 
     @valid_model_object
-    def _drop_table(self, table_name):
+    def _drop_table(self, table_name):  # TODO: this function is not needed... just do in TableCollection
         """Drops the table.
 
         :param table_name: name of the table to be dropped.
         """
-        with self.catalog.evolve(allow_drop=True):
+        with self.catalog.evolve(allow_drop=True):  # TODO: remove this evolve block, add to documentation
             self._tables._pending[table_name] = ComputedRelation(_op.Assign(_op.Nil(), self._name, table_name))
 
     def describe(self):
@@ -537,7 +537,7 @@ class TableCollection (collections.abc.MutableMapping):
 
     @valid_model_object
     def __delitem__(self, key):
-        self._schema._drop_table(key)
+        self._schema._drop_table(key)  # TODO: move _drop_table code here
 
     def __iter__(self):
         return iter(self._tables)
@@ -599,18 +599,23 @@ class Table (object):
     def name(self, value):
         if self.name == value:
             raise ValueError('The table is already named "%s"' % value)
+        # TODO: also check the 'value' (new name) is not already in this table's schema
         self._move(self.sname, value)
 
     @valid_model_object
-    def _move(self, dst_schema_name, dst_table_name):
+    def _move(self, dst_schema_name, dst_table_name):  # TODO: make this '_rename'
         """An internal method to 'move' a table either to rename it, change its schema, or both.
 
         :param dst_schema_name: destination schema name, may be same
         :param dst_table_name: destination table name, may be same
         """
+        # TODO: Turn this into a Rename (logical) operator and introduce new Rename physical operator
+        #       - get rid of evolve block
+        #       - just do a catalog.schema[dst_sname].tables[dst_tname] = op.Rename(self.logical_plan, None) ?
+        #       - don't do 'self.valid = False' since that should happen in materialize op
         assert self.sname != dst_schema_name or self.name != dst_table_name
         catalog = self.schema.catalog
-        with self.schema.catalog.evolve():
+        with self.schema.catalog.evolve():  # TODO: unnest this evolve block
             # copy table to destination
             catalog.schemas[dst_schema_name].tables[dst_table_name] = self.select()
         # drop table from origin
@@ -621,12 +626,15 @@ class Table (object):
     def comment(self):
         return self._comment
 
+    # TODO: add a 'schema' property to access the parent schema of this table
+    # TODO: add a setter for 'schema' for the "move" operation
+
     @property
-    def sname(self):
+    def sname(self):  # TODO: remove this property
         return self._sname
 
     @sname.setter
-    def sname(self, value):
+    def sname(self, value):  # TODO: remove this property
         if self.sname == value:
             raise ValueError('The schema is already set to "%s"' % value)
         self._move(value, self.name)
