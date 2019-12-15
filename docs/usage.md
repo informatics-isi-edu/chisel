@@ -56,8 +56,9 @@ with catalog.evolve():  # TODO
 ```python
 import chisel
 catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.copy('new talbe name', schema_name='optional new schema name')
+with catalog.evolve():  # TODO
+  table = catalog['public'].tables['foo']
+  catalog['public'].tables['bar'] = table.select()
 ```
 
 ### Move a table to a different schema
@@ -75,8 +76,9 @@ with catalog.evolve():  # TODO
 ```python
 import chisel
 catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.columns['baz'] = chisel.Column.define('baz', chisel.data_types.text)
+with catalog.evolve():  # TODO
+  table = catalog['public'].tables['foo']
+  table.columns['baz'] = chisel.Column.define('baz', chisel.data_types.text, ...)
 ```
 
 ### Alter table drop a column
@@ -84,8 +86,9 @@ table.columns['baz'] = chisel.Column.define('baz', chisel.data_types.text)
 ```python
 import chisel
 catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-del table.columns['baz']
+with catalog.evolve():  # TODO
+  table = catalog['public'].tables['foo']
+  del table.columns['baz']
 ```
 
 ### Alter table rename a column
@@ -93,9 +96,10 @@ del table.columns['baz']
 ```python
 import chisel
 catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-column = table.columns['baz']
-column.name = 'qux'
+with catalog.evolve():  # TODO
+  table = catalog['public'].tables['foo']
+  column = table.columns['baz']
+  column.name = 'qux'
 ```
 
 ### Link tables
@@ -106,9 +110,10 @@ the destination table (`bar`).
 ```python
 import chisel
 catalog = chisel.connect(...)
-foo = catalog['public'].tables['foo']
-bar = catalog['public'].tables['bar']
-foo.link(bar)
+with catalog.evolve():  # TODO
+  foo = catalog['public'].tables['foo']
+  bar = catalog['public'].tables['bar']
+  foo.link(bar)
 ```
 
 ### Associate tables
@@ -119,9 +124,10 @@ references between two tables (`foo` and `bar`).
 ```python
 import chisel
 catalog = chisel.connect(...)
-foo = catalog['public'].tables['foo']
-bar = catalog['public'].tables['bar']
-foo.associate(bar)
+with catalog.evolve():  # TODO
+  foo = catalog['public'].tables['foo']
+  bar = catalog['public'].tables['bar']
+  foo.associate(bar)
 ```
 
 ## Complex operations

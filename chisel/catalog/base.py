@@ -719,7 +719,7 @@ class Table (object):
         :param column_name: the name of the column to be dropped.
         """
         column = self.columns[column_name]
-        with self.schema.catalog.evolve(allow_alter=True):
+        with self.schema.catalog.evolve(allow_alter=True):  # TODO: remove evolve block
             self.schema[self._name] = self.select(column.inv())
 
     def __getitem__(self, item):
@@ -1123,7 +1123,7 @@ class Column (object):
 
         :param new_name: new name for the column
         """
-        with self.table.schema.catalog.evolve(allow_alter=True):
+        with self.table.schema.catalog.evolve(allow_alter=True):  # TODO: don't do the evolve implicitly
             projection = []
             for cname in self.table.columns:
                 if cname == self.name:
@@ -1135,7 +1135,7 @@ class Column (object):
         # update local copy of name
         self._name = new_name
         # "refresh" the containing table
-        self.table._refresh()
+        self.table._refresh()  # TODO: not sure if this will be needed/correct if evolve block above is removed
 
     @valid_model_object
     def to_atoms(self, delim=',', unnest_fn=None):

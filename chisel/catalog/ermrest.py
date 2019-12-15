@@ -152,6 +152,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             dst_schema.tables[dst_table_name] = src_table.select()
         del src_schema.tables[src_table_name]
 
+    # TODO: should not need this if handled via projection and rules to infer an 'alter' mode
     def _do_alter_table_add_column(self, schema_name, table_name, column_doc):
         """Alter table Add column in the catalog"""
         model = self.ermrest_catalog.getCatalogModel()
@@ -234,10 +235,16 @@ class ERMrestCatalog (base.AbstractCatalog):
 
     def _do_link_tables(self, schema_name, table_name, target_schema_name, target_table_name):
         """Link tables in the catalog."""
+        # TODO: may need to introduce new Link operator
+        #       projection of table +column(s) needed as the foriegn key, inference of key columns from target table
+        #       add'l physical operation to add the fkey reference
         raise NotImplementedError('Not supported by %s.' % type(self).__name__)
 
     def _do_associate_tables(self, schema_name, table_name, target_schema_name, target_table_name):
         """Associate tables in the catalog."""
+        # TODO: may need to introduce new Associate operator
+        #       project of new table w/ column(s) for each foriegn key to inferred keys of target tables
+        #       add'l physical operation to add the fkey reference(s)
         raise NotImplementedError('Not supported by %s.' % type(self).__name__)
 
     def _determine_model_changes(self, computed_relation):
@@ -285,6 +292,7 @@ class ERMrestSchema (base.Schema):
 class ERMrestTable (base.Table):
     """Extant table in an ERMrest catalog."""
 
+    # TODO: will not need this when abstract table is updated
     @base.valid_model_object
     def _add_column(self, column_doc):
         """ERMrest specific implementation of add column function."""
@@ -313,6 +321,7 @@ class ERMrestTable (base.Table):
             del self.schema.tables._backup[self.name]  # TODO: this is kludgy should revise
             self.schema.tables.reset()
 
+    # TODO: remove the 'copy' operation
     @base.valid_model_object
     def copy(self, table_name, schema_name=None):
         """ERMrest catalog specific implementation of 'copy' method."""
@@ -322,11 +331,13 @@ class ERMrestTable (base.Table):
     @base.valid_model_object
     def link(self, target):
         """Creates a reference from this table to the target table."""
-        with self.schema.catalog.evolve():
+        with self.schema.catalog.evolve():  # TODO: get rid of this evolve block
+            # TODO: eventually the _do_... statements should just be moved here
             self.schema.catalog._do_link_tables(self.schema.name, self.name, target.schema.name, target.name)
 
     @base.valid_model_object
     def associate(self, target):
         """Creates a many-to-many "association" between this table and "target" table."""
-        with self.schema.catalog.evolve():
+        with self.schema.catalog.evolve():  # TODO: get rid of this evolve block
+            # TODO: eventually the _do_... statements should just be moved here
             self.schema.catalog._do_associate_tables(self.schema.name, self.name, target.schema.name, target.name)
