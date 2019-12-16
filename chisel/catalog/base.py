@@ -814,7 +814,7 @@ class Table (object):
         return dot
 
     @valid_model_object
-    def copy(self, table_name, schema_name=None):
+    def copy(self, table_name, schema_name=None):  # TODO: remove this method or leave only as syntactic sugar for 'select(*)'
         """Makes a copy of this table.
 
         This operation must be performed in isolation of other evolve operations. It will setup the evolve block
