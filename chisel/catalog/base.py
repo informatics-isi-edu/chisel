@@ -160,7 +160,7 @@ class AbstractCatalog (object):
                     logging.debug("Committing current catalog model mutation operations.")
                     self.parent._commit(self.dry_run, self.consolidate)
             finally:
-                # resent the schemas
+                # reset the schemas
                 for schema in self.parent.schemas.values():
                     schema.tables.reset()
                 # remove the evolve context
@@ -504,6 +504,16 @@ class TableCollection (collections.abc.MutableMapping):
     def __setitem__(self, key, value):
         # for directly creating a table...
         if not self._schema.catalog._evolve_ctx:
+
+            # TODO: when no evolve ctx set, do immediate/implicit commit
+            #  if value is Mapping (ie, Table definition):
+            #    process as follows...
+            #  elif value is ComputedRelation:
+            #    with self.catalog.evolve():
+            #      self._tables[key] = self._pending[key] = ComputedRelation(_op.Assign(...)...)
+            #      ...evolved here at exit of implicit evolve block
+            #    return self._tables[key]  ...to return the newly materialized relation
+
             if not isinstance(value, collections.abc.Mapping):
                 raise CatalogMutationError("No catalog mutation context set.")
             if 'table_name' not in value:
