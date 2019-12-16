@@ -37,7 +37,7 @@ list(foo.select().fetch())
 ```python
 import chisel
 catalog = chisel.connect(...)
-with catalog.evolve(allow_drop=True):  # TODO
+with catalog.evolve(allow_drop=True):
   del catalog['public'].tables['foo']
 ```
 

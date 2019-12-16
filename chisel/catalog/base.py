@@ -385,15 +385,6 @@ class Schema (object):
         # TODO: refactor this into a form of generalized projection
         raise NotImplementedError()
 
-    @valid_model_object
-    def _drop_table(self, table_name):  # TODO: this function is not needed... just do in TableCollection
-        """Drops the table.
-
-        :param table_name: name of the table to be dropped.
-        """
-        with self.catalog.evolve(allow_drop=True):  # TODO: remove this evolve block, add to documentation
-            self._tables._pending[table_name] = ComputedRelation(_op.Assign(_op.Nil(), self._name, table_name))
-
     def describe(self):
         """Returns a text (markdown) description."""
 
@@ -531,11 +522,11 @@ class TableCollection (collections.abc.MutableMapping):
         if not isinstance(value, ComputedRelation):
             raise ValueError("Value must be a computed relation.")
         if self._destructive_pending:
-            raise CatalogMutationError("A destructive operation is pending.")
+            raise CatalogMutationError("Cannot perform another operation while a 'mutation' of an existing table is pending.")
         if key in self._tables:
-            # 'key in tables' indicates that a table is being altered or replaced - a 'destructive' operation
+            # 'key in tables' indicates that this table is being altered or replaced - a 'destructive' operation
             if self._pending:
-                raise CatalogMutationError("A destructive operation is pending.")
+                raise CatalogMutationError("Cannot perform 'mutation' of an existing table while another operation is pending.")
             self._destructive_pending = True
 
         # update pending and current tables and return value
@@ -547,7 +538,10 @@ class TableCollection (collections.abc.MutableMapping):
 
     @valid_model_object
     def __delitem__(self, key):
-        self._schema._drop_table(key)  # TODO: move _drop_table code here
+        if self._pending:
+            raise CatalogMutationError("Cannot perform 'mutation' of an existing table while another operation is pending.")
+        self._destructive_pending = True
+        self._schema._tables._pending[key] = ComputedRelation(_op.Assign(_op.Nil(), self._schema._name, key))
 
     def __iter__(self):
         return iter(self._tables)
@@ -625,11 +619,15 @@ class Table (object):
         #       - don't do 'self.valid = False' since that should happen in materialize op
         assert self.sname != dst_schema_name or self.name != dst_table_name
         catalog = self.schema.catalog
+
         with self.schema.catalog.evolve():  # TODO: unnest this evolve block
             # copy table to destination
             catalog.schemas[dst_schema_name].tables[dst_table_name] = self.select()
-        # drop table from origin
-        del catalog.schemas[self.sname].tables[self.name]
+
+        with self.schema.catalog.evolve(allow_drop=True):  # TODO: unnest this evolve block
+            # drop table from origin
+            del catalog.schemas[self.sname].tables[self.name]
+
         self.valid = False  # TODO: could attempt to repair this table object
 
     @property

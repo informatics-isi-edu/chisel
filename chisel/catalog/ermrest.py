@@ -150,7 +150,8 @@ class ERMrestCatalog (base.AbstractCatalog):
         dst_schema = self.schemas[dst_schema_name]
         with self.evolve():  # TODO: should refactor this so that it doesn't have to be performed in a evolve block
             dst_schema.tables[dst_table_name] = src_table.select()
-        del src_schema.tables[src_table_name]
+        with self.evolve(allow_drop=True):  # TODO: remove undo block here
+          del src_schema.tables[src_table_name]
 
     # TODO: should not need this if handled via projection and rules to infer an 'alter' mode
     def _do_alter_table_add_column(self, schema_name, table_name, column_doc):

@@ -300,7 +300,8 @@ class TestERMrestCatalog (BaseTestCase):
         original_table = self._catalog['public'].tables[self.catalog_helper.samples]
 
         # delete the table
-        del self._catalog['public'].tables[self.catalog_helper.samples]
+        with self._catalog.evolve(allow_drop=True):
+            del self._catalog['public'].tables[self.catalog_helper.samples]
 
         # validate that it is no longer in catalog
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -368,7 +369,7 @@ class TestERMrestCatalog (BaseTestCase):
 
         # validate that tables has been replaced in the catalog
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
-        self.assertNotIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'],
+        self.assertNotIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'].keys(),
                          'Table "%s" found in ermrest catalog schema' % self.catalog_helper.samples)
         self.assertIn(new_table_name, ermrest_schema['schemas']['public']['tables'],
                       'Table "%s" not found in ermrest catalog schema' % new_table_name)
