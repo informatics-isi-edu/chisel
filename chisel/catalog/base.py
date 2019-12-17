@@ -790,8 +790,8 @@ class Table (object):
         return dot
 
     @valid_model_object
-    def copy(self):
-        """Makes a copy of this table.
+    def clone(self):
+        """Clone this table.
         """
         return self.select()
 

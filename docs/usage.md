@@ -51,14 +51,14 @@ with catalog.evolve():  # TODO
   table.name = 'bar'
 ```
 
-### Copy a table
+### Clone a table
 
 ```python
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
   table = catalog['public'].tables['foo']
-  catalog['public'].tables['bar'] = table.copy()
+  catalog['public'].tables['bar'] = table.clone()
 ```
 
 ### Move a table to a different schema
