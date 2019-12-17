@@ -343,7 +343,8 @@ class TestERMrestCatalog (BaseTestCase):
         new_table_name = self._samples_copy_tname
 
         # copy the table
-        original_table.copy(new_table_name, schema_name='public')
+        with self._catalog.evolve():
+            self._catalog['public'][new_table_name] = original_table.copy()
 
         # validate that original and copy are in the catalog
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()

@@ -812,19 +812,10 @@ class Table (object):
         return dot
 
     @valid_model_object
-    def copy(self, table_name, schema_name=None):  # TODO: remove this method or leave only as syntactic sugar for 'select(*)'
+    def copy(self):
         """Makes a copy of this table.
-
-        This operation must be performed in isolation of other evolve operations. It will setup the evolve block
-        internally.
-
-        :param table_name: the table copy will be given this name
-        :param schema_name: the table copy will be created in this schema; if None, then it will be copied to the same
-                            schema as this table.
         """
-        schema = self.schema.catalog.schemas[schema_name] if schema_name else self.schema
-        with schema.catalog.evolve():
-            schema.tables[table_name] = self.select()
+        return self.select()
 
     @valid_model_object
     def select(self, *columns):

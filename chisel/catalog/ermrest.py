@@ -136,13 +136,6 @@ class ERMrestCatalog (base.AbstractCatalog):
         schema = self.ermrest_catalog.getCatalogModel().schemas[schema_name]
         schema.create_table(table_doc)
 
-    def _do_copy_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
-        """Copy table in the catalog."""
-        src_schema = self.schemas[src_schema_name]
-        dst_schema = self.schemas[dst_schema_name]
-        src_table = src_schema.tables[src_table_name]
-        dst_schema.tables[dst_table_name] = src_table.select()  # requires that this be performed w/in evolve block
-
     def _do_move_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
         """Rename table in the catalog."""
         src_schema = self.schemas[src_schema_name]
@@ -321,13 +314,6 @@ class ERMrestTable (base.Table):
         if self.name in self.schema.tables._backup:
             del self.schema.tables._backup[self.name]  # TODO: this is kludgy should revise
             self.schema.tables.reset()
-
-    # TODO: remove the 'copy' operation
-    @base.valid_model_object
-    def copy(self, table_name, schema_name=None):
-        """ERMrest catalog specific implementation of 'copy' method."""
-        with self.schema.catalog.evolve():
-            self.schema.catalog._do_copy_table(self.schema.name, self.name, schema_name or self.schema.name, table_name)
 
     @base.valid_model_object
     def link(self, target):

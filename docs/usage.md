@@ -56,9 +56,9 @@ with catalog.evolve():  # TODO
 ```python
 import chisel
 catalog = chisel.connect(...)
-with catalog.evolve():  # TODO
+with catalog.evolve():
   table = catalog['public'].tables['foo']
-  catalog['public'].tables['bar'] = table.select() # or table.copy()
+  catalog['public'].tables['bar'] = table.copy()
 ```
 
 ### Move a table to a different schema
