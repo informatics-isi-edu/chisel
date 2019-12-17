@@ -1113,23 +1113,21 @@ class Column (object):
     def _rename(self, new_name):
         """Renames the column.
 
-        This method cannot be called within another 'evolve' block. It must be performed in isolation.
-
         :param new_name: new name for the column
         """
-        with self.table.schema.catalog.evolve(allow_alter=True):  # TODO: don't do the evolve implicitly
-            projection = []
-            for cname in self.table.columns:
-                if cname == self.name:
-                    projection.append(self.alias(new_name))
-                else:
-                    projection.append(cname)
-            self.table.schema[self.table.name] = self.table.select(*projection)
+        # project out all columns with this column aliased
+        projection = []
+        for cname in self.table.columns:
+            if cname == self.name:
+                projection.append(self.alias(new_name))
+            else:
+                projection.append(cname)
+        self.table.schema[self.table.name] = self.table.select(*projection)
 
         # update local copy of name
         self._name = new_name
         # "refresh" the containing table
-        self.table._refresh()  # TODO: not sure if this will be needed/correct if evolve block above is removed
+        self.table._refresh()  # TODO: this should work as a temporary measure until the evolve block is committed or aborted
 
     @valid_model_object
     def to_atoms(self, delim=',', unnest_fn=None):

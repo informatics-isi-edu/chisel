@@ -66,7 +66,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             #  invalidate the altered table model object
             schema = self.schemas[altered_schema_name]
             invalidated_table = self[altered_schema_name].tables._backup[altered_table_name]  # TODO: get the original table
-            invalidated_table.valid = False
+            invalidated_table.valid = False  # TODO: ideally, repair rather than invalidate in the 'Alter' path
             #  introspect the schema on the revised table
             model_doc = self.ermrest_catalog.getCatalogSchema()
             table_doc = model_doc['schemas'][altered_schema_name]['tables'][altered_table_name]
@@ -157,10 +157,8 @@ class ERMrestCatalog (base.AbstractCatalog):
         # Notes: currently, there are two distinct scenarios in a projection,
         #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
         #     aliased columns from the original columns. Also, columns may be aliased more than once.
-        #  2) 'special' case for deletes only: as a syntactic sugar, many formulations of project support the
-        #     notation of "-foo,-bar,..." meaning that the operator will project all _except_ those '-name' columns.
-        #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
-        #     symbols.
+        #  2) 'special' case for add/drop only: 'AllAttributes' followed by 'AttributeRemoval'
+        #     or 'AttributeAdd' symbols.
 
         # TODO:
         #  3) change schema name
@@ -177,7 +175,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             logger.debug("Dropping columns that were explicitly removed.")
             for item in projection[1:]:
                 if isinstance(item, optimizer.AttributeRemoval):
-                    logger.debug("Deleting column '{cname}'.".format(cname=item.name))
+                    logger.debug("Dropping column '{cname}'.".format(cname=item.name))
                     original_columns[item.name].drop()
                 elif isinstance(item, optimizer.AttributeAdd):
                     col_doc = json.loads(item.definition)
@@ -190,33 +188,21 @@ class ERMrestCatalog (base.AbstractCatalog):
 
             # step 1: copy aliased columns, and record nonaliased column names
             logger.debug("Copying 'aliased' columns in the projection")
-            nonaliased_column_names = set()
+            projected_column_names = set()
             for projected in projection:
                 if isinstance(projected, optimizer.AttributeAlias):
                     original_column = original_columns[projected.name]
-                    # 1.a: clone the column
-                    cloned_def = original_column.prejson()
-                    cloned_def['name'] = projected.alias
-                    table.create_column(cloned_def)
-                    # 1.b: get the datapath table for column
-                    pb = self.ermrest_catalog.getPathBuilder()
-                    dp_table = pb.schemas[table.schema.name].tables[table.name]
-                    # 1.c: read the RID,column values
-                    data = dp_table.attributes(
-                        dp_table.column_definitions['RID'],
-                        dp_table.column_definitions[projected.name].alias(projected.alias)
-                    )
-                    # 1.d: write the RID,alias values
-                    dp_table.update(data)
+                    original_column.alter(name=projected.alias)
+                    projected_column_names.add(projected.alias)
                 else:
                     assert isinstance(projected, str)
-                    nonaliased_column_names.add(projected)
+                    projected_column_names.add(projected)
 
             # step 2: remove columns that were not projected
             logger.debug("Dropping columns not in the projection.")
             for column in original_columns.values():
-                if column.name not in nonaliased_column_names | self.syscols:
-                    logger.debug("Deleting column '{cname}'.".format(cname=column.name))
+                if column.name not in projected_column_names | self.syscols:
+                    logger.debug("Dropping column '{cname}'.".format(cname=column.name))
                     column.drop()
 
     def _do_drop_table(self, schema_name, table_name):

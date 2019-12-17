@@ -248,8 +248,9 @@ class TestERMrestCatalog (BaseTestCase):
         ).sort(dbptable.column_definitions['RID']).fetch()
 
         # do the rename
-        column = self._catalog['public'][self.catalog_helper.samples][projected_col_name]
-        column.name = projected_col_alias
+        with self._catalog.evolve(allow_alter=True):
+            column = self._catalog['public'][self.catalog_helper.samples][projected_col_name]
+            column.name = projected_col_alias
 
         # validate the local state object
         table_columns = self._catalog['public'][self.catalog_helper.samples].columns
