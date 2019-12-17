@@ -86,7 +86,7 @@ with catalog.evolve():
 ```python
 import chisel
 catalog = chisel.connect(...)
-with catalog.evolve():  # TODO
+with catalog.evolve(allow_alter=True):
   table = catalog['public'].tables['foo']
   del table.columns['baz']
 ```
@@ -96,7 +96,7 @@ with catalog.evolve():  # TODO
 ```python
 import chisel
 catalog = chisel.connect(...)
-with catalog.evolve():  # TODO
+with catalog.evolve(allow_alter=True):
   table = catalog['public'].tables['foo']
   column = table.columns['baz']
   column.name = 'qux'

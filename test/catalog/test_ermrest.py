@@ -178,7 +178,8 @@ class TestERMrestCatalog (BaseTestCase):
     def test_alter_drop_column_via_del(self):
         removed_col_name = self.catalog_helper.FIELDS[1]
         removed_col = self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
-        del self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
+        with self._catalog.evolve(allow_alter=True):
+            del self._catalog['public'][self.catalog_helper.samples].columns[removed_col_name]
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()

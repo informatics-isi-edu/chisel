@@ -708,16 +708,6 @@ class Table (object):
         """
         return Column(column_doc, self)
 
-    @valid_model_object
-    def _drop_column(self, column_name):
-        """Drops a column of this relation.
-
-        :param column_name: the name of the column to be dropped.
-        """
-        column = self.columns[column_name]
-        with self.schema.catalog.evolve(allow_alter=True):  # TODO: remove evolve block
-            self.schema[self._name] = self.select(column.inv())
-
     def __getitem__(self, item):
         """Maps a column name to a column model object.
 
@@ -919,8 +909,8 @@ class ColumnCollection (collections.OrderedDict):
     def __delitem__(self, key):
         # get handle to the column
         column = self[key]
-        # drop column from catalog model
-        self._table._drop_column(key)
+        # assign a projection of parent table without this column
+        self._table.schema[self._table.name] = self._table.select(column.inv())
         # invalidate model object
         column.valid = False
         # delete from column collection
