@@ -76,7 +76,7 @@ with catalog.evolve():  # TODO
 ```python
 import chisel
 catalog = chisel.connect(...)
-with catalog.evolve():  # TODO
+with catalog.evolve():
   table = catalog['public'].tables['foo']
   table.columns['baz'] = chisel.Column.define('baz', chisel.data_types.text, ...)
 ```

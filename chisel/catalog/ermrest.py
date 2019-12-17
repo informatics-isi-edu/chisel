@@ -1,5 +1,6 @@
 """Catalog model for ERMrest based on Deriva Core library."""
 
+import json
 import logging
 from deriva import core as _deriva_core
 from deriva.core import ermrest_model as _em
@@ -146,13 +147,6 @@ class ERMrestCatalog (base.AbstractCatalog):
         with self.evolve(allow_drop=True):  # TODO: remove undo block here
           del src_schema.tables[src_table_name]
 
-    # TODO: should not need this if handled via projection and rules to infer an 'alter' mode
-    def _do_alter_table_add_column(self, schema_name, table_name, column_doc):
-        """Alter table Add column in the catalog"""
-        model = self.ermrest_catalog.getCatalogModel()
-        ermrest_table = model.schemas[schema_name].tables[table_name]
-        ermrest_table.create_column(column_doc)
-
     def _do_alter_table(self, schema_name, table_name, projection):  # TODO: sname, tname, new_sname, new_tname, projection
         """Alter table (general) in the catalog."""
         model = self.ermrest_catalog.getCatalogModel()
@@ -179,12 +173,18 @@ class ERMrestCatalog (base.AbstractCatalog):
         #     # ...
 
         # elif ...  TODO: will probably be mutually exclusive with column renames
-        if projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
+        if projection[0] == optimizer.AllAttributes():  # 'special' case for drops or adds only
             logger.debug("Dropping columns that were explicitly removed.")
-            for removal in projection[1:]:
-                assert isinstance(removal, optimizer.AttributeRemoval)
-                logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
-                original_columns[removal.name].drop()
+            for item in projection[1:]:
+                if isinstance(item, optimizer.AttributeRemoval):
+                    logger.debug("Deleting column '{cname}'.".format(cname=item.name))
+                    original_columns[item.name].drop()
+                elif isinstance(item, optimizer.AttributeAdd):
+                    col_doc = json.loads(item.definition)
+                    logger.debug("Adding column '{cname}'.".format(cname=col_doc['name']))
+                    table.create_column(col_doc)
+                else:
+                    raise AssertionError("Unexpected '%s' in alter operation" % type(item).__name__)
 
         else:  # 'general' case
 
@@ -285,14 +285,6 @@ class ERMrestSchema (base.Schema):
 
 class ERMrestTable (base.Table):
     """Extant table in an ERMrest catalog."""
-
-    # TODO: will not need this when abstract table is updated
-    @base.valid_model_object
-    def _add_column(self, column_doc):
-        """ERMrest specific implementation of add column function."""
-        with self.schema.catalog.evolve():
-            self.schema.catalog._do_alter_table_add_column(self.schema.name, self.name, column_doc)
-            return self._new_column_instance(column_doc)
 
     @property
     def logical_plan(self):

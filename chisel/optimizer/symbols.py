@@ -124,6 +124,9 @@ AttributeAlias = namedtuple('AttributeAlias', 'name alias')
 #: attribute removal parameter, for removing a single attribute from a projection
 AttributeRemoval = namedtuple('AttributeRemoval', 'name')
 
+#: attribute add parameter, for adding a new attribute in a projection
+AttributeAdd = namedtuple('AttributeAdd', 'definition')
+
 #: function parameter
 IntrospectionFunction = namedtuple('IntrospectionFunction', 'fn')
 

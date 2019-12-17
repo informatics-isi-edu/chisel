@@ -4,6 +4,7 @@ import abc
 import collections
 from functools import wraps
 import itertools
+import json
 import logging
 import pprint as pp
 from graphviz import Digraph
@@ -23,8 +24,7 @@ def valid_model_object(fn):
         model_object = args[0]
         assert hasattr(model_object, 'valid'), "Decorated object does not have 'valid' attribute"
         if not getattr(model_object, 'valid'):
-            raise CatalogMutationError("The {model_type} object with name '{name}' was invalidated.".format(
-                model_type=type(model_object).__name__, name=model_object.name))
+            raise CatalogMutationError("The %s object with was invalidated." % type(model_object).__name__)
         return fn(*args, **kwargs)
     return wrapper
 
@@ -709,18 +709,6 @@ class Table (object):
         return Column(column_doc, self)
 
     @valid_model_object
-    def _add_column(self, column_doc):
-        """Adds a column to this relation _in the catalog_.
-
-        This method should be implemented by subclasses that allow for adding columns to extant tables.
-
-        :param column_doc: a column definition dictionary as defined by `Column.define(...)`.
-        :return: a Column object representing the newly added column definition in the relation.
-        """
-        # TODO: refactor this into a form of generalized projection
-        raise NotImplementedError()
-
-    @valid_model_object
     def _drop_column(self, column_name):
         """Drops a column of this relation.
 
@@ -828,21 +816,23 @@ class Table (object):
         if columns:
             projection = []
 
-            # validation: projection may be column, column name, alias, or removal
+            # validation: projection may be column, column name, alias, addition or removal
             for column in columns:
                 if isinstance(column, Column):
                     projection.append(column.name)
-                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias) or isinstance(column, _op.AttributeRemoval):
+                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias)\
+                        or isinstance(column, _op.AttributeRemoval) or isinstance(column, _op.AttributeAdd):
                     projection.append(column)
                 else:
                     raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
 
-            # validation: if any removal, all must be removals (can't mix removals with other projections)
-            removals = [isinstance(o, _op.AttributeRemoval) for o in projection]
-            if any(removals):
-                if not all(removals):
-                    raise ValueError("Attribute removal cannot be mixed with other attribute projections")
-                projection = [_op.AllAttributes()] + projection
+            # validation: if any mutation (add/remove), all must be mutations (can't mix with other projections)
+            for mutation in (_op.AttributeAdd, _op.AttributeRemoval):
+                mutations = [isinstance(o, mutation) for o in projection]
+                if any(mutations):
+                    if not all(mutations):
+                        raise ValueError("Attribute add/drop cannot be mixed with other attribute projections")
+                    projection = [_op.AllAttributes()] + projection
 
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
@@ -922,6 +912,10 @@ class ColumnCollection (collections.OrderedDict):
         return self._table.valid
 
     @valid_model_object
+    def __getitem__(self, key):
+        return super(ColumnCollection, self).__getitem__(key)
+
+    @valid_model_object
     def __delitem__(self, key):
         # get handle to the column
         column = self[key]
@@ -942,10 +936,11 @@ class ColumnCollection (collections.OrderedDict):
             raise ValueError('value must have a "type" key in it')
         if value['name'] != key:
             raise ValueError('column definition "name" field does not match "%s"' % key)
+        if super().__contains__(key):
+            raise ValueError('"%s" column already exists in table' % key)
 
-        column = self._table._add_column(value)
-        assert isinstance(column, Column), "invalid column return type"
-        super().__setitem__(key, column)
+        self._table.schema[self._table.name] = self._table.select(_op.AttributeAdd(definition=json.dumps(value)))
+        self._table.valid = False
 
     def _refresh(self):
         """Refreshes the collection indices to repair them after a column rename."""

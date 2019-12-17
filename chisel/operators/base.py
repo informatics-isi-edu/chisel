@@ -2,6 +2,7 @@
 
 import abc
 import collections
+import json
 import logging
 from operator import itemgetter
 import uuid
@@ -181,6 +182,7 @@ class Project (PhysicalOperator):
         self._alias_to_cname = dict()
         self._cname_to_alias = collections.defaultdict(list)
         removals = set()
+        additions = list()
 
         # Redefine the description of the child operator based on the projection
         table_def = self.description
@@ -212,6 +214,9 @@ class Project (PhysicalOperator):
             elif isinstance(item, _op.AttributeRemoval):
                 logger.debug("projection with attribute removal: %s", item)
                 removals.add(item.name)
+            elif isinstance(item, _op.AttributeAdd):
+                logger.debug("projection with attribute add: %s", item)
+                additions.append(json.loads(item.definition))
             else:
                 raise ValueError("Unsupported projection type '{}'.".format(type(item).__name__))
 
@@ -231,9 +236,12 @@ class Project (PhysicalOperator):
                     col_def = col_def.copy()
                     col_def['name'] = alias
                     col_defs.append(col_def)
+        col_defs.extend(additions)
 
         # Updated projection of attributes
         self._attributes = projected_attrs
+
+        # TODO: create defaults for newly added columns
 
         # set of all projected attributes, including those that will be renamed
         # will be used in the next steps to determine which keys and fkeys can be preserved
@@ -282,7 +290,7 @@ class Project (PhysicalOperator):
             values = getter(row)
             values = values if isinstance(values, tuple) else (values,)
             assert len(original_attributes) == len(values)
-            row = dict(zip(original_attributes, values))
+            row = dict(zip(original_attributes, values))  # TODO: .update(defaults) -- for newly added columns
             yield self._rename_row_attributes(row, self._alias_to_cname)
 
 

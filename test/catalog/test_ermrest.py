@@ -283,7 +283,8 @@ class TestERMrestCatalog (BaseTestCase):
         # define new column
         new_col_name = 'NEW COLUMN NAME'
         col_def = Column.define(new_col_name, data_types['int8'])
-        self._catalog['public'][self.catalog_helper.samples].columns[new_col_name] = col_def
+        with self._catalog.evolve(allow_alter=True):
+          self._catalog['public'][self.catalog_helper.samples].columns[new_col_name] = col_def
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
