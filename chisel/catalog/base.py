@@ -821,13 +821,13 @@ class Table (object):
                 if isinstance(column, Column):
                     projection.append(column.name)
                 elif isinstance(column, str) or isinstance(column, _op.AttributeAlias)\
-                        or isinstance(column, _op.AttributeRemoval) or isinstance(column, _op.AttributeAdd):
+                        or isinstance(column, _op.AttributeDrop) or isinstance(column, _op.AttributeAdd):
                     projection.append(column)
                 else:
                     raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
 
-            # validation: if any mutation (add/remove), all must be mutations (can't mix with other projections)
-            for mutation in (_op.AttributeAdd, _op.AttributeRemoval):
+            # validation: if any mutation (add/drop), all must be mutations (can't mix with other projections)
+            for mutation in (_op.AttributeAdd, _op.AttributeDrop):
                 mutations = [isinstance(o, mutation) for o in projection]
                 if any(mutations):
                     if not all(mutations):
@@ -1103,9 +1103,9 @@ class Column (object):
     def inv(self):
         """Removes an attribute when used in a projection.
 
-        :return: a sybolic expression for the removed column
+        :return: a symbolic expression for the removed column
         """
-        return _op.AttributeRemoval(self.name)
+        return _op.AttributeDrop(self.name)
 
     __invert__ = inv
 

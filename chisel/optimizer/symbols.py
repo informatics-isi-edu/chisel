@@ -121,8 +121,8 @@ AllAttributes = namedtuple('AllAttributes', '')
 #: attribute alias parameter
 AttributeAlias = namedtuple('AttributeAlias', 'name alias')
 
-#: attribute removal parameter, for removing a single attribute from a projection
-AttributeRemoval = namedtuple('AttributeRemoval', 'name')
+#: attribute drop parameter, for dropping a single attribute from a projection
+AttributeDrop = namedtuple('AttributeDrop', 'name')
 
 #: attribute add parameter, for adding a new attribute in a projection
 AttributeAdd = namedtuple('AttributeAdd', 'definition')

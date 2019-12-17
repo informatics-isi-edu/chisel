@@ -157,7 +157,7 @@ class ERMrestCatalog (base.AbstractCatalog):
         # Notes: currently, there are two distinct scenarios in a projection,
         #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
         #     aliased columns from the original columns. Also, columns may be aliased more than once.
-        #  2) 'special' case for add/drop only: 'AllAttributes' followed by 'AttributeRemoval'
+        #  2) 'special' case for add/drop only: 'AllAttributes' followed by 'AttributeDrop'
         #     or 'AttributeAdd' symbols.
 
         # TODO:
@@ -174,7 +174,7 @@ class ERMrestCatalog (base.AbstractCatalog):
         if projection[0] == optimizer.AllAttributes():  # 'special' case for drops or adds only
             logger.debug("Dropping columns that were explicitly removed.")
             for item in projection[1:]:
-                if isinstance(item, optimizer.AttributeRemoval):
+                if isinstance(item, optimizer.AttributeDrop):
                     logger.debug("Dropping column '{cname}'.".format(cname=item.name))
                     original_columns[item.name].drop()
                 elif isinstance(item, optimizer.AttributeAdd):

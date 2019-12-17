@@ -211,8 +211,8 @@ class Project (PhysicalOperator):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
                 self._cname_to_alias[item.name].append(item.alias)
-            elif isinstance(item, _op.AttributeRemoval):
-                logger.debug("projection with attribute removal: %s", item)
+            elif isinstance(item, _op.AttributeDrop):
+                logger.debug("projection with attribute drop: %s", item)
                 removals.add(item.name)
             elif isinstance(item, _op.AttributeAdd):
                 logger.debug("projection with attribute add: %s", item)

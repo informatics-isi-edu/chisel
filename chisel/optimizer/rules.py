@@ -147,7 +147,7 @@ logical_composition_rules = Matcher([
                     Project(domain, ('name', 'synonyms')),
                     Similar(attribute, 'name', 'synonyms', similarity_fn, grouping_fn),
                 ),
-                (AllAttributes(), AttributeRemoval(attribute), AttributeRemoval('synonyms'))
+                (AllAttributes(), AttributeDrop(attribute), AttributeDrop('synonyms'))
             ),
             (AttributeAlias(name='name', alias=attribute),)
         )

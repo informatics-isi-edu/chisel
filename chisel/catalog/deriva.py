@@ -73,13 +73,13 @@ class DerivaCatalog (ERMrestCatalog):
         #     aliased columns from the original columns. Also, columns may be aliased more than once.
         #  2) 'special' case for deletes only: as a syntactic sugar, many formulations of project support the
         #     notation of "-foo,-bar,..." meaning that the operator will project all _except_ those '-name' columns.
-        #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
+        #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeDrop'
         #     symbols.
 
         if projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
             logger.debug("Dropping columns that were explicitly removed.")
             for removal in projection[1:]:
-                assert isinstance(removal, optimizer.AttributeRemoval)
+                assert isinstance(removal, optimizer.AttributeDrop)
                 logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
                 original_columns[removal.name].delete()
 
