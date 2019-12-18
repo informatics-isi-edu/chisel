@@ -169,14 +169,13 @@ physical_transformation_rules = Matcher([
         'Assign(Project(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)'
         '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
         lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
-        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), dst_sname, dst_tname, attributes)
+        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
     ),
-    # # TODO: possibly replace the above with this rule to cover schema/table renames in addition to attribute renames
-    # (
-    #     'Assign(Rename(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)',
-    #     lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
-    #     _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), dst_sname, dst_tname, attributes)
-    # ),
+    (
+        'Assign(Rename(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)',
+        lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
+        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
+    ),
     (
         'Assign(Nil(), schema, table_name)',
         lambda schema, table_name: _op.Drop(_op.Metadata({'schema_name': schema, 'table_name': table_name }), schema, table_name)

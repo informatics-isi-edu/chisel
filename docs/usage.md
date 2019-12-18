@@ -46,7 +46,7 @@ with catalog.evolve(allow_drop=True):
 ```python
 import chisel
 catalog = chisel.connect(...)
-with catalog.evolve():  # TODO
+with catalog.evolve():
   table = catalog['public'].tables['foo']
   table.name = 'bar'
 ```
@@ -66,9 +66,9 @@ with catalog.evolve():
 ```python
 import chisel
 catalog = chisel.connect(...)
-with catalog.evolve():  # TODO
+with catalog.evolve():
   table = catalog.schemas['public'].tables['foo']
-  table.schema = catalog.schemas['bar']  # where 'bar' is a different schema in the catalog
+  table.schema = catalog.schemas['bar']
 ```
 
 ### Alter table add a column

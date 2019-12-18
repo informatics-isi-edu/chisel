@@ -17,16 +17,22 @@ class TestERMrestCatalog (BaseTestCase):
 
     _samples_copy_tname = "SAMPLES COPY"
     _samples_renamed_tname = "SAMPLES RENAMED"
+    _test_renamed_sname = "NEW SCHEMA"
     _test_create_table_tname = "NEW TABLE"
 
     catalog_helper = ERMrestHelper(
         ermrest_hostname, ermrest_catalog_id,
+        unit_schema_names=[
+            _test_renamed_sname
+        ],
         unit_table_names=[
             'list_of_closest_genes',
             _samples_copy_tname,
             _samples_renamed_tname,
-            _test_create_table_tname
-        ])
+            _test_create_table_tname,
+            _test_renamed_sname + ':' + ERMrestHelper.samples
+        ]
+    )
 
     def test_precondition_check(self):
         self.assertTrue(self._catalog is not None)
@@ -79,9 +85,6 @@ class TestERMrestCatalog (BaseTestCase):
                 )
             ]
         )
-
-        from pprint import pprint
-        pprint(table_def)
 
         # create the table
         self._catalog['public'].tables[new_tname] = table_def
@@ -363,13 +366,14 @@ class TestERMrestCatalog (BaseTestCase):
         self.assertIn(new_table_name, self._catalog['public'].tables,
                       'Table "%s" not found in local catalog model' % new_table_name)
 
-    def test_rename_table(self):
+    def test_alter_rename_table(self):
         # keep handle to table model object
         original_table = self._catalog['public'].tables[self.catalog_helper.samples]
         new_table_name = self._samples_renamed_tname
 
         # rename the table
-        original_table.name = new_table_name
+        with self._catalog.evolve(allow_alter=True):
+            original_table.name = new_table_name
 
         # validate that tables has been replaced in the catalog
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -385,6 +389,30 @@ class TestERMrestCatalog (BaseTestCase):
                          'Table "%s" found in local catalog model' % self.catalog_helper.samples)
         self.assertIn(new_table_name, self._catalog['public'].tables,
                       'Table "%s" not found in local catalog model' % new_table_name)
+
+    def test_alter_move_table(self):
+        # keep handle to table model object
+        original_table = self._catalog['public'].tables[self.catalog_helper.samples]
+        new_schema_name = self._test_renamed_sname
+
+        # "move" the table to a different schema
+        with self._catalog.evolve(allow_alter=True):
+            original_table.schema = self._catalog[new_schema_name]
+
+        # validate that tables has been moved in the catalog
+        ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
+        self.assertNotIn(self.catalog_helper.samples, ermrest_schema['schemas']['public']['tables'].keys(),
+                         'Table found in ermrest "public" schema')
+        self.assertIn(self.catalog_helper.samples, ermrest_schema['schemas'][new_schema_name]['tables'],
+                      'Table not found in ermrest "%s" schema' % new_schema_name)
+
+        # validate that table model object has been invalidated and replaced in local model state
+        self.assertFalse(original_table.valid, 'Table object not invalidated')
+        self.assertTrue(all([not c.valid for c in original_table.columns.values()]))
+        self.assertNotIn(self.catalog_helper.samples, self._catalog['public'].tables,
+                         'Table found in catalog model "public" schema')
+        self.assertIn(self.catalog_helper.samples, self._catalog[new_schema_name].tables,
+                      'Table not found in catalog model "%s" schema' % new_schema_name)
 
     def test_ermrest_atomize(self):
         cname = 'list_of_closest_genes'

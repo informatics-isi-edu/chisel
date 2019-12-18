@@ -592,10 +592,6 @@ class Table (object):
         return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls={}, acl_bindings=acl_bindings, annotations=annotations, provide_system=False)
 
     @property
-    def schema(self):
-        return self._schema
-
-    @property
     def name(self):
         return self._name
 
@@ -603,49 +599,27 @@ class Table (object):
     def name(self, value):
         if self.name == value:
             raise ValueError('The table is already named "%s"' % value)
-        # TODO: also check the 'value' (new name) is not already in this table's schema
-        self._move(self.sname, value)
+        if value in self._schema.tables:
+            raise ValueError('A table by the name "%s" already exists in the schema' % value)
+        self._schema.tables[value] = ComputedRelation(_op.Rename(self.logical_plan, tuple()))
 
-    @valid_model_object
-    def _move(self, dst_schema_name, dst_table_name):  # TODO: make this '_rename'
-        """An internal method to 'move' a table either to rename it, change its schema, or both.
+    @property
+    def schema(self):
+        return self._schema
 
-        :param dst_schema_name: destination schema name, may be same
-        :param dst_table_name: destination table name, may be same
-        """
-        # TODO: Turn this into a Rename (logical) operator and introduce new Rename physical operator
-        #       - get rid of evolve block
-        #       - just do a catalog.schema[dst_sname].tables[dst_tname] = op.Rename(self.logical_plan, None) ?
-        #       - don't do 'self.valid = False' since that should happen in materialize op
-        assert self.sname != dst_schema_name or self.name != dst_table_name
-        catalog = self.schema.catalog
-
-        with self.schema.catalog.evolve():  # TODO: unnest this evolve block
-            # copy table to destination
-            catalog.schemas[dst_schema_name].tables[dst_table_name] = self.select()
-
-        with self.schema.catalog.evolve(allow_drop=True):  # TODO: unnest this evolve block
-            # drop table from origin
-            del catalog.schemas[self.sname].tables[self.name]
-
-        self.valid = False  # TODO: could attempt to repair this table object
+    @schema.setter
+    def schema(self, value):
+        if self._schema == value:
+            raise ValueError('The table is already in "%s" schema' % value)
+        if value.catalog != self._schema.catalog:
+            raise ValueError('The new schema does not belong to the same catalog')
+        if self._name in value.tables:
+            raise ValueError('A table by the name "%s" already exists in the "%s" schema' % (self._name, value.name))
+        value.tables[self._name] = ComputedRelation(_op.Rename(self.logical_plan, tuple()))
 
     @property
     def comment(self):
         return self._comment
-
-    # TODO: add a 'schema' property to access the parent schema of this table
-    # TODO: add a setter for 'schema' for the "move" operation
-
-    @property
-    def sname(self):  # TODO: remove this property
-        return self._sname
-
-    @sname.setter
-    def sname(self, value):  # TODO: remove this property
-        if self.sname == value:
-            raise ValueError('The schema is already set to "%s"' % value)
-        self._move(value, self.name)
 
     @property
     def kind(self):

@@ -128,11 +128,16 @@ class Assign (PhysicalOperator):
     def __iter__(self):
         return iter(self._child)
 
+    @property
+    def child(self):
+        return self._child
+
 
 class Alter (Assign):
     """Alter operator takes the 'projection' which will define the mutation on the relation."""
-    def __init__(self, child, schema_name, table_name, projection):
-        super(Alter, self).__init__(child, schema_name, table_name)
+    def __init__(self, child, src_sname, src_tname, dst_sname, dst_tname, projection):
+        super(Alter, self).__init__(child, dst_sname, dst_tname)
+        self.src_sname, self.src_tname, self.dst_sname, self.dst_tname = src_sname, src_tname, dst_sname, dst_tname
         self.projection = projection
 
 
@@ -174,7 +179,7 @@ class Project (PhysicalOperator):
     """Basic projection operator."""
     def __init__(self, child, projection):
         super(Project, self).__init__()
-        assert projection, "No projection"
+        projection = projection or [_op.AllAttributes()]
         assert hasattr(projection, '__iter__'), "Projection is not an iterable collection"
         assert isinstance(child, PhysicalOperator)
         self._child = child
@@ -298,7 +303,6 @@ class Rename (Project):
     def __init__(self, child, renames):
         assert isinstance(child, PhysicalOperator)
         assert child.description
-        assert renames
         assert isinstance(renames, tuple)
         assert all([isinstance(rename, _op.AttributeAlias) for rename in renames])
 

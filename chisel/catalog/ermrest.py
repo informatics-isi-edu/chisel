@@ -58,18 +58,19 @@ class ERMrestCatalog (base.AbstractCatalog):
             if not self._evolve_ctx.allow_alter:
                 raise base.CatalogMutationError('"allow_alter" flag is not True')
 
-            # TODO: need to get -- orig_sname, orig_tname = plan.child.description['...'], plan.child.description['...']
-            altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
-            self._do_alter_table(altered_schema_name, altered_table_name, plan.projection)  # TODO: orig_sname/tname, ...
+            orig_sname, orig_tname = plan.src_sname, plan.src_tname
+            altered_schema_name, altered_table_name = plan.dst_sname, plan.dst_tname
+            self._do_alter_table(orig_sname, orig_tname, altered_schema_name, altered_table_name, plan.projection)
 
-            # Note: repair the model following the alter table
-            #  invalidate the altered table model object
-            schema = self.schemas[altered_schema_name]
-            invalidated_table = self[altered_schema_name].tables._backup[altered_table_name]  # TODO: get the original table
+            #  invalidate the original table model object
+            invalidated_table = self.schemas[orig_sname].tables._backup[orig_tname]
             invalidated_table.valid = False  # TODO: ideally, repair rather than invalidate in the 'Alter' path
+            del self.schemas[orig_sname].tables._backup[orig_tname]
+
             #  introspect the schema on the revised table
             model_doc = self.ermrest_catalog.getCatalogSchema()
             table_doc = model_doc['schemas'][altered_schema_name]['tables'][altered_table_name]
+            schema = self.schemas[altered_schema_name]
             table = ERMrestTable(table_doc, schema=schema)
             schema.tables._backup[altered_table_name] = table  # TODO: this part is kludgy and needs to be revised
             # TODO: refresh the referenced_by of the catalog
@@ -137,41 +138,28 @@ class ERMrestCatalog (base.AbstractCatalog):
         schema = self.ermrest_catalog.getCatalogModel().schemas[schema_name]
         schema.create_table(table_doc)
 
-    def _do_move_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
-        """Rename table in the catalog."""
-        src_schema = self.schemas[src_schema_name]
-        src_table = src_schema.tables[src_table_name]
-        dst_schema = self.schemas[dst_schema_name]
-        with self.evolve():  # TODO: should refactor this so that it doesn't have to be performed in a evolve block
-            dst_schema.tables[dst_table_name] = src_table.select()
-        with self.evolve(allow_drop=True):  # TODO: remove undo block here
-          del src_schema.tables[src_table_name]
-
-    def _do_alter_table(self, schema_name, table_name, projection):  # TODO: sname, tname, new_sname, new_tname, projection
+    def _do_alter_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name, projection):
         """Alter table (general) in the catalog."""
         model = self.ermrest_catalog.getCatalogModel()
-        schema = model.schemas[schema_name]  # TODO: sname
-        table = schema.tables[table_name]    # TODO: tname
+        schema = model.schemas[src_schema_name]
+        table = schema.tables[src_table_name]
         original_columns = {c.name: c for c in table.column_definitions}
 
-        # Notes: currently, there are two distinct scenarios in a projection,
-        #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
-        #     aliased columns from the original columns. Also, columns may be aliased more than once.
-        #  2) 'special' case for add/drop only: 'AllAttributes' followed by 'AttributeDrop'
-        #     or 'AttributeAdd' symbols.
+        # Note: currently, there are distinct scenarios in an alter,
+        #  - schema change
+        #  - table name change
+        #  - 'special' case for add/drop only projections
+        #  - 'general' case for arbitrary attribute projections
 
-        # TODO:
-        #  3) change schema name
-        #  4) change table name
+        if src_schema_name != dst_schema_name:
+            logger.debug("Altering table name from schema '{old}' to '{new}'".format(old=src_schema_name, new=dst_schema_name))
+            table.alter(schema_name=dst_schema_name)
 
-        # if sname != new_sname:  # rename schema name
-        #     # ...
-        #
-        # elif tname != new_tname:  # rename table name
-        #     # ...
+        elif src_table_name != dst_table_name:
+            logger.debug("Altering table name from '{old}' to '{new}'".format(old=src_table_name, new=dst_table_name))
+            table.alter(table_name=dst_table_name)
 
-        # elif ...  TODO: will probably be mutually exclusive with column renames
-        if projection[0] == optimizer.AllAttributes():  # 'special' case for drops or adds only
+        elif projection[0] == optimizer.AllAttributes():  # 'special' case for drops or adds only
             logger.debug("Dropping columns that were explicitly removed.")
             for item in projection[1:]:
                 if isinstance(item, optimizer.AttributeDrop):
@@ -276,22 +264,6 @@ class ERMrestTable (base.Table):
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
         return optimizer.ERMrestExtant(self.schema.catalog, self.schema.name, self.name)
-
-    @base.valid_model_object
-    def _move(self, dst_schema_name, dst_table_name):
-        """An internal method to 'move' a table either to rename it, change its schema, or both.
-
-        :param dst_schema_name: destination schema name, may be same
-        :param dst_table_name: destination table name, may be same
-        """
-        assert self.sname != dst_schema_name or self.name != dst_table_name
-        # TODO: should be refactored so that this can be done in an evolve block
-        self.schema.catalog._do_move_table(self.schema.name, self.name, dst_schema_name, dst_table_name)
-        # repair local model state
-        self.valid = False
-        if self.name in self.schema.tables._backup:
-            del self.schema.tables._backup[self.name]  # TODO: this is kludgy should revise
-            self.schema.tables.reset()
 
     @base.valid_model_object
     def link(self, target):

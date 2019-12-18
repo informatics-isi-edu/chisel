@@ -119,7 +119,7 @@ class SemistructuredTable (base.Table):
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
-        filename = os.path.join(self.schema.catalog.path, self.sname, self.name)
+        filename = os.path.join(self.schema.catalog.path, self.schema.name, self.name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
             return optimizer.TabularDataExtant(filename=filename)
         elif filename.endswith('.json'):

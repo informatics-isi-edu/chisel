@@ -148,18 +148,20 @@ class ERMrestHelper (AbstractCatalogHelper):
 
     samples = 'samples'
 
-    def __init__(self, hostname, catalog_id=None, unit_table_names=[], use_deriva_catalog_manage=False):
+    def __init__(self, hostname, catalog_id=None, unit_schema_names=[], unit_table_names=[], use_deriva_catalog_manage=False):
         """Initializes the ERMrest catalog helper
 
         :param hostname: hostname of the deriva test server
         :param catalog_id: optional id of catalog to _reuse_ by this unit test suite
         :param unit_table_names: list of names of tables used in unit tests
+        :param unit_schema_names: list of names of schemas used in unit tests (will be created during setup)
         :param use_deriva_catalog_manage: flag to use deriva catalog manage classes instead of deriva core classes
         """
         super(ERMrestHelper, self).__init__()
         self._hostname = hostname
         self._ermrest_catalog = None
         self._reuse_catalog_id = catalog_id
+        self._unit_schema_names = unit_schema_names
         self._unit_table_names = unit_table_names
         self._use_deriva_catalog_manage = use_deriva_catalog_manage
 
@@ -197,6 +199,10 @@ class ERMrestHelper (AbstractCatalogHelper):
         public = model.schemas['public']
         assert isinstance(public, Schema)
 
+        # create schema
+        for sname in self._unit_schema_names:
+            model.create_schema(Schema.define(sname))
+
         # create table
         public.create_table(
             Table.define(
@@ -231,12 +237,24 @@ class ERMrestHelper (AbstractCatalogHelper):
         # delete any mutated tables
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
         model = self._ermrest_catalog.getCatalogModel()
+
+        # delete tables
         for tablename in self._unit_table_names + other + [self.samples]:
             try:
                 s, t = self._parse_table_name(tablename)
-                if t in model.schemas[s].tables:
-                    logger.debug('Deleting table "%s"' % t)
+                if s in model.schemas and t in model.schemas[s].tables:
+                    logger.debug('Dropping table "%s"' % t)
                     model.schemas[s].tables[t].drop()
+            except HTTPError as e:
+                if e.response.status_code != 404:  # suppress the expected 404
+                    raise e
+
+        # delete schemas
+        for s in self._unit_schema_names:
+            try:
+                if s != 'public' and s in model.schemas:
+                    logger.debug('Dropping schema "%s"' % s)
+                    model.schemas[s].drop()
             except HTTPError as e:
                 if e.response.status_code != 404:  # suppress the expected 404
                     raise e
