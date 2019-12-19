@@ -424,9 +424,11 @@ class TestERMrestCatalog (BaseTestCase):
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
         self.assertIn(cname, ermrest_schema['schemas']['public']['tables'])
 
+    @unittest.skip
     def test_link_tables(self):
         pass
 
+    @unittest.skip
     def test_associate_tables(self):
         pass
 

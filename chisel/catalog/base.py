@@ -851,12 +851,18 @@ class Table (object):
     @valid_model_object
     def link(self, target):
         """Creates a reference from this table to the target table."""
-        raise NotImplementedError('This catalog does not support this method.')
+        # TODO: may need to introduce new Link operator
+        #       projection of table +column(s) needed as the foriegn key, inference of key columns from target table
+        #       add'l physical operation to add the fkey reference
+        raise NotImplementedError('This method is not yet supported.')
 
     @valid_model_object
     def associate(self, target):
         """Creates a many-to-many "association" between this table and "target" table."""
-        raise NotImplementedError('This catalog does not support this method.')
+        # TODO: may need to introduce new Associate operator
+        #       project of new table w/ column(s) for each foriegn key to inferred keys of target tables
+        #       add'l physical operation to add the fkey reference(s)
+        raise NotImplementedError('This method is not yet supported.')
 
 
 class ColumnCollection (collections.OrderedDict):

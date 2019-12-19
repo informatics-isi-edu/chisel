@@ -201,20 +201,6 @@ class ERMrestCatalog (base.AbstractCatalog):
         table = schema.tables[table_name]
         table.drop()
 
-    def _do_link_tables(self, schema_name, table_name, target_schema_name, target_table_name):
-        """Link tables in the catalog."""
-        # TODO: may need to introduce new Link operator
-        #       projection of table +column(s) needed as the foriegn key, inference of key columns from target table
-        #       add'l physical operation to add the fkey reference
-        raise NotImplementedError('Not supported by %s.' % type(self).__name__)
-
-    def _do_associate_tables(self, schema_name, table_name, target_schema_name, target_table_name):
-        """Associate tables in the catalog."""
-        # TODO: may need to introduce new Associate operator
-        #       project of new table w/ column(s) for each foriegn key to inferred keys of target tables
-        #       add'l physical operation to add the fkey reference(s)
-        raise NotImplementedError('Not supported by %s.' % type(self).__name__)
-
     def _determine_model_changes(self, computed_relation):
         """Determines the model changes to be produced by this computed relation."""
         return dict(mappings=[], constraints=[], policies=[])
@@ -264,17 +250,3 @@ class ERMrestTable (base.Table):
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
         return optimizer.ERMrestExtant(self.schema.catalog, self.schema.name, self.name)
-
-    @base.valid_model_object
-    def link(self, target):
-        """Creates a reference from this table to the target table."""
-        with self.schema.catalog.evolve():  # TODO: get rid of this evolve block
-            # TODO: eventually the _do_... statements should just be moved here
-            self.schema.catalog._do_link_tables(self.schema.name, self.name, target.schema.name, target.name)
-
-    @base.valid_model_object
-    def associate(self, target):
-        """Creates a many-to-many "association" between this table and "target" table."""
-        with self.schema.catalog.evolve():  # TODO: get rid of this evolve block
-            # TODO: eventually the _do_... statements should just be moved here
-            self.schema.catalog._do_associate_tables(self.schema.name, self.name, target.schema.name, target.name)
