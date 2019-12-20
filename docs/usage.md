@@ -2,13 +2,31 @@
 
 This guide covers usage examples.
 
+## Catalog `evolve` block
+
+Operations must be performed within a `with catalog.evolve(): ...` block.
+The actual schema evolution is executed after the block exits successfully. If
+an exception is raised (and not caught), the evolution is aborted and the
+catalog model is restored to its original state.
+
+### Testing with `dry_run` flag
+
+In order to do a "dry run," call the evolve method with `dry_run=True` and at 
+the exit of the evolve block the plan and sample data of computed relations
+will be dumped to standard output. No changes to the catalog will be executed
+and the catalog model will be restored to its original state.
+
+### Guarding with `allow_alter` and `allow_drop`
+
+In order to guard against accidental table alteration or destruction, the 
+`evolve` method accepts `allow_alter` and `allow_drop` Boolean parameters. 
+By default, these parameters are `False` and the evolve block will prevent
+table alter or drop operations, respectively.
+
 ## Simple operations
 
-The simpler operators are generally equivalent to operations available in SQL 
+The simple operators are generally equivalent to operations available in SQL 
 DDL (data definition language).
-
-These operations need to be performed in _isolation_ and therefore cannot be 
-used within the `with catalog.evolve(): ...` blocks.
 
 ### Create a table
 
@@ -139,35 +157,6 @@ with catalog.evolve():  # TODO
 
 The complex operations cover chisel features that go beyond SQL DDL types of 
 operations.
-
-### Catalog `evolve` block
-
-These operations must be performed within a `with catalog.evolve(): ...` block.
-The actual schema evolution is executed after the block exits successfully. If
-an exception is raised (and not caught), the evolution is aborted and the
-catalog model is restored to its original state.
-
-### Testing with `dry_run` flag
-
-In order to do a "dry run," call the evolve method with `dry_run=True` and at 
-the exit of the evolve block the plan and sample data of computed relations
-will be dumped to standard output. No changes to the catalog will be executed
-and the catalog model will be restored to its original state.
-
-### Guarding with `allow_alter` and `allow_drop`
-
-In order to guard against accidental table alteration or destruction, the 
-`evolve` method accepts `allow_alter` and `allow_drop` Boolean parameters. 
-By default, these parameters are `False` and the evolve block will prevent
-table alter or drop operations, respectively.
-
-### Simple versus complex operations
-
-A key difference between the simple and complex operations is that the simple
-operations are performed in isolation. They cannot be called within an evolve
-context block. Internally, the basic (DDL like) operations will setup an 
-evolve block and set the appropriate flags to allow alter and drop operations
-to succeed.
 
 ### Create table as domain from existing column
 
