@@ -373,18 +373,6 @@ class Schema (object):
         """
         return Table(table_doc)
 
-    @valid_model_object
-    def _create_table(self, table_doc):
-        """Creates a table _in the catalog_.
-
-        This method should be implemented by subclasses that allow for creating tables in extant schemas.
-
-        :param table_doc: a table definition dictionary as defined by `Table.define(...)`.
-        :return: a Table object representing the newly created table.
-        """
-        # TODO: refactor this into a form of generalized projection
-        raise NotImplementedError()
-
     def describe(self):
         """Returns a text (markdown) description."""
 
@@ -464,7 +452,7 @@ class TableCollection (collections.abc.MutableMapping):
         self._schema = schema
         self._backup = tables
         self._tables = tables.copy()
-        self._pending = {}
+        self._pending = {}  # TODO: pending should be tracked in the evolve_ctx, in order, and then processed in order
         self._destructive_pending = False
 
     def _ipython_key_completions_(self):
@@ -493,48 +481,51 @@ class TableCollection (collections.abc.MutableMapping):
 
     @valid_model_object
     def __setitem__(self, key, value):
-        # for directly creating a table...
+        # TODO: this may be only place that requires change to support implicit commit
         if not self._schema.catalog._evolve_ctx:
+            raise CatalogMutationError("No catalog mutation context set.")
 
-            # TODO: when no evolve ctx set, do immediate/implicit commit
-            #  if value is Mapping (ie, Table definition):
-            #    process as follows...
-            #  elif value is ComputedRelation:
-            #    with self.catalog.evolve():
-            #      self._tables[key] = self._pending[key] = ComputedRelation(_op.Assign(...)...)
-            #      ...evolved here at exit of implicit evolve block
-            #    return self._tables[key]  ...to return the newly materialized relation
+        elif isinstance(value, collections.abc.Mapping):
+            # for new table creation, we expect to get a Mapping (dict)
 
-            if not isinstance(value, collections.abc.Mapping):
-                raise CatalogMutationError("No catalog mutation context set.")
+            # validate that table definition has minimum required field
             if 'table_name' not in value:
                 raise ValueError('value must have a "table_name" key in it')
+
+            # validate that the name has not been assigned
+            if key in self._tables:
+                raise ValueError('there is already a table named "%s"' % key)
+
+            # validate that table_name and key are the same
             if value['table_name'] != key:
                 raise ValueError('table definition "table_name" field does not match "%s"' % key)
 
-            table = self._schema._create_table(value)
-            assert isinstance(table, Table), "invalid table return type"
-            self._backup[key] = table
-            self.reset()
-            return table
+            # assign new table definition to the pending operations
+            newval = ComputedRelation(_op.Assign(json.dumps(value), self._schema.name, key))
+            self._tables[key] = self._pending[key] = newval
+            return newval
 
-        # for evolution based on computed relations...
-        if not isinstance(value, ComputedRelation):
-            raise ValueError("Value must be a computed relation.")
-        if self._destructive_pending:
-            raise CatalogMutationError("Cannot perform another operation while a 'mutation' of an existing table is pending.")
-        if key in self._tables:
-            # 'key in tables' indicates that this table is being altered or replaced - a 'destructive' operation
-            if self._pending:
-                raise CatalogMutationError("Cannot perform 'mutation' of an existing table while another operation is pending.")
-            self._destructive_pending = True
+        else:
+            # for evolution based on computed relations...
 
-        # update pending and current tables and return value
-        # TODO: pending should be tracked in the evolve_ctx, in order, and then processed in order
-        newval = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
-        self._tables[key] = self._pending[key] = newval
-        assert self._tables[key] == self._pending[key]
-        return newval
+            # validate that value is a computed relation
+            if not isinstance(value, ComputedRelation):
+                raise ValueError("Value must be a computed relation or a new table definition.")
+
+            # validate that no destructive (alter/drop) operations are pending
+            if self._destructive_pending:
+                raise CatalogMutationError("Cannot perform another operation while a 'mutation' of an existing table is pending.")
+
+            if key in self._tables:
+                # 'key in tables' indicates that this table is being altered or replaced - a 'destructive' operation
+                if self._pending:
+                    raise CatalogMutationError("Cannot perform 'mutation' of an existing table while another operation is pending.")
+                self._destructive_pending = True
+
+            # update pending and current tables and return value
+            newval = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+            self._tables[key] = self._pending[key] = newval
+            return newval
 
     @valid_model_object
     def __delitem__(self, key):
@@ -574,7 +565,7 @@ class Table (object):
         self._valid = True
 
     @classmethod
-    def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}):
+    def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}, provide_system=True):
         """Define a table.
 
         Currently, this is a thin wrapper on `deriva.core.ermrest_model.Table.define`.
@@ -587,9 +578,10 @@ class Table (object):
         :param acls: optional dictionary of Access Control Lists
         :param acl_bindings: optional dictionary of Access Control List bindings
         :param annotations: optional dictionary of model annotations
+        :param provide_system: whether to inject standard system column definitions when missing from column_defs
         :return: a table definition dictionary
         """
-        return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls={}, acl_bindings=acl_bindings, annotations=annotations, provide_system=False)
+        return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls=acls, acl_bindings=acl_bindings, annotations=annotations, provide_system=provide_system)
 
     @property
     def name(self):

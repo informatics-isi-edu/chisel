@@ -47,13 +47,41 @@ class ERMrestCatalog (base.AbstractCatalog):
     def _new_schema_instance(self, schema_doc):
         return ERMrestSchema(schema_doc, self)
 
+    def _repair_model(self, schema_name, table_name):
+        """Repair catalog model for recently created, assigned, or altered table
+
+        :param schema_name: schema name
+        :param table_name: table name
+        :return: new table instance
+        """
+        # get table from catalog schema
+        model_doc = self.ermrest_catalog.getCatalogSchema()
+        table_doc = model_doc['schemas'][schema_name]['tables'][table_name]
+        schema = self.schemas[schema_name]
+        # instantiate new table model object
+        table = schema._new_table_instance(table_doc)
+        # add to schema tables backing collection
+        schema.tables._backup[table_name] = table  # TODO: this part is kludgy and needs to be revised
+        # TODO: refresh the referenced_by of the catalog
+        return table
+
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
-        if isinstance(plan, operators.Alter):
+        if isinstance(plan, operators.Create):
+            schema_name, table_name = plan.description['schema_name'], plan.description['table_name']
+            logger.debug(("Creating table '%s.%s'" % (schema_name, table_name)))
+
+            # Create table
+            self._do_create_table(schema_name, plan.description)
+
+            # Repair catalog model
+            self._repair_model(schema_name, table_name)
+
+        elif isinstance(plan, operators.Alter):
             logger.debug("Altering table '{tname}'.".format(tname=plan.description['table_name']))
             if not self._evolve_ctx.allow_alter:
                 raise base.CatalogMutationError('"allow_alter" flag is not True')
@@ -67,13 +95,8 @@ class ERMrestCatalog (base.AbstractCatalog):
             invalidated_table.valid = False  # TODO: ideally, repair rather than invalidate in the 'Alter' path
             del self.schemas[orig_sname].tables._backup[orig_tname]
 
-            #  introspect the schema on the revised table
-            model_doc = self.ermrest_catalog.getCatalogSchema()
-            table_doc = model_doc['schemas'][altered_schema_name]['tables'][altered_table_name]
-            schema = self.schemas[altered_schema_name]
-            table = ERMrestTable(table_doc, schema=schema)
-            schema.tables._backup[altered_table_name] = table  # TODO: this part is kludgy and needs to be revised
-            # TODO: refresh the referenced_by of the catalog
+            # Repair catalog model
+            self._repair_model(altered_schema_name, altered_table_name)
 
         elif isinstance(plan, operators.Drop):
             logger.debug("Dropping table '{tname}'.".format(tname=plan.description['table_name']))
@@ -122,13 +145,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             new_table.insert(plan, nondefaults=nondefaults)
 
             # Repair catalog model
-            #  ...introspect the schema on the revised table
-            model_doc = self.ermrest_catalog.getCatalogSchema()
-            table_doc = model_doc['schemas'][assigned_schema_name]['tables'][assigned_table_name]
-            schema = self.schemas[assigned_schema_name]
-            table = schema._new_table_instance(table_doc)
-            schema.tables._backup[assigned_table_name] = table  # TODO: this part is kludgy and needs to be revised
-            # TODO: refresh the referenced_by of the catalog
+            self._repair_model(assigned_schema_name, assigned_table_name)
 
         else:
             raise ValueError('Plan cannot be materialized.')
@@ -219,28 +236,6 @@ class ERMrestSchema (base.Schema):
 
     def _new_table_instance(self, table_doc):
         return ERMrestTable(table_doc, self)
-
-    @base.valid_model_object
-    def _create_table(self, table_doc):
-        """ERMrest specific implementation of create table function."""
-
-        # Revise table doc to include sys columns, per static flag
-        table_doc_w_syscols = _em.Table.define(
-            table_doc['table_name'],
-            column_defs=table_doc.get('column_definitions', []),
-            key_defs=table_doc.get('keys', []),
-            fkey_defs=table_doc.get('foreign_keys', []),
-            comment=table_doc.get('comment', None),
-            acls=table_doc.get('acls', {}),
-            acl_bindings=table_doc.get('acl_bindings', {}),
-            annotations=table_doc.get('annotations', {}),
-            provide_system=ERMrestCatalog.provide_system
-        )
-
-        # Create the table using evolve block for isolation
-        with self.catalog.evolve():
-            self.catalog._do_create_table(self.name, table_doc_w_syscols)
-            return self._new_table_instance(table_doc_w_syscols)
 
 
 class ERMrestTable (base.Table):

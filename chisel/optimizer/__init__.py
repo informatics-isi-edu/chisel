@@ -4,7 +4,6 @@ from pyfpm import matcher as _fpm
 from . import rules as _rules
 from .symbols import *
 from .consolidate import consolidate
-from ..operators import PhysicalOperator
 
 
 def _execute_rules_single_pass(rules, op):
@@ -14,8 +13,8 @@ def _execute_rules_single_pass(rules, op):
     :param op: input operator
     :return: rewritten operator
     """
-    # test for terminal condition
-    if isinstance(op, Nil) or isinstance(op, PhysicalOperator):
+    # terminate if op is Nil or is not a symbolic operator (tuple)
+    if isinstance(op, Nil) or not isinstance(op, tuple):
         return op
 
     # rewrite this operator

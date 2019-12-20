@@ -17,7 +17,7 @@ import chisel
 from chisel import Table, Column, Key, ForeignKey
 catalog = chisel.connect(...)
 
-with catalog.evolve(): # TODO
+with catalog.evolve():
     # define table and assign to a schema in order to create it in the catalog
     catalog['public'].tables['foo'] = Table.define(
         'foo',

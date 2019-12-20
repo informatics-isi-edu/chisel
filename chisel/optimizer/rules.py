@@ -1,5 +1,6 @@
 """Logical optimization, composition, and transformation rules."""
 
+import json
 from pyfpm.matcher import Matcher
 from .. import util
 from .. import operators as _op
@@ -162,8 +163,12 @@ logical_composition_rules = Matcher([
 #: rules for transforming logical plans to physical plans
 physical_transformation_rules = Matcher([
     (
-        'Assign(child:PhysicalOperator, schema, table_name)',
-        lambda child, schema, table_name: _op.Assign(child, schema, table_name)
+        'Assign(child:PhysicalOperator, schema, table)',
+        lambda child, schema, table: _op.Assign(child, schema, table)
+    ),
+    (
+        'Assign(child:str, schema, table)',
+        lambda child, schema, table: _op.Create(_op.Metadata(json.loads(child)), schema, table)
     ),
     (
         'Assign(Project(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)'
@@ -177,8 +182,8 @@ physical_transformation_rules = Matcher([
         _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
     ),
     (
-        'Assign(Nil(), schema, table_name)',
-        lambda schema, table_name: _op.Drop(_op.Metadata({'schema_name': schema, 'table_name': table_name }), schema, table_name)
+        'Assign(Nil(), schema, table)',
+        lambda schema, table: _op.Drop(_op.Metadata({'schema_name': schema, 'table_name': table}), schema, table)
     ),
     (
         'TempVar(child)',

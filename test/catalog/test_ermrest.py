@@ -58,7 +58,8 @@ class TestERMrestCatalog (BaseTestCase):
         table_def = Table.define(new_tname)
 
         # create the table
-        self._catalog['public'].tables[new_tname] = table_def
+        with self._catalog.evolve():
+            self._catalog['public'].tables[new_tname] = table_def
         self._is_table_valid(new_tname)
 
     def test_create_table_w_fkey(self):
@@ -87,7 +88,8 @@ class TestERMrestCatalog (BaseTestCase):
         )
 
         # create the table
-        self._catalog['public'].tables[new_tname] = table_def
+        with self._catalog.evolve():
+            self._catalog['public'].tables[new_tname] = table_def
         self._is_table_valid(new_tname)
 
     def test_allow_alter_err(self):

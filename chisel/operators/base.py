@@ -133,6 +133,12 @@ class Assign (PhysicalOperator):
         return self._child
 
 
+class Create (Assign):
+    """Create operator."""
+    def __init__(self, child, schema_name, table_name):
+        super(Create, self).__init__(child, schema_name, table_name)
+
+
 class Alter (Assign):
     """Alter operator takes the 'projection' which will define the mutation on the relation."""
     def __init__(self, child, src_sname, src_tname, dst_sname, dst_tname, projection):
