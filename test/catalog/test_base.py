@@ -74,3 +74,15 @@ class TestBaseCatalog (BaseTestCase):
                 self._catalog.schemas['.'].tables['domain1'] = temp
         # table should be restored
         self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], Table, "Failed to restore tables")
+
+    def test_schema_describe(self):
+        self._catalog['.'].describe()
+
+    def test_table_describe(self):
+        self._catalog['.'][self.catalog_helper.samples].describe()
+
+    def test_schema_graph(self):
+        self._catalog['.'].graph()
+
+    def test_table_graph(self):
+        self._catalog['.'][self.catalog_helper.samples].graph()

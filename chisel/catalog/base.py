@@ -556,10 +556,10 @@ class Table (object):
             self, [(col['name'], self._new_column_instance(col)) for col in table_doc.get('column_definitions', [])]
         )
         # TODO: eventually these need chisel model objects
-        # self._keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
+        # self._keys = [_em.Key(self.schema.name, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
         self._keys = [key_doc for key_doc in table_doc.get('keys', [])]
         # TODO: eventually these need chisel model objects
-        # self._foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
+        # self._foreign_keys = [_em.ForeignKey(self.schema.name, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
         self._foreign_keys = [fkey_doc for fkey_doc in table_doc.get('foreign_keys', [])]
         self._referenced_by = []
         self._valid = True
@@ -704,7 +704,7 @@ class Table (object):
             ] + [
                 [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.columns.values()
             ]
-            desc = "### Table \"" + str(self.sname) + "." + str(self.name) + "\"\n" + \
+            desc = "### Table \"" + str(self.schema.name) + "." + str(self.name) + "\"\n" + \
                    util.markdown_table(data, quote)
             return desc
 
@@ -727,7 +727,7 @@ class Table (object):
         dot = Digraph(name=self.name, engine=engine, node_attr={'shape': 'box'})
 
         # add node
-        label = "%s.%s" % (self.sname, self.name)
+        label = "%s.%s" % (self.schema.name, self.name)
         dot.node(label, label)
 
         # track referenced nodes
@@ -735,7 +735,7 @@ class Table (object):
 
         # add edges
         # add outbound edges
-        tail_name = "%s.%s" % (self.sname, self.name)
+        tail_name = "%s.%s" % (self.schema.name, self.name)
         for fkey in self.foreign_keys:
             refcol = fkey.referenced_columns[0]
             head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
