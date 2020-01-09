@@ -7,11 +7,11 @@ from test.utils import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
 from chisel import data_types, Column, Table, ForeignKey
 
-ermrest_hostname = os.getenv('CHISEL_TEST_ERMREST_HOST')
-ermrest_catalog_id = os.getenv('CHISEL_TEST_ERMREST_CATALOG')
+ermrest_hostname = os.getenv('DERIVA_PY_TEST_HOSTNAME')
+ermrest_catalog_id = os.getenv('DERIVA_PY_TEST_CATALOG')
 
 
-@unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined. Set "CHISEL_TEST_ERMREST_HOST" to enable test.')
+@unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined.')
 class TestERMrestCatalog (BaseTestCase):
     """Unit test suite for ermrest catalog functionality."""
 

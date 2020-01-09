@@ -20,7 +20,7 @@ Install the library directly from its source code repository. You will
 _not_ get the `examples` and `tests` with the quick install instructions.
 
 ```
-$ pip install git+https://github.com/robes/chisel.git
+$ pip install https://github.com/informatics-isi-edu/chisel.git
 ```
 
 For system-wide installations, use `sudo` and execute the command without the 
@@ -32,7 +32,7 @@ This installation method gets a copy of the source and then installs it.
 
 1. Clone the source repository
     ```sh
-    $ git clone git+https://github.com/robes/chisel.git
+    $ git clone https://github.com/informatics-isi-edu/chisel.git
     ```
 2. Install
     ```sh
@@ -43,7 +43,7 @@ This installation method gets a copy of the source and then installs it.
     for current user only install.
 3. Run the tests
     ```sh
-    $ export CHISEL_TEST_ERMREST_HOST=my-ermrest-host.example.org
+    $ export DERIVA_PY_TEST_HOSTNAME=my-ermrest-host.example.org
     $ python -m unittest discover
     ```
     See [the notes below on setting environment variables for testing](#testing). 
@@ -68,11 +68,11 @@ The package includes unit tests. They may be run without any configuration,
 however, certain test cases and suites will be skipped without the following
 environment variables defined.
 
-* `CHISEL_TEST_ERMREST_HOST`:
+* `DERIVA_PY_TEST_HOSTNAME`:
   To run the ERMrest catalog test suite, set this variable to the hostname of
   a server running an ERMrest service. You will also need to establish valid
   user credentials (e.g., by using the Deriva-Auth client).
-* `CHISEL_TEST_ERMREST_CATALOG`:
+* `DERIVA_PY_TEST_CATALOG`:
   In addition, set this variable to reuse a catalog. This variable is typically
   only used during development activities that would motivate frequently
   repeated test runs.
