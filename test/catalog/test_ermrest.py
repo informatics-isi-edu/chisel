@@ -19,6 +19,7 @@ class TestERMrestCatalog (BaseTestCase):
     _samples_renamed_tname = "SAMPLES RENAMED"
     _test_renamed_sname = "NEW SCHEMA"
     _test_create_table_tname = "NEW TABLE"
+    _test_assoc_table_tname = "{}_{}".format(ERMrestHelper.samples, _test_create_table_tname)
 
     catalog_helper = ERMrestHelper(
         ermrest_hostname, ermrest_catalog_id,
@@ -30,6 +31,7 @@ class TestERMrestCatalog (BaseTestCase):
             _samples_copy_tname,
             _samples_renamed_tname,
             _test_create_table_tname,
+            _test_assoc_table_tname,
             _test_renamed_sname + ':' + ERMrestHelper.samples
         ]
     )
@@ -428,43 +430,16 @@ class TestERMrestCatalog (BaseTestCase):
 
     @unittest.skip
     def test_link_tables(self):
-        pass
-
-    @unittest.skip
-    def test_associate_tables(self):
-        pass
-
-
-# TODO: temporarily skipped while refactoring to altercol changes
-@unittest.skip
-@unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined. Set "CHISEL_TEST_ERMREST_HOST" to enable test.')
-class TestDerivaCatalog (TestERMrestCatalog):
-
-    catalog_helper = ERMrestHelper(
-        ermrest_hostname, ermrest_catalog_id,
-        unit_table_names=[
-            'list_of_closest_genes',
-            TestERMrestCatalog._samples_copy_tname,
-            TestERMrestCatalog._samples_renamed_tname,
-            "{}_{}".format(ERMrestHelper.samples, TestERMrestCatalog._test_create_table_tname),
-            TestERMrestCatalog._test_create_table_tname
-        ],
-        use_deriva_catalog_manage=True
-    )
-
-    def _create_new_table(self, table_name):
-        """Helper method to create new table with name "table_name"."""
-        new_tname = self._test_create_table_tname
-        table_def = Table.define(new_tname)
-        self._catalog['public'].tables[new_tname] = table_def
-        return self._catalog['public'].tables[new_tname]
-
-    def test_link_tables(self):
         dst_table = self._catalog['public'][self.catalog_helper.samples]
-        src_table = self._create_new_table(self._test_create_table_tname)
+
+        # create new table for use in this test
+        with self._catalog.evolve():
+            self._catalog['public'].tables[self._test_create_table_tname] = Table.define(self._test_create_table_tname)
+        src_table = self._catalog['public'].tables[self._test_create_table_tname]
 
         # link tables
-        src_table.link(dst_table)
+        with self._catalog.evolve(allow_alter=True):
+            src_table.link(dst_table)
 
         # validate new fkey column is in ermrest
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -475,18 +450,20 @@ class TestDerivaCatalog (TestERMrestCatalog):
         self.assertIn(self.catalog_helper.samples, column_names,
                       "Association table not found in ERMrest schema resource.")
 
+    @unittest.skip
     def test_associate_tables(self):
         src_table = self._catalog['public'][self.catalog_helper.samples]
-        dst_table = self._create_new_table(self._test_create_table_tname)
+
+        # create new table for use in this test
+        with self._catalog.evolve():
+            self._catalog['public'].tables[self._test_create_table_tname] = Table.define(self._test_create_table_tname)
+        dst_table = self._catalog['public'].tables[self._test_create_table_tname]
 
         # associate tables
-        src_table.associate(dst_table)
+        with self._catalog.evolve(allow_alter=True):
+            src_table.associate(dst_table)
 
         # validate new table is in ermrest
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
-        self.assertIn("{}_{}".format(src_table.name, dst_table.name), ermrest_schema['schemas']['public']['tables'],
+        self.assertIn(self._test_assoc_table_tname, ermrest_schema['schemas']['public']['tables'],
                       "Association table not found in ERMrest schema resource.")
-
-    @unittest.skip
-    def test_create_table_w_fkey(self):
-        pass

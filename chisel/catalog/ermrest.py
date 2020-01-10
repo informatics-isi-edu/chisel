@@ -12,23 +12,18 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def connect(url, credentials=None, use_deriva_catalog_manage=False):
+def connect(url, credentials=None):
     """Connect to an ERMrest data source.
 
     :param url: connection string url
     :param credentials: user credentials
-    :param use_deriva_catalog_manage: flag to use deriva catalog manage rather than deriva core only (default: `False`)
     :return: catalog for data source
     """
     parsed_url = util.urlparse(url)
     if not credentials:
         credentials = _deriva_core.get_credential(parsed_url.netloc)
     ec = _deriva_core.ErmrestCatalog(parsed_url.scheme, parsed_url.netloc, parsed_url.path.split('/')[-1], credentials)
-    if use_deriva_catalog_manage:
-        from .deriva import DerivaCatalog
-        return DerivaCatalog(ec)
-    else:
-        return ERMrestCatalog(ec)
+    return ERMrestCatalog(ec)
 
 
 class ERMrestCatalog (base.AbstractCatalog):
