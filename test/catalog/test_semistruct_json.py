@@ -1,5 +1,5 @@
 import unittest
-from test.utils import CatalogHelper, BaseTestCase
+from test.helpers import CatalogHelper, BaseTestCase
 
 
 class TestSemistructuredJson (BaseTestCase):

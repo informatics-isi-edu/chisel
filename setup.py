@@ -17,7 +17,6 @@ setup(
     package_data={},
     test_suite='tests',
     install_requires=[
-        'deriva-catalog-manage',
         'deriva',
         'graphviz',
         'nltk',

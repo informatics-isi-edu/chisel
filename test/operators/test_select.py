@@ -4,7 +4,7 @@ import os
 import unittest
 import chisel.operators as _op
 import chisel.optimizer as _opt
-from test.utils import TestHelper
+from test.helpers import TestHelper
 
 logger = logging.getLogger(__name__)
 if os.getenv('CHISEL_TEST_VERBOSE'):

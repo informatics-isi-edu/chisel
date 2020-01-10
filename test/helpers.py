@@ -1,3 +1,5 @@
+"""Helpers for the tests."""
+
 import abc
 import csv
 import logging
@@ -148,14 +150,13 @@ class ERMrestHelper (AbstractCatalogHelper):
 
     samples = 'samples'
 
-    def __init__(self, hostname, catalog_id=None, unit_schema_names=[], unit_table_names=[], use_deriva_catalog_manage=False):
+    def __init__(self, hostname, catalog_id=None, unit_schema_names=[], unit_table_names=[]):
         """Initializes the ERMrest catalog helper
 
         :param hostname: hostname of the deriva test server
         :param catalog_id: optional id of catalog to _reuse_ by this unit test suite
         :param unit_table_names: list of names of tables used in unit tests
         :param unit_schema_names: list of names of schemas used in unit tests (will be created during setup)
-        :param use_deriva_catalog_manage: flag to use deriva catalog manage classes instead of deriva core classes
         """
         super(ERMrestHelper, self).__init__()
         self._hostname = hostname
@@ -163,7 +164,6 @@ class ERMrestHelper (AbstractCatalogHelper):
         self._reuse_catalog_id = catalog_id
         self._unit_schema_names = unit_schema_names
         self._unit_table_names = unit_table_names
-        self._use_deriva_catalog_manage = use_deriva_catalog_manage
 
     @classmethod
     def _parse_table_name(cls, tablename):
@@ -283,8 +283,7 @@ class ERMrestHelper (AbstractCatalogHelper):
             'https://{hostname}/ermrest/catalog/{id}'.format(
                 hostname=self._hostname,
                 id=self._ermrest_catalog.catalog_id
-            ),
-            use_deriva_catalog_manage=self._use_deriva_catalog_manage
+            )
         )
 
 
