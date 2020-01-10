@@ -4,6 +4,7 @@ import abc
 import collections
 from functools import wraps
 import itertools
+import json
 import logging
 import pprint as pp
 from graphviz import Digraph
@@ -21,10 +22,9 @@ def valid_model_object(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         model_object = args[0]
-        assert hasattr(model_object, 'valid'), "Decorated object does not have a valid flag"
+        assert hasattr(model_object, 'valid'), "Decorated object does not have 'valid' attribute"
         if not getattr(model_object, 'valid'):
-            raise CatalogMutationError("The {model_type} object with name '{name}' was invalidated.".format(
-                model_type=type(model_object).__name__, name=model_object.name))
+            raise CatalogMutationError("The %s object with was invalidated." % type(model_object).__name__)
         return fn(*args, **kwargs)
     return wrapper
 
@@ -160,7 +160,7 @@ class AbstractCatalog (object):
                     logging.debug("Committing current catalog model mutation operations.")
                     self.parent._commit(self.dry_run, self.consolidate)
             finally:
-                # resent the schemas
+                # reset the schemas
                 for schema in self.parent.schemas.values():
                     schema.tables.reset()
                 # remove the evolve context
@@ -373,27 +373,6 @@ class Schema (object):
         """
         return Table(table_doc)
 
-    @valid_model_object
-    def _create_table(self, table_doc):
-        """Creates a table _in the catalog_.
-
-        This method should be implemented by subclasses that allow for creating tables in extant schemas.
-
-        :param table_doc: a table definition dictionary as defined by `Table.define(...)`.
-        :return: a Table object representing the newly created table.
-        """
-        # TODO: refactor this into a form of generalized projection
-        raise NotImplementedError()
-
-    @valid_model_object
-    def _drop_table(self, table_name):
-        """Drops the table.
-
-        :param table_name: name of the table to be dropped.
-        """
-        with self.catalog.evolve(allow_drop=True):
-            self._tables._pending[table_name] = ComputedRelation(_op.Assign(_op.Nil(), self._name, table_name))
-
     def describe(self):
         """Returns a text (markdown) description."""
 
@@ -473,7 +452,7 @@ class TableCollection (collections.abc.MutableMapping):
         self._schema = schema
         self._backup = tables
         self._tables = tables.copy()
-        self._pending = {}
+        self._pending = {}  # TODO: pending should be tracked in the evolve_ctx, in order, and then processed in order
         self._destructive_pending = False
 
     def _ipython_key_completions_(self):
@@ -502,42 +481,58 @@ class TableCollection (collections.abc.MutableMapping):
 
     @valid_model_object
     def __setitem__(self, key, value):
-        # for directly creating a table...
+        # TODO: this may be only place that requires change to support implicit commit
         if not self._schema.catalog._evolve_ctx:
-            if not isinstance(value, collections.abc.Mapping):
-                raise CatalogMutationError("No catalog mutation context set.")
+            raise CatalogMutationError("No catalog mutation context set.")
+
+        elif isinstance(value, collections.abc.Mapping):
+            # for new table creation, we expect to get a Mapping (dict)
+
+            # validate that table definition has minimum required field
             if 'table_name' not in value:
                 raise ValueError('value must have a "table_name" key in it')
+
+            # validate that the name has not been assigned
+            if key in self._tables:
+                raise ValueError('there is already a table named "%s"' % key)
+
+            # validate that table_name and key are the same
             if value['table_name'] != key:
                 raise ValueError('table definition "table_name" field does not match "%s"' % key)
 
-            table = self._schema._create_table(value)
-            assert isinstance(table, Table), "invalid table return type"
-            self._backup[key] = table
-            self.reset()
-            return table
+            # assign new table definition to the pending operations
+            newval = ComputedRelation(_op.Assign(json.dumps(value), self._schema.name, key))
+            self._tables[key] = self._pending[key] = newval
+            return newval
 
-        # for evolution based on computed relations...
-        if not isinstance(value, ComputedRelation):
-            raise ValueError("Value must be a computed relation.")
-        if self._destructive_pending:
-            raise CatalogMutationError("A destructive operation is pending.")
-        if key in self._tables:
-            # 'key in tables' indicates that a table is being altered or replaced - a 'destructive' operation
-            if self._pending:
-                raise CatalogMutationError("A destructive operation is pending.")
-            self._destructive_pending = True
+        else:
+            # for evolution based on computed relations...
 
-        # update pending and current tables and return value
-        # TODO: pending should be tracked in the evolve_ctx, in order, and then processed in order
-        newval = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
-        self._tables[key] = self._pending[key] = newval
-        assert self._tables[key] == self._pending[key]
-        return newval
+            # validate that value is a computed relation
+            if not isinstance(value, ComputedRelation):
+                raise ValueError("Value must be a computed relation or a new table definition.")
+
+            # validate that no destructive (alter/drop) operations are pending
+            if self._destructive_pending:
+                raise CatalogMutationError("Cannot perform another operation while a 'mutation' of an existing table is pending.")
+
+            if key in self._tables:
+                # 'key in tables' indicates that this table is being altered or replaced - a 'destructive' operation
+                if self._pending:
+                    raise CatalogMutationError("Cannot perform 'mutation' of an existing table while another operation is pending.")
+                self._destructive_pending = True
+
+            # update pending and current tables and return value
+            newval = ComputedRelation(_op.Assign(value.logical_plan, self._schema.name, key))
+            self._tables[key] = self._pending[key] = newval
+            return newval
 
     @valid_model_object
     def __delitem__(self, key):
-        self._schema._drop_table(key)
+        if self._pending:
+            raise CatalogMutationError("Cannot perform 'mutation' of an existing table while another operation is pending.")
+        self._destructive_pending = True
+        self._schema._tables._pending[key] = ComputedRelation(_op.Assign(_op.Nil(), self._schema._name, key))
 
     def __iter__(self):
         return iter(self._tables)
@@ -561,16 +556,16 @@ class Table (object):
             self, [(col['name'], self._new_column_instance(col)) for col in table_doc.get('column_definitions', [])]
         )
         # TODO: eventually these need chisel model objects
-        # self._keys = [_em.Key(self.sname, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
+        # self._keys = [_em.Key(self.schema.name, self.name, key_doc) for key_doc in table_doc.get('keys', [])]
         self._keys = [key_doc for key_doc in table_doc.get('keys', [])]
         # TODO: eventually these need chisel model objects
-        # self._foreign_keys = [_em.ForeignKey(self.sname, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
+        # self._foreign_keys = [_em.ForeignKey(self.schema.name, self.name, fkey_doc) for fkey_doc in table_doc.get('foreign_keys', [])]
         self._foreign_keys = [fkey_doc for fkey_doc in table_doc.get('foreign_keys', [])]
         self._referenced_by = []
         self._valid = True
 
     @classmethod
-    def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}):
+    def define(cls, tname, column_defs=[], key_defs=[], fkey_defs=[], comment=None, acls={}, acl_bindings={}, annotations={}, provide_system=True):
         """Define a table.
 
         Currently, this is a thin wrapper on `deriva.core.ermrest_model.Table.define`.
@@ -583,13 +578,10 @@ class Table (object):
         :param acls: optional dictionary of Access Control Lists
         :param acl_bindings: optional dictionary of Access Control List bindings
         :param annotations: optional dictionary of model annotations
+        :param provide_system: whether to inject standard system column definitions when missing from column_defs
         :return: a table definition dictionary
         """
-        return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls={}, acl_bindings=acl_bindings, annotations=annotations, provide_system=False)
-
-    @property
-    def schema(self):
-        return self._schema
+        return _em.Table.define(tname, column_defs=column_defs, key_defs=key_defs, fkey_defs=fkey_defs, comment=comment, acls=acls, acl_bindings=acl_bindings, annotations=annotations, provide_system=provide_system)
 
     @property
     def name(self):
@@ -599,37 +591,27 @@ class Table (object):
     def name(self, value):
         if self.name == value:
             raise ValueError('The table is already named "%s"' % value)
-        self._move(self.sname, value)
+        if value in self._schema.tables:
+            raise ValueError('A table by the name "%s" already exists in the schema' % value)
+        self._schema.tables[value] = ComputedRelation(_op.Rename(self.logical_plan, tuple()))
 
-    @valid_model_object
-    def _move(self, dst_schema_name, dst_table_name):
-        """An internal method to 'move' a table either to rename it, change its schema, or both.
+    @property
+    def schema(self):
+        return self._schema
 
-        :param dst_schema_name: destination schema name, may be same
-        :param dst_table_name: destination table name, may be same
-        """
-        assert self.sname != dst_schema_name or self.name != dst_table_name
-        catalog = self.schema.catalog
-        with self.schema.catalog.evolve():
-            # copy table to destination
-            catalog.schemas[dst_schema_name].tables[dst_table_name] = self.select()
-        # drop table from origin
-        del catalog.schemas[self.sname].tables[self.name]
-        self.valid = False  # TODO: could attempt to repair this table object
+    @schema.setter
+    def schema(self, value):
+        if self._schema == value:
+            raise ValueError('The table is already in "%s" schema' % value)
+        if value.catalog != self._schema.catalog:
+            raise ValueError('The new schema does not belong to the same catalog')
+        if self._name in value.tables:
+            raise ValueError('A table by the name "%s" already exists in the "%s" schema' % (self._name, value.name))
+        value.tables[self._name] = ComputedRelation(_op.Rename(self.logical_plan, tuple()))
 
     @property
     def comment(self):
         return self._comment
-
-    @property
-    def sname(self):
-        return self._sname
-
-    @sname.setter
-    def sname(self, value):
-        if self.sname == value:
-            raise ValueError('The schema is already set to "%s"' % value)
-        self._move(value, self.name)
 
     @property
     def kind(self):
@@ -692,28 +674,6 @@ class Table (object):
         """
         return Column(column_doc, self)
 
-    @valid_model_object
-    def _add_column(self, column_doc):
-        """Adds a column to this relation _in the catalog_.
-
-        This method should be implemented by subclasses that allow for adding columns to extant tables.
-
-        :param column_doc: a column definition dictionary as defined by `Column.define(...)`.
-        :return: a Column object representing the newly added column definition in the relation.
-        """
-        # TODO: refactor this into a form of generalized projection
-        raise NotImplementedError()
-
-    @valid_model_object
-    def _drop_column(self, column_name):
-        """Drops a column of this relation.
-
-        :param column_name: the name of the column to be dropped.
-        """
-        column = self.columns[column_name]
-        with self.schema.catalog.evolve(allow_alter=True):
-            self.schema[self._name] = self.select(column.inv())
-
     def __getitem__(self, item):
         """Maps a column name to a column model object.
 
@@ -744,7 +704,7 @@ class Table (object):
             ] + [
                 [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.columns.values()
             ]
-            desc = "### Table \"" + str(self.sname) + "." + str(self.name) + "\"\n" + \
+            desc = "### Table \"" + str(self.schema.name) + "." + str(self.name) + "\"\n" + \
                    util.markdown_table(data, quote)
             return desc
 
@@ -767,7 +727,7 @@ class Table (object):
         dot = Digraph(name=self.name, engine=engine, node_attr={'shape': 'box'})
 
         # add node
-        label = "%s.%s" % (self.sname, self.name)
+        label = "%s.%s" % (self.schema.name, self.name)
         dot.node(label, label)
 
         # track referenced nodes
@@ -775,7 +735,7 @@ class Table (object):
 
         # add edges
         # add outbound edges
-        tail_name = "%s.%s" % (self.sname, self.name)
+        tail_name = "%s.%s" % (self.schema.name, self.name)
         for fkey in self.foreign_keys:
             refcol = fkey.referenced_columns[0]
             head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
@@ -796,19 +756,10 @@ class Table (object):
         return dot
 
     @valid_model_object
-    def copy(self, table_name, schema_name=None):
-        """Makes a copy of this table.
-
-        This operation must be performed in isolation of other evolve operations. It will setup the evolve block
-        internally.
-
-        :param table_name: the table copy will be given this name
-        :param schema_name: the table copy will be created in this schema; if None, then it will be copied to the same
-                            schema as this table.
+    def clone(self):
+        """Clone this table.
         """
-        schema = self.schema.catalog.schemas[schema_name] if schema_name else self.schema
-        with schema.catalog.evolve():
-            schema.tables[table_name] = self.select()
+        return self.select()
 
     @valid_model_object
     def select(self, *columns):
@@ -821,21 +772,23 @@ class Table (object):
         if columns:
             projection = []
 
-            # validation: projection may be column, column name, alias, or removal
+            # validation: projection may be column, column name, alias, addition or removal
             for column in columns:
                 if isinstance(column, Column):
                     projection.append(column.name)
-                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias) or isinstance(column, _op.AttributeRemoval):
+                elif isinstance(column, str) or isinstance(column, _op.AttributeAlias)\
+                        or isinstance(column, _op.AttributeDrop) or isinstance(column, _op.AttributeAdd):
                     projection.append(column)
                 else:
                     raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
 
-            # validation: if any removal, all must be removals (can't mix removals with other projections)
-            removals = [isinstance(o, _op.AttributeRemoval) for o in projection]
-            if any(removals):
-                if not all(removals):
-                    raise ValueError("Attribute removal cannot be mixed with other attribute projections")
-                projection = [_op.AllAttributes()] + projection
+            # validation: if any mutation (add/drop), all must be mutations (can't mix with other projections)
+            for mutation in (_op.AttributeAdd, _op.AttributeDrop):
+                mutations = [isinstance(o, mutation) for o in projection]
+                if any(mutations):
+                    if not all(mutations):
+                        raise ValueError("Attribute add/drop cannot be mixed with other attribute projections")
+                    projection = [_op.AllAttributes()] + projection
 
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
         else:
@@ -890,12 +843,18 @@ class Table (object):
     @valid_model_object
     def link(self, target):
         """Creates a reference from this table to the target table."""
-        raise NotImplementedError('This catalog does not support this method.')
+        # TODO: may need to introduce new Link operator
+        #       projection of table +column(s) needed as the foriegn key, inference of key columns from target table
+        #       add'l physical operation to add the fkey reference
+        raise NotImplementedError('This method is not yet supported.')
 
     @valid_model_object
     def associate(self, target):
         """Creates a many-to-many "association" between this table and "target" table."""
-        raise NotImplementedError('This catalog does not support this method.')
+        # TODO: may need to introduce new Associate operator
+        #       project of new table w/ column(s) for each foriegn key to inferred keys of target tables
+        #       add'l physical operation to add the fkey reference(s)
+        raise NotImplementedError('This method is not yet supported.')
 
 
 class ColumnCollection (collections.OrderedDict):
@@ -915,11 +874,15 @@ class ColumnCollection (collections.OrderedDict):
         return self._table.valid
 
     @valid_model_object
+    def __getitem__(self, key):
+        return super(ColumnCollection, self).__getitem__(key)
+
+    @valid_model_object
     def __delitem__(self, key):
         # get handle to the column
         column = self[key]
-        # drop column from catalog model
-        self._table._drop_column(key)
+        # assign a projection of parent table without this column
+        self._table.schema[self._table.name] = self._table.select(column.inv())
         # invalidate model object
         column.valid = False
         # delete from column collection
@@ -935,10 +898,11 @@ class ColumnCollection (collections.OrderedDict):
             raise ValueError('value must have a "type" key in it')
         if value['name'] != key:
             raise ValueError('column definition "name" field does not match "%s"' % key)
+        if super().__contains__(key):
+            raise ValueError('"%s" column already exists in table' % key)
 
-        column = self._table._add_column(value)
-        assert isinstance(column, Column), "invalid column return type"
-        super().__setitem__(key, column)
+        self._table.schema[self._table.name] = self._table.select(_op.AttributeAdd(definition=json.dumps(value)))
+        self._table.valid = False
 
     def _refresh(self):
         """Refreshes the collection indices to repair them after a column rename."""
@@ -1101,9 +1065,9 @@ class Column (object):
     def inv(self):
         """Removes an attribute when used in a projection.
 
-        :return: a sybolic expression for the removed column
+        :return: a symbolic expression for the removed column
         """
-        return _op.AttributeRemoval(self.name)
+        return _op.AttributeDrop(self.name)
 
     __invert__ = inv
 
@@ -1111,23 +1075,21 @@ class Column (object):
     def _rename(self, new_name):
         """Renames the column.
 
-        This method cannot be called within another 'evolve' block. It must be performed in isolation.
-
         :param new_name: new name for the column
         """
-        with self.table.schema.catalog.evolve(allow_alter=True):
-            projection = []
-            for cname in self.table.columns:
-                if cname == self.name:
-                    projection.append(self.alias(new_name))
-                else:
-                    projection.append(cname)
-            self.table.schema[self.table.name] = self.table.select(*projection)
+        # project out all columns with this column aliased
+        projection = []
+        for cname in self.table.columns:
+            if cname == self.name:
+                projection.append(self.alias(new_name))
+            else:
+                projection.append(cname)
+        self.table.schema[self.table.name] = self.table.select(*projection)
 
         # update local copy of name
         self._name = new_name
         # "refresh" the containing table
-        self.table._refresh()
+        self.table._refresh()  # TODO: this should work as a temporary measure until the evolve block is committed or aborted
 
     @valid_model_object
     def to_atoms(self, delim=',', unnest_fn=None):

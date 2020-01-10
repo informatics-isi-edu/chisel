@@ -1,5 +1,6 @@
 """Logical optimization, composition, and transformation rules."""
 
+import json
 from pyfpm.matcher import Matcher
 from .. import util
 from .. import operators as _op
@@ -66,7 +67,7 @@ logical_optimization_rules = Matcher([
         lambda: Nil()
     ),
     (
-        'Rename(child, dict())',
+        'Rename(child, dict())',  # TODO: remove this rule so it doesn't conflict with sname/tname only renames
         lambda child: child
     ),
     (
@@ -147,7 +148,7 @@ logical_composition_rules = Matcher([
                     Project(domain, ('name', 'synonyms')),
                     Similar(attribute, 'name', 'synonyms', similarity_fn, grouping_fn),
                 ),
-                (AllAttributes(), AttributeRemoval(attribute), AttributeRemoval('synonyms'))
+                (AllAttributes(), AttributeDrop(attribute), AttributeDrop('synonyms'))
             ),
             (AttributeAlias(name='name', alias=attribute),)
         )
@@ -162,18 +163,27 @@ logical_composition_rules = Matcher([
 #: rules for transforming logical plans to physical plans
 physical_transformation_rules = Matcher([
     (
-        'Assign(child:PhysicalOperator, schema, table_name)',
-        lambda child, schema, table_name: _op.Assign(child, schema, table_name)
+        'Assign(child:PhysicalOperator, schema, table)',
+        lambda child, schema, table: _op.Assign(child, schema, table)
+    ),
+    (
+        'Assign(child:str, schema, table)',
+        lambda child, schema, table: _op.Create(_op.Metadata(json.loads(child)), schema, table)
     ),
     (
         'Assign(Project(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)'
         '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
         lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
-        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), dst_sname, dst_tname, attributes)
+        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
     ),
     (
-        'Assign(Nil(), schema, table_name)',
-        lambda schema, table_name: _op.Drop(_op.Metadata({'schema_name': schema, 'table_name': table_name }), schema, table_name)
+        'Assign(Rename(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)',
+        lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
+        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
+    ),
+    (
+        'Assign(Nil(), schema, table)',
+        lambda schema, table: _op.Drop(_op.Metadata({'schema_name': schema, 'table_name': table}), schema, table)
     ),
     (
         'TempVar(child)',

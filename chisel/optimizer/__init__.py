@@ -13,23 +13,21 @@ def _execute_rules_single_pass(rules, op):
     :param op: input operator
     :return: rewritten operator
     """
-    # test for terminal condition
-    if isinstance(op, Nil):
+    # terminate if op is Nil or is not a symbolic operator (tuple)
+    if isinstance(op, Nil) or not isinstance(op, tuple):
         return op
 
     # rewrite this operator
     try:
         op = rules(op)
     except _fpm.NoMatch:
-        pass
-
-    # recursively rewrite the children
-    for child in ['child', 'left', 'right']:
-        if hasattr(op, child):
-            try:
-                op = op._replace(**{child: _execute_rules_single_pass(rules, getattr(op, child))})
-            except _fpm.NoMatch:
-                pass
+        # recursively rewrite the children
+        for child in ['child', 'left', 'right']:
+            if hasattr(op, child):
+                try:
+                    op = op._replace(**{child: _execute_rules_single_pass(rules, getattr(op, child))})
+                except _fpm.NoMatch:
+                    pass
 
     # return the rewritten plan
     return op

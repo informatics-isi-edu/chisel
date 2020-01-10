@@ -2,133 +2,9 @@
 
 This guide covers usage examples.
 
-## Simple operations
+## Catalog `evolve` block
 
-The simpler operators are generally equivalent to operations available in SQL 
-DDL (data definition language).
-
-These operations need to be performed in _isolation_ and therefore cannot be 
-used within the `with catalog.evolve(): ...` blocks.
-
-### Create a table
-
-```python
-import chisel
-from chisel import Table, Column, Key, ForeignKey
-catalog = chisel.connect(...)
-
-# define table and assign to a schema in order to create it in the catalog
-catalog['public'].tables['foo'] = Table.define(
-    'foo',
-    column_defs=[Column.define(...), ...],
-    key_defs=[Key.define(...), ...],
-    fkey_defs=[ForeignKey.define(...), ...],
-    ...)
-
-# get the newly created table in order to use it in operations    
-foo = catalog['public'].tables['foo']
-
-# perform operations on new table 'foo'...
-list(foo.select().fetch())
-```
-
-### Drop a table
-
-```python
-import chisel
-catalog = chisel.connect(...)
-del catalog['public'].tables['foo']
-```
-
-### Rename a table
-
-```python
-import chisel
-catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.name = 'bar'
-```
-
-### Copy a table
-
-```python
-import chisel
-catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.copy('new talbe name', schema_name='optional new schema name')
-```
-
-### Move a table to a different schema
-
-```python
-import chisel
-catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.sname = 'bar'  # where 'bar' is a different schema in the catalog
-```
-
-### Alter table add a column
-
-```python
-import chisel
-catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-table.columns['baz'] = chisel.Column.define('baz', chisel.data_types.text)
-```
-
-### Alter table drop a column
-
-```python
-import chisel
-catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-del table.columns['baz']
-```
-
-### Alter table rename a column
-
-```python
-import chisel
-catalog = chisel.connect(...)
-table = catalog['public'].tables['foo']
-column = table.columns['baz']
-column.name = 'qux'
-```
-
-### Link tables
-
-This operation adds a foreign key reference from the source table (`foo`) to 
-the destination table (`bar`).
-
-```python
-import chisel
-catalog = chisel.connect(...)
-foo = catalog['public'].tables['foo']
-bar = catalog['public'].tables['bar']
-foo.link(bar)
-```
-
-### Associate tables
-
-This operation adds an association table (`foo_bar`) with foreign key 
-references between two tables (`foo` and `bar`).
-
-```python
-import chisel
-catalog = chisel.connect(...)
-foo = catalog['public'].tables['foo']
-bar = catalog['public'].tables['bar']
-foo.associate(bar)
-```
-
-## Complex operations
-
-The complex operations cover chisel features that go beyond SQL DDL types of 
-operations.
-
-### Catalog `evolve` block
-
-These operations must be performed within a `with catalog.evolve(): ...` block.
+Operations must be performed within a `with catalog.evolve(): ...` block.
 The actual schema evolution is executed after the block exits successfully. If
 an exception is raised (and not caught), the evolution is aborted and the
 catalog model is restored to its original state.
@@ -147,13 +23,140 @@ In order to guard against accidental table alteration or destruction, the
 By default, these parameters are `False` and the evolve block will prevent
 table alter or drop operations, respectively.
 
-### Simple versus complex operations
+## Simple operations
 
-A key difference between the simple and complex operations is that the simple
-operations are performed in isolation. They cannot be called within an evolve
-context block. Internally, the basic (DDL like) operations will setup an 
-evolve block and set the appropriate flags to allow alter and drop operations
-to succeed.
+The simple operators are generally equivalent to operations available in SQL 
+DDL (data definition language).
+
+### Create a table
+
+```python
+import chisel
+from chisel import Table, Column, Key, ForeignKey
+catalog = chisel.connect(...)
+
+with catalog.evolve():
+    # define table and assign to a schema in order to create it in the catalog
+    catalog['public'].tables['foo'] = Table.define(
+        'foo',
+        column_defs=[Column.define(...), ...],
+        key_defs=[Key.define(...), ...],
+        fkey_defs=[ForeignKey.define(...), ...],
+        ...)
+
+# get the newly created table in order to use it in operations
+foo = catalog['public'].tables['foo']
+
+# perform operations on new table 'foo'...
+list(foo.select().fetch())
+```
+
+### Drop a table
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve(allow_drop=True):
+    del catalog['public'].tables['foo']
+```
+
+### Rename a table
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():
+    table = catalog['public'].tables['foo']
+    table.name = 'bar'
+```
+
+### Clone a table
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():
+    table = catalog['public'].tables['foo']
+    catalog['public'].tables['bar'] = table.clone()
+```
+
+### Move a table to a different schema
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():
+    table = catalog.schemas['public'].tables['foo']
+    table.schema = catalog.schemas['bar']
+```
+
+### Alter table add a column
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():
+    table = catalog['public'].tables['foo']
+    table.columns['baz'] = chisel.Column.define('baz', chisel.data_types.text, ...)
+```
+
+### Alter table drop a column
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve(allow_alter=True):
+    table = catalog['public'].tables['foo']
+    del table.columns['baz']
+```
+
+### Alter table rename a column
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve(allow_alter=True):
+    table = catalog['public'].tables['foo']
+    column = table.columns['baz']
+    column.name = 'qux'
+```
+
+### Link tables
+
+\*\***Not Implemented Yet**\*\*
+
+This operation adds a foreign key reference from the source table (`foo`) to 
+the destination table (`bar`).
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():  # TODO
+    foo = catalog['public'].tables['foo']
+    bar = catalog['public'].tables['bar']
+    foo.link(bar)
+```
+
+### Associate tables
+
+\*\***Not Implemented Yet**\*\*
+
+This operation adds an association table (`foo_bar`) with foreign key 
+references between two tables (`foo` and `bar`).
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():  # TODO
+    foo = catalog['public'].tables['foo']
+    bar = catalog['public'].tables['bar']
+    foo.associate(bar)
+```
+
+## Complex operations
+
+The complex operations cover chisel features that go beyond SQL DDL types of 
+operations.
 
 ### Create table as domain from existing column
 
@@ -163,8 +166,8 @@ Table `bar` will have a `name` column from the deduplicated values of `foo.bar`.
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
-  foo = catalog['public'].tables['foo']
-  catalog['public'].tables['bar'] = foo.columns['bar'].to_domain()
+    foo = catalog['public'].tables['foo']
+    catalog['public'].tables['bar'] = foo.columns['bar'].to_domain()
 ```
 
 ### Create table as vocabulary from existing column
@@ -177,8 +180,8 @@ that were not selected as canonical.
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
-  foo = catalog['public'].tables['foo']
-  catalog['public'].tables['bar'] = foo.columns['bar'].to_vocabulary()
+    foo = catalog['public'].tables['foo']
+    catalog['public'].tables['bar'] = foo.columns['bar'].to_vocabulary()
 ```
 
 ### Create table from atomizied values from existing column 
@@ -190,8 +193,8 @@ Table `bar` will have a column `bar` containing the unnested values of
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
-  foo = catalog['public'].tables['foo']
-  catalog['public'].tables['bar'] = foo.columns['bar'].to_atoms()
+    foo = catalog['public'].tables['foo']
+    catalog['public'].tables['bar'] = foo.columns['bar'].to_atoms()
 ```
 
 ### Create a table by reifying a concept embedded in another table
@@ -203,9 +206,11 @@ and the second set of columns used as the non-key columns of the new table.
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
-  foo = catalog['public'].tables['foo']
-  catalog['public'].tables['barbaz'] = foo.reify(
-    {foo.columns['id']}, {foo.columns['bar'], foo.columns['baz']})
+    foo = catalog['public'].tables['foo']
+    catalog['public'].tables['barbaz'] = foo.reify(
+        {foo.columns['id']}, 
+        {foo.columns['bar'], foo.columns['baz']}
+    )
 ```
 
 ### Create a table by reifying a sub-concept embedded in another table
@@ -218,8 +223,8 @@ introspected key of `foo`.
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
-  foo = catalog['public'].tables['foo']
-  catalog['public'].tables['bar'] = foo.reify_sub(foo.columns['bar'])
+    foo = catalog['public'].tables['foo']
+    catalog['public'].tables['bar'] = foo.reify_sub(foo.columns['bar'])
 ```
 
 ### Create a table by aligning a column with a vocabulary or domain table
@@ -235,9 +240,9 @@ the vocabulary or domain table (`vocab.bar` in the example here).
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
-  foo = catalog['public'].tables['foo']
-  bar_terms = catalog['vocab'].tables['bar']
-  catalog['public'].tables['foo_fixed'] = foo.columns['bar'].align(bar_terms)
+    foo = catalog['public'].tables['foo']
+    bar_terms = catalog['vocab'].tables['bar']
+    catalog['public'].tables['foo_fixed'] = foo.columns['bar'].align(bar_terms)
 ```
 
 ### Create a table by unnesting and aligning a column with a vocabulary or domain
@@ -253,7 +258,7 @@ foreign key to `foo` from where it came.
 import chisel
 catalog = chisel.connect(...)
 with catalog.evolve():
-  foo = catalog['public'].tables['foo']
-  bar_terms = catalog['vocab'].tables['bar']
-  catalog['public'].tables['foo_bar'] = foo.columns['bars'].to_tags(bar_terms)
+    foo = catalog['public'].tables['foo']
+    bar_terms = catalog['vocab'].tables['bar']
+    catalog['public'].tables['foo_bar'] = foo.columns['bars'].to_tags(bar_terms)
 ```

@@ -1,5 +1,6 @@
 """Catalog model for ERMrest based on Deriva Core library."""
 
+import json
 import logging
 from deriva import core as _deriva_core
 from deriva.core import ermrest_model as _em
@@ -46,31 +47,56 @@ class ERMrestCatalog (base.AbstractCatalog):
     def _new_schema_instance(self, schema_doc):
         return ERMrestSchema(schema_doc, self)
 
+    def _repair_model(self, schema_name, table_name):
+        """Repair catalog model for recently created, assigned, or altered table
+
+        :param schema_name: schema name
+        :param table_name: table name
+        :return: new table instance
+        """
+        # get table from catalog schema
+        model_doc = self.ermrest_catalog.getCatalogSchema()
+        table_doc = model_doc['schemas'][schema_name]['tables'][table_name]
+        schema = self.schemas[schema_name]
+        # instantiate new table model object
+        table = schema._new_table_instance(table_doc)
+        # add to schema tables backing collection
+        schema.tables._backup[table_name] = table  # TODO: this part is kludgy and needs to be revised
+        # TODO: refresh the referenced_by of the catalog
+        return table
+
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
         :param plan: a `PhysicalOperator` instance from which to materialize the relation
         :return: None
         """
-        if isinstance(plan, operators.Alter):
+        if isinstance(plan, operators.Create):
+            schema_name, table_name = plan.description['schema_name'], plan.description['table_name']
+            logger.debug(("Creating table '%s.%s'" % (schema_name, table_name)))
+
+            # Create table
+            self._do_create_table(schema_name, plan.description)
+
+            # Repair catalog model
+            self._repair_model(schema_name, table_name)
+
+        elif isinstance(plan, operators.Alter):
             logger.debug("Altering table '{tname}'.".format(tname=plan.description['table_name']))
             if not self._evolve_ctx.allow_alter:
                 raise base.CatalogMutationError('"allow_alter" flag is not True')
 
-            altered_schema_name, altered_table_name = plan.description['schema_name'], plan.description['table_name']
-            self._do_alter_table(altered_schema_name, altered_table_name, plan.projection)
+            orig_sname, orig_tname = plan.src_sname, plan.src_tname
+            altered_schema_name, altered_table_name = plan.dst_sname, plan.dst_tname
+            self._do_alter_table(orig_sname, orig_tname, altered_schema_name, altered_table_name, plan.projection)
 
-            # Note: repair the model following the alter table
-            #  invalidate the altered table model object
-            schema = self.schemas[altered_schema_name]
-            invalidated_table = self[altered_schema_name].tables._backup[altered_table_name]  # get the original table
-            invalidated_table.valid = False
-            #  introspect the schema on the revised table
-            model_doc = self.ermrest_catalog.getCatalogSchema()
-            table_doc = model_doc['schemas'][altered_schema_name]['tables'][altered_table_name]
-            table = ERMrestTable(table_doc, schema=schema)
-            schema.tables._backup[altered_table_name] = table  # TODO: this part is kludgy and needs to be revised
-            # TODO: refresh the referenced_by of the catalog
+            #  invalidate the original table model object
+            invalidated_table = self.schemas[orig_sname].tables._backup[orig_tname]
+            invalidated_table.valid = False  # TODO: ideally, repair rather than invalidate in the 'Alter' path
+            del self.schemas[orig_sname].tables._backup[orig_tname]
+
+            # Repair catalog model
+            self._repair_model(altered_schema_name, altered_table_name)
 
         elif isinstance(plan, operators.Drop):
             logger.debug("Dropping table '{tname}'.".format(tname=plan.description['table_name']))
@@ -119,13 +145,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             new_table.insert(plan, nondefaults=nondefaults)
 
             # Repair catalog model
-            #  ...introspect the schema on the revised table
-            model_doc = self.ermrest_catalog.getCatalogSchema()
-            table_doc = model_doc['schemas'][assigned_schema_name]['tables'][assigned_table_name]
-            schema = self.schemas[assigned_schema_name]
-            table = schema._new_table_instance(table_doc)
-            schema.tables._backup[assigned_table_name] = table  # TODO: this part is kludgy and needs to be revised
-            # TODO: refresh the referenced_by of the catalog
+            self._repair_model(assigned_schema_name, assigned_table_name)
 
         else:
             raise ValueError('Plan cannot be materialized.')
@@ -135,81 +155,59 @@ class ERMrestCatalog (base.AbstractCatalog):
         schema = self.ermrest_catalog.getCatalogModel().schemas[schema_name]
         schema.create_table(table_doc)
 
-    def _do_copy_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
-        """Copy table in the catalog."""
-        src_schema = self.schemas[src_schema_name]
-        dst_schema = self.schemas[dst_schema_name]
-        src_table = src_schema.tables[src_table_name]
-        dst_schema.tables[dst_table_name] = src_table.select()  # requires that this be performed w/in evolve block
-
-    def _do_move_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name):
-        """Rename table in the catalog."""
-        src_schema = self.schemas[src_schema_name]
-        src_table = src_schema.tables[src_table_name]
-        dst_schema = self.schemas[dst_schema_name]
-        with self.evolve():  # TODO: should refactor this so that it doesn't have to be performed in a evolve block
-            dst_schema.tables[dst_table_name] = src_table.select()
-        del src_schema.tables[src_table_name]
-
-    def _do_alter_table_add_column(self, schema_name, table_name, column_doc):
-        """Alter table Add column in the catalog"""
-        model = self.ermrest_catalog.getCatalogModel()
-        ermrest_table = model.schemas[schema_name].tables[table_name]
-        ermrest_table.create_column(column_doc)
-
-    def _do_alter_table(self, schema_name, table_name, projection):
+    def _do_alter_table(self, src_schema_name, src_table_name, dst_schema_name, dst_table_name, projection):
         """Alter table (general) in the catalog."""
         model = self.ermrest_catalog.getCatalogModel()
-        schema = model.schemas[schema_name]
-        table = schema.tables[table_name]
+        schema = model.schemas[src_schema_name]
+        table = schema.tables[src_table_name]
         original_columns = {c.name: c for c in table.column_definitions}
 
-        # Notes: currently, there are two distinct scenarios in a projection,
-        #  1) 'general' case: the projection is an improper subset of the relation's columns, and may include some
-        #     aliased columns from the original columns. Also, columns may be aliased more than once.
-        #  2) 'special' case for deletes only: as a syntactic sugar, many formulations of project support the
-        #     notation of "-foo,-bar,..." meaning that the operator will project all _except_ those '-name' columns.
-        #     We support that by first including the special symbol 'AllAttributes' followed by 'AttributeRemoval'
-        #     symbols.
+        # Note: currently, there are distinct scenarios in an alter,
+        #  - schema change
+        #  - table name change
+        #  - 'special' case for add/drop only projections
+        #  - 'general' case for arbitrary attribute projections
 
-        if projection[0] == optimizer.AllAttributes():  # 'special' case for deletes only
+        if src_schema_name != dst_schema_name:
+            logger.debug("Altering table name from schema '{old}' to '{new}'".format(old=src_schema_name, new=dst_schema_name))
+            table.alter(schema_name=dst_schema_name)
+
+        elif src_table_name != dst_table_name:
+            logger.debug("Altering table name from '{old}' to '{new}'".format(old=src_table_name, new=dst_table_name))
+            table.alter(table_name=dst_table_name)
+
+        elif projection[0] == optimizer.AllAttributes():  # 'special' case for drops or adds only
             logger.debug("Dropping columns that were explicitly removed.")
-            for removal in projection[1:]:
-                assert isinstance(removal, optimizer.AttributeRemoval)
-                logger.debug("Deleting column '{cname}'.".format(cname=removal.name))
-                original_columns[removal.name].drop()
+            for item in projection[1:]:
+                if isinstance(item, optimizer.AttributeDrop):
+                    logger.debug("Dropping column '{cname}'.".format(cname=item.name))
+                    original_columns[item.name].drop()
+                elif isinstance(item, optimizer.AttributeAdd):
+                    col_doc = json.loads(item.definition)
+                    logger.debug("Adding column '{cname}'.".format(cname=col_doc['name']))
+                    table.create_column(col_doc)
+                else:
+                    raise AssertionError("Unexpected '%s' in alter operation" % type(item).__name__)
 
         else:  # 'general' case
 
             # step 1: copy aliased columns, and record nonaliased column names
             logger.debug("Copying 'aliased' columns in the projection")
-            nonaliased_column_names = set()
+            projected_column_names = set()
             for projected in projection:
                 if isinstance(projected, optimizer.AttributeAlias):
                     original_column = original_columns[projected.name]
-                    # 1.a: clone the column
-                    cloned_def = original_column.prejson()
-                    cloned_def['name'] = projected.alias
-                    table.create_column(cloned_def)
-                    # 1.b: get the datapath table for column
-                    pb = self.ermrest_catalog.getPathBuilder()
-                    dp_table = pb.schemas[table.schema.name].tables[table.name]
-                    # 1.c: read the RID,column values
-                    data = dp_table.attributes(
-                        dp_table.column_definitions['RID'],
-                        dp_table.column_definitions[projected.name].alias(projected.alias)
-                    )
-                    # 1.d: write the RID,alias values
-                    dp_table.update(data)
+                    original_column.alter(name=projected.alias)
+                    projected_column_names.add(projected.alias)
                 else:
                     assert isinstance(projected, str)
-                    nonaliased_column_names.add(projected)
+                    projected_column_names.add(projected)
 
             # step 2: remove columns that were not projected
             logger.debug("Dropping columns not in the projection.")
             for column in original_columns.values():
-                if column.name not in nonaliased_column_names | self.syscols:
-                    logger.debug("Deleting column '{cname}'.".format(cname=column.name))
+                if column.name not in projected_column_names | self.syscols:
+                    logger.debug("Dropping column '{cname}'.".format(cname=column.name))
                     column.drop()
 
     def _do_drop_table(self, schema_name, table_name):
@@ -219,14 +217,6 @@ class ERMrestCatalog (base.AbstractCatalog):
         schema = model.schemas[schema_name]
         table = schema.tables[table_name]
         table.drop()
-
-    def _do_link_tables(self, schema_name, table_name, target_schema_name, target_table_name):
-        """Link tables in the catalog."""
-        raise NotImplementedError('Not supported by %s.' % type(self).__name__)
-
-    def _do_associate_tables(self, schema_name, table_name, target_schema_name, target_table_name):
-        """Associate tables in the catalog."""
-        raise NotImplementedError('Not supported by %s.' % type(self).__name__)
 
     def _determine_model_changes(self, computed_relation):
         """Determines the model changes to be produced by this computed relation."""
@@ -247,74 +237,11 @@ class ERMrestSchema (base.Schema):
     def _new_table_instance(self, table_doc):
         return ERMrestTable(table_doc, self)
 
-    @base.valid_model_object
-    def _create_table(self, table_doc):
-        """ERMrest specific implementation of create table function."""
-
-        # Revise table doc to include sys columns, per static flag
-        table_doc_w_syscols = _em.Table.define(
-            table_doc['table_name'],
-            column_defs=table_doc.get('column_definitions', []),
-            key_defs=table_doc.get('keys', []),
-            fkey_defs=table_doc.get('foreign_keys', []),
-            comment=table_doc.get('comment', None),
-            acls=table_doc.get('acls', {}),
-            acl_bindings=table_doc.get('acl_bindings', {}),
-            annotations=table_doc.get('annotations', {}),
-            provide_system=ERMrestCatalog.provide_system
-        )
-
-        # Create the table using evolve block for isolation
-        with self.catalog.evolve():
-            self.catalog._do_create_table(self.name, table_doc_w_syscols)
-            return self._new_table_instance(table_doc_w_syscols)
-
 
 class ERMrestTable (base.Table):
     """Extant table in an ERMrest catalog."""
-
-    @base.valid_model_object
-    def _add_column(self, column_doc):
-        """ERMrest specific implementation of add column function."""
-        with self.schema.catalog.evolve():
-            self.schema.catalog._do_alter_table_add_column(self.schema.name, self.name, column_doc)
-            return self._new_column_instance(column_doc)
 
     @property
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
         return optimizer.ERMrestExtant(self.schema.catalog, self.schema.name, self.name)
-
-    @base.valid_model_object
-    def _move(self, dst_schema_name, dst_table_name):
-        """An internal method to 'move' a table either to rename it, change its schema, or both.
-
-        :param dst_schema_name: destination schema name, may be same
-        :param dst_table_name: destination table name, may be same
-        """
-        assert self.sname != dst_schema_name or self.name != dst_table_name
-        # TODO: should be refactored so that this can be done in an evolve block
-        self.schema.catalog._do_move_table(self.schema.name, self.name, dst_schema_name, dst_table_name)
-        # repair local model state
-        self.valid = False
-        if self.name in self.schema.tables._backup:
-            del self.schema.tables._backup[self.name]  # TODO: this is kludgy should revise
-            self.schema.tables.reset()
-
-    @base.valid_model_object
-    def copy(self, table_name, schema_name=None):
-        """ERMrest catalog specific implementation of 'copy' method."""
-        with self.schema.catalog.evolve():
-            self.schema.catalog._do_copy_table(self.schema.name, self.name, schema_name or self.schema.name, table_name)
-
-    @base.valid_model_object
-    def link(self, target):
-        """Creates a reference from this table to the target table."""
-        with self.schema.catalog.evolve():
-            self.schema.catalog._do_link_tables(self.schema.name, self.name, target.schema.name, target.name)
-
-    @base.valid_model_object
-    def associate(self, target):
-        """Creates a many-to-many "association" between this table and "target" table."""
-        with self.schema.catalog.evolve():
-            self.schema.catalog._do_associate_tables(self.schema.name, self.name, target.schema.name, target.name)

@@ -2,6 +2,7 @@
 
 import abc
 import collections
+import json
 import logging
 from operator import itemgetter
 import uuid
@@ -127,11 +128,22 @@ class Assign (PhysicalOperator):
     def __iter__(self):
         return iter(self._child)
 
+    @property
+    def child(self):
+        return self._child
+
+
+class Create (Assign):
+    """Create operator."""
+    def __init__(self, child, schema_name, table_name):
+        super(Create, self).__init__(child, schema_name, table_name)
+
 
 class Alter (Assign):
     """Alter operator takes the 'projection' which will define the mutation on the relation."""
-    def __init__(self, child, schema_name, table_name, projection):
-        super(Alter, self).__init__(child, schema_name, table_name)
+    def __init__(self, child, src_sname, src_tname, dst_sname, dst_tname, projection):
+        super(Alter, self).__init__(child, dst_sname, dst_tname)
+        self.src_sname, self.src_tname, self.dst_sname, self.dst_tname = src_sname, src_tname, dst_sname, dst_tname
         self.projection = projection
 
 
@@ -173,7 +185,7 @@ class Project (PhysicalOperator):
     """Basic projection operator."""
     def __init__(self, child, projection):
         super(Project, self).__init__()
-        assert projection, "No projection"
+        projection = projection or [_op.AllAttributes()]
         assert hasattr(projection, '__iter__'), "Projection is not an iterable collection"
         assert isinstance(child, PhysicalOperator)
         self._child = child
@@ -181,6 +193,7 @@ class Project (PhysicalOperator):
         self._alias_to_cname = dict()
         self._cname_to_alias = collections.defaultdict(list)
         removals = set()
+        additions = list()
 
         # Redefine the description of the child operator based on the projection
         table_def = self.description
@@ -209,9 +222,12 @@ class Project (PhysicalOperator):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
                 self._cname_to_alias[item.name].append(item.alias)
-            elif isinstance(item, _op.AttributeRemoval):
-                logger.debug("projection with attribute removal: %s", item)
+            elif isinstance(item, _op.AttributeDrop):
+                logger.debug("projection with attribute drop: %s", item)
                 removals.add(item.name)
+            elif isinstance(item, _op.AttributeAdd):
+                logger.debug("projection with attribute add: %s", item)
+                additions.append(json.loads(item.definition))
             else:
                 raise ValueError("Unsupported projection type '{}'.".format(type(item).__name__))
 
@@ -231,9 +247,12 @@ class Project (PhysicalOperator):
                     col_def = col_def.copy()
                     col_def['name'] = alias
                     col_defs.append(col_def)
+        col_defs.extend(additions)
 
         # Updated projection of attributes
         self._attributes = projected_attrs
+
+        # TODO: create defaults for newly added columns
 
         # set of all projected attributes, including those that will be renamed
         # will be used in the next steps to determine which keys and fkeys can be preserved
@@ -282,7 +301,7 @@ class Project (PhysicalOperator):
             values = getter(row)
             values = values if isinstance(values, tuple) else (values,)
             assert len(original_attributes) == len(values)
-            row = dict(zip(original_attributes, values))
+            row = dict(zip(original_attributes, values))  # TODO: .update(defaults) -- for newly added columns
             yield self._rename_row_attributes(row, self._alias_to_cname)
 
 
@@ -290,7 +309,6 @@ class Rename (Project):
     def __init__(self, child, renames):
         assert isinstance(child, PhysicalOperator)
         assert child.description
-        assert renames
         assert isinstance(renames, tuple)
         assert all([isinstance(rename, _op.AttributeAlias) for rename in renames])
 
