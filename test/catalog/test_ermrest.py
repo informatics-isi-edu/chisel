@@ -3,7 +3,7 @@ import unittest
 
 from chisel.catalog.base import ComputedRelation, CatalogMutationError
 from chisel.operators.base import Alter
-from test.utils import ERMrestHelper, BaseTestCase
+from test.helpers import ERMrestHelper, BaseTestCase
 import chisel.optimizer as _op
 from chisel import data_types, Column, Table, ForeignKey
 

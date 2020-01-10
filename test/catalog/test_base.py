@@ -1,6 +1,6 @@
 import chisel
 from chisel.catalog.base import Table
-from test.utils import CatalogHelper, BaseTestCase
+from test.helpers import CatalogHelper, BaseTestCase
 
 
 class TestBaseCatalog (BaseTestCase):
