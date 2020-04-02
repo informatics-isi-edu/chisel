@@ -494,7 +494,7 @@ class CrossJoin (PhysicalOperator):
                 col_def = col_def.copy()
                 if col_def['name'] in conflicts:
                     old_name = col_def['name']
-                    new_name = col_def['name'] = table_def['table_name'] + ':' + col_def['name']
+                    new_name = col_def['name'] = table_def['table_name'] + ':' + col_def['name'] # TODO: bug, this doesn't prevent conflicts when same column name exists in both tables
                     renames[new_name] = old_name
                 col_defs.append(col_def)
         logger.debug('columns in crossjoin: %s', col_defs)

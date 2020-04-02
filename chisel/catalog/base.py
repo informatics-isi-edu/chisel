@@ -796,6 +796,18 @@ class Table (object):
             return ComputedRelation(_op.Project(self.logical_plan, tuple(projection)))
 
     @valid_model_object
+    def join(self, right):
+        """Joins this relation and the 'right' relation.
+
+        :param right: relation to be joined.
+        :return a computed relation
+        """
+        if not isinstance(right, Table):
+            raise ValueError('Object to the right of the join is not an instance of "Table"')
+
+        return ComputedRelation(_op.Join(self.logical_plan, right.logical_plan))
+
+    @valid_model_object
     def where(self, formula):
         """Filters this relation according to the given formula.
 

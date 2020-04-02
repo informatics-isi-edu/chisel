@@ -68,6 +68,9 @@ Nest = namedtuple('Nest', 'child grouping nesting similarity_fn grouping_fn')
 #: nil operator represents a nil operator
 Nil = namedtuple('Nil', '')
 
+#: join operator, takes left and right children
+Join = namedtuple('Join', 'left right')
+
 #: project operator takes a list of 'attributes'
 Project = namedtuple('Project', 'child attributes')
 

@@ -252,5 +252,9 @@ physical_transformation_rules = Matcher([
     (
         'SimilarityJoin(left:PhysicalOperator, right:PhysicalOperator, condition)',
         lambda left, right, condition: _op.NestedLoopsSimilarityJoin(left, right, condition)
+    ),
+    (
+        'Join(left:PhysicalOperator, right:PhysicalOperator)',
+        lambda left, right: _op.CrossJoin(left, right)
     )
 ])
