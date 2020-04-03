@@ -35,6 +35,19 @@ class TestSemistructuredCsv (BaseTestCase):
             )
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
+    def test_union(self):
+        with self._catalog.evolve():
+            self._catalog['.'][self.output_basename] = self._catalog['.'][self.catalog_helper.samples].union(
+                self._catalog['.'][self.catalog_helper.samples]
+            )
+        self.assertTrue(self.catalog_helper.exists(self.output_basename))
+
+    def test_union_add(self):
+        with self._catalog.evolve():
+            self._catalog['.'][self.output_basename] = \
+                self._catalog['.'][self.catalog_helper.samples] + self._catalog['.'][self.catalog_helper.samples]
+        self.assertTrue(self.catalog_helper.exists(self.output_basename))
+
     @unittest.skip
     def test_do_not_clobber(self):
         # This is actually a general test of the 'do not clobber' feature built into the catalog

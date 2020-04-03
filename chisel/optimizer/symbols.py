@@ -86,6 +86,9 @@ Shred = namedtuple('Shred', 'graph expression')
 #: similarity join
 SimilarityJoin = namedtuple('SimilarityJoin', 'left right condition')
 
+#: union of child and right relation
+Union = namedtuple('Union', 'child right')
+
 #: unnest operator takes an arbitrary 'unnest_fn' function and a named 'attribute'
 Unnest = namedtuple('Unnest', 'child unnest_fn attribute')
 

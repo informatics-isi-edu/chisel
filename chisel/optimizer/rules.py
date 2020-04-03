@@ -256,5 +256,9 @@ physical_transformation_rules = Matcher([
     (
         'Join(left:PhysicalOperator, right:PhysicalOperator)',
         lambda left, right: _op.CrossJoin(left, right)
+    ),
+    (
+        'Union(child:PhysicalOperator, right:PhysicalOperator)',
+        lambda child, right: _op.Union(child, right)
     )
 ])

@@ -824,6 +824,20 @@ class Table (object):
             return ComputedRelation(_op.Select(self.logical_plan, formula))
 
     @valid_model_object
+    def union(self, other):
+        """Unions this relation and the 'other' relation.
+
+        :param other: relation to be combined with this relation with union semantics.
+        :return a computed relation
+        """
+        if not isinstance(other, Table):
+            raise ValueError('Other relation is not an instance of "Table"')
+
+        return ComputedRelation(_op.Union(self.logical_plan, other.logical_plan))
+
+    __add__ = union
+
+    @valid_model_object
     def reify_sub(self, *cols):
         """Reifies a sub-concept of the relation by the specified columns. This relation is left unchanged.
 

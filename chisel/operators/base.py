@@ -2,6 +2,7 @@
 
 import abc
 import collections
+from itertools import chain
 import json
 import logging
 from operator import itemgetter
@@ -154,7 +155,7 @@ class Drop (Assign):
 
 
 #
-# Basic primitive operators: select, project, rename, distinct
+# Basic primitive operators: select, project, rename, distinct, union
 #
 
 
@@ -346,6 +347,19 @@ class HashDistinct (PhysicalOperator):
                 tuples.add(tuple_)
                 yield row
 
+
+class Union (PhysicalOperator):
+    """Basic select operator."""
+    def __init__(self, child, other):
+        super(Union, self).__init__()
+        assert isinstance(child, PhysicalOperator)
+        assert isinstance(other, PhysicalOperator)
+        # TODO: validate that 'other' has same columns as 'child'
+        self._child = child
+        self._other = other
+
+    def __iter__(self):
+        return chain(self._child, self._other)
 
 #
 # Nest and unnest operators
