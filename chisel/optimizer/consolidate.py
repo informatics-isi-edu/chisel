@@ -32,9 +32,10 @@ def _count_plans(computed_relations):
     return counts
 
 
-def _consolidate_plan(plan, counts, tempvars):
+def _consolidate_plan(parent, plan, counts, tempvars):
     """Consolidates the subexpressions in a plan and generates new temporary variables, as needed.
 
+    :param parent: parent computed relation being consolidated
     :param plan: current logical sub-plan to be consolidated
     :param counts: count of sub-plan occurrences
     :param tempvars: dictionary of known temporary variables, which will be updated as needed
@@ -42,7 +43,7 @@ def _consolidate_plan(plan, counts, tempvars):
     """
     if counts[plan] > 1:
         logger.debug('Found shared work: {plan}'.format(plan=str(plan)))
-        if plan in tempvars:
+        if plan in tempvars and tempvars[plan] != parent:
             logger.debug('Found existing tempvar for this sub-plan')
             # re-write the plan as a reference to the temporary var
             return TempVar(tempvars[plan]), []
@@ -55,7 +56,7 @@ def _consolidate_plan(plan, counts, tempvars):
     new_tempvars = []
     for child in ['child', 'left', 'right']:
         if hasattr(plan, child):
-            child_plan, child_vars = _consolidate_plan(getattr(plan, child), counts, tempvars)
+            child_plan, child_vars = _consolidate_plan(parent, getattr(plan, child), counts, tempvars)
             plan = plan._replace(**{child: child_plan})
             new_tempvars.extend(child_vars)
     # return the rewritten plan
@@ -80,7 +81,7 @@ def consolidate(computed_relations):
         for computed_relation in unconsolidated:
             # rewrite the logical plan with tempvars where possible
             computed_relation.logical_plan, new_tempvars = \
-                _consolidate_plan(computed_relation.logical_plan, counts, tempvars)
+                _consolidate_plan(computed_relation, computed_relation.logical_plan, counts, tempvars)
             # update list of unconsolidated temp vars
             unconsolidated_tempvars.extend(new_tempvars)
         # replace current set of unconsolidated work, with temp vars that will be further refined
