@@ -121,9 +121,27 @@ with catalog.evolve(allow_alter=True):
     column.name = 'qux'
 ```
 
+### Join relations
+
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():
+    catalog['public']['foo'].join(catalog['public']['bar']).where(...)
+```
+
+### Union of relations
+```python
+import chisel
+catalog = chisel.connect(...)
+with catalog.evolve():
+    catalog['public']['foo'].union(catalog['public']['bar'])
+    # or... foo + bar
+```
+
 ### Link tables
 
-\*\***Not Implemented Yet**\*\*
+**Not Implemented Yet**
 
 This operation adds a foreign key reference from the source table (`foo`) to 
 the destination table (`bar`).
@@ -139,7 +157,7 @@ with catalog.evolve():  # TODO
 
 ### Associate tables
 
-\*\***Not Implemented Yet**\*\*
+**Not Implemented Yet**
 
 This operation adds an association table (`foo_bar`) with foreign key 
 references between two tables (`foo` and `bar`).
