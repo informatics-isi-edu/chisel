@@ -217,7 +217,7 @@ class AbstractCatalog (object):
         :param consolidate: if set to True, attempt to consolidate shared work between pending operations.
         :return: a catalog model mutation context object for use in 'with' statements
         """
-        if self._evolve_ctx:  # TODO: make this thread safe
+        if self._evolve_ctx:
             raise CatalogMutationError('A catalog mutation context already exists.')
 
         return self._CatalogMutationContextManager(self, allow_alter, allow_drop, dry_run, consolidate)
@@ -459,8 +459,8 @@ class TableCollection (collections.abc.MutableMapping):
         self._schema = schema
         self._backup = tables
         self._tables = tables.copy()
-        self._pending = {}  # TODO: pending should be tracked in the evolve_ctx, in order, and then processed in order
-        self._destructive_pending = False
+        self._pending = {}  # TODO: pending should be tracked in the catalog, in order, and then processed in order
+        self._destructive_pending = False  # TODO: should be tracked in the catalog
 
     def _ipython_key_completions_(self):
         return self._tables.keys()
