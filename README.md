@@ -117,13 +117,13 @@ catalog['a_schema']['foo']
 ```
 
 In general, you should _avoid assigning catalog model objects to local
-variables_. The model objects will not be updated following a catalog model 
-mutation and future operations on them are likely to fail.
+variables_. The model objects may be invalidated following a catalog model 
+mutation and, if so, future operations on them will raise an exception.
 
-### Begin a catalog evolution block
+### Begin a catalog evolution context
 
-Catalog model evolution operations are performed in a block of statements that
-are only performed after exiting the block.
+Catalog model evolution operations _may_ be performed in a block of statements that
+are only processed after exiting the block.
 
 ```python
 with catalog.evolve():
@@ -151,6 +151,16 @@ with catalog.evolve(dry_run=True):
 ```
 
 This will dump diagnostic information to the standard output stream.
+
+### When not using a catalog evolution context
+
+If not using the above `catalog.evolve()` context, catalog mutation will be processed 
+immediately (somewhat akin to "autocommit" mode in a database). The catalog object
+has properties `allow_alter_default` and `allow_drop_default` (defaults `True`) that
+are passed to an internal catalog `evolve(...)` method when operations are performed 
+without first establishing an explicit evolve block. These defaults may be changed in
+order to prevent `alter` and `drop` operations from being performed on the catalog 
+model objects.
 
 ### Perform operations
 

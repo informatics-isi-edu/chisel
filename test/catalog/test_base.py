@@ -1,5 +1,6 @@
+import unittest
 import chisel
-from chisel.catalog.base import Table
+from chisel.catalog.base import Table, Column
 from test.helpers import CatalogHelper, BaseTestCase
 
 
@@ -52,10 +53,10 @@ class TestBaseCatalog (BaseTestCase):
             # self.assertEqual(self._catalog.schemas['.'].tables['domain1'], self._catalog['.']['domain2'])
             ctx.abort()
 
-    def test_model_setter_not_in_evolve_ctx_err(self):
-        with self.assertRaises(chisel.CatalogMutationError):
-            temp = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
-            self._catalog.schemas['.'].tables['domain1'] = temp
+    def test_model_setter_not_in_evolve_ctx(self):
+        temp = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
+        self._catalog.schemas['.'].tables[self.output_basename] = temp
+        self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
     def test_destructive_setter_not_in_isolation_err(self):
         with self.assertRaises(chisel.CatalogMutationError):
@@ -74,6 +75,12 @@ class TestBaseCatalog (BaseTestCase):
                 self._catalog.schemas['.'].tables['domain1'] = temp
         # table should be restored
         self.assertIsInstance(self._catalog['.'][self.catalog_helper.samples], Table, "Failed to restore tables")
+
+    @unittest.skip
+    def test_drop_table(self):
+        with self._catalog.evolve(allow_drop=True):
+            del self._catalog.schemas['.'].tables[self.catalog_helper.samples]
+        self.assertFalse(self.catalog_helper.exists(self.catalog_helper.samples))
 
     def test_schema_describe(self):
         self._catalog['.'].describe()

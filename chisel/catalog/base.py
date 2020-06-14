@@ -35,7 +35,12 @@ class CatalogMutationError (Exception):
 
 
 class AbstractCatalog (object):
-    """Abstract base class for catalogs."""
+    """Abstract base class for catalogs.
+
+    Properties `allow_alter_default` and `allow_drop_default` (defaults `True`) are passed to the
+    catalog `evolve(...)` method when evolution operations are performed without first establishing
+    an evolve block.
+    """
 
     def __init__(self, model_doc):
         super(AbstractCatalog, self).__init__()
@@ -43,6 +48,8 @@ class AbstractCatalog (object):
         self._model_doc = model_doc
         self._schemas = {sname: self._new_schema_instance(model_doc['schemas'][sname]) for sname in model_doc['schemas']}
         self._update_referenced_by()
+        self.allow_alter_default = True
+        self.allow_drop_default = True
 
     def _update_referenced_by(self):
         """Updates the 'referenced_by back pointers on the table model objects."""
@@ -481,11 +488,15 @@ class TableCollection (collections.abc.MutableMapping):
 
     @valid_model_object
     def __setitem__(self, key, value):
-        # TODO: this may be only place that requires change to support implicit commit
         if not self._schema.catalog._evolve_ctx:
-            raise CatalogMutationError("No catalog mutation context set.")
+            with self._schema.catalog.evolve(allow_alter=self._schema.catalog.allow_alter_default):
+                t = self._do_assign(key, value)
+            return t
+        else:
+            return self._do_assign(key, value)
 
-        elif isinstance(value, collections.abc.Mapping):
+    def _do_assign(self, key, value):
+        if isinstance(value, collections.abc.Mapping):
             # for new table creation, we expect to get a Mapping (dict)
 
             # validate that table definition has minimum required field
@@ -529,6 +540,14 @@ class TableCollection (collections.abc.MutableMapping):
 
     @valid_model_object
     def __delitem__(self, key):
+        if not self._schema.catalog._evolve_ctx:
+            with self._schema.catalog.evolve(allow_drop=self._schema.catalog.allow_drop_default):
+                t = self._do_delete(key)
+            return t
+        else:
+            return self._do_delete(key)
+
+    def _do_delete(self, key):
         if self._pending:
             raise CatalogMutationError("Cannot perform 'mutation' of an existing table while another operation is pending.")
         self._destructive_pending = True

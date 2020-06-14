@@ -243,7 +243,13 @@ class TestERMrestCatalog (BaseTestCase):
         ).sort(dbptable.column_definitions['RID']).fetch()
         self.assertListEqual(list(original_data), list(revised_data), 'Data does not match')
 
-    def test_alter_rename_column_direct(self):
+    def test_alter_rename_column_direct_w_ctx(self):
+        self._do_test_alter_rename_column_direct(True)
+
+    def test_alter_rename_column_direct_wout_ctx(self):
+        self._do_test_alter_rename_column_direct(False)
+
+    def _do_test_alter_rename_column_direct(self, with_ctx):
         projected_col_name = self.catalog_helper.FIELDS[1]
         projected_col_alias = projected_col_name + ' Alias'
 
@@ -256,8 +262,11 @@ class TestERMrestCatalog (BaseTestCase):
         ).sort(dbptable.column_definitions['RID']).fetch()
 
         # do the rename
-        with self._catalog.evolve(allow_alter=True):
-            column = self._catalog['public'][self.catalog_helper.samples][projected_col_name]
+        column = self._catalog['public'][self.catalog_helper.samples][projected_col_name]
+        if with_ctx:
+            with self._catalog.evolve(allow_alter=True):
+                column.name = projected_col_alias
+        else:
             column.name = projected_col_alias
 
         # validate the local state object
@@ -288,12 +297,23 @@ class TestERMrestCatalog (BaseTestCase):
         ).sort(dbptable.column_definitions['RID']).fetch()
         self.assertListEqual(list(original_data), list(revised_data), 'Data does not match')
 
-    def test_alter_add_column(self):
+    def test_alter_add_column_w_ctx(self):
+        self._do_test_alter_add_column(True)
+
+    def test_alter_add_column_wout_ctx(self):
+        self._do_test_alter_add_column(False)
+
+    def _do_test_alter_add_column(self, with_ctx):
         # define new column
         new_col_name = 'NEW COLUMN NAME'
         col_def = Column.define(new_col_name, data_types['int8'])
-        with self._catalog.evolve(allow_alter=True):
-          self._catalog['public'][self.catalog_helper.samples].columns[new_col_name] = col_def
+
+        # do alter
+        if with_ctx:
+            with self._catalog.evolve(allow_alter=True):
+              self._catalog['public'][self.catalog_helper.samples].columns[new_col_name] = col_def
+        else:
+            self._catalog['public'][self.catalog_helper.samples].columns[new_col_name] = col_def
 
         # validate the schema names
         ermrest_schema = self._catalog.ermrest_catalog.getCatalogSchema()
@@ -305,12 +325,23 @@ class TestERMrestCatalog (BaseTestCase):
             'Column not in altered table, but it should not have been removed.'
         )
 
-    def test_drop_table(self):
+    def test_drop_table_w_ctx(self):
+        # keep handle to table model object
+        self._do_test_drop_table(True)
+
+    def test_drop_table_wout_ctx(self):
+        # keep handle to table model object
+        self._do_test_drop_table(False)
+
+    def _do_test_drop_table(self, with_ctx):
         # keep handle to table model object
         original_table = self._catalog['public'].tables[self.catalog_helper.samples]
 
         # delete the table
-        with self._catalog.evolve(allow_drop=True):
+        if with_ctx:
+            with self._catalog.evolve(allow_drop=True):
+                del self._catalog['public'].tables[self.catalog_helper.samples]
+        else:
             del self._catalog['public'].tables[self.catalog_helper.samples]
 
         # validate that it is no longer in catalog
