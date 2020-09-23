@@ -57,9 +57,9 @@ class AbstractCatalog (object):
             for referer in schema.tables.values():
                 for fkey in referer.foreign_keys:
                     referenced = self.schemas[
-                        fkey.referenced_columns[0]['schema_name']
+                        fkey['referenced_columns'][0]['schema_name']
                     ].tables[
-                        fkey.referenced_columns[0]['table_name']
+                        fkey['referenced_columns'][0]['table_name']
                     ]
                     referenced.referenced_by.append(fkey)
 
@@ -128,7 +128,7 @@ class AbstractCatalog (object):
             for table in schema.tables.values():
                 tail_name = "%s.%s" % (schema.name, table.name)
                 for fkey in table.foreign_keys:
-                    refcol = fkey.referenced_columns[0]
+                    refcol = fkey['referenced_columns'][0]
                     head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
                     dot.edge(tail_name, head_name)
 
@@ -423,7 +423,7 @@ class Schema (object):
             # add outbound edges
             tail_name = "%s.%s" % (self.name, table.name)
             for fkey in table.foreign_keys:
-                refcol = fkey.referenced_columns[0]
+                refcol = fkey['referenced_columns'][0]
                 head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
                 if head_name not in seen:
                     dot.node(head_name, head_name)
@@ -756,7 +756,7 @@ class Table (object):
         # add outbound edges
         tail_name = "%s.%s" % (self.schema.name, self.name)
         for fkey in self.foreign_keys:
-            refcol = fkey.referenced_columns[0]
+            refcol = fkey['referenced_columns'][0]
             head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
             if head_name not in seen:
                 dot.node(head_name, head_name)
