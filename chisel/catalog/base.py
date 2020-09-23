@@ -24,7 +24,7 @@ def valid_model_object(fn):
         model_object = args[0]
         assert hasattr(model_object, 'valid'), "Decorated object does not have 'valid' attribute"
         if not getattr(model_object, 'valid'):
-            raise CatalogMutationError("The %s object with was invalidated." % type(model_object).__name__)
+            raise CatalogMutationError("The %s object was invalidated." % type(model_object).__name__)
         return fn(*args, **kwargs)
     return wrapper
 
@@ -45,11 +45,11 @@ class AbstractCatalog (object):
     def __init__(self, model_doc):
         super(AbstractCatalog, self).__init__()
         self._evolve_ctx = None
-        self._model_doc = model_doc
-        self._schemas = {sname: self._new_schema_instance(model_doc['schemas'][sname]) for sname in model_doc['schemas']}
-        self._update_referenced_by()
         self.allow_alter_default = True
         self.allow_drop_default = True
+        self._model_doc = model_doc
+        self._schemas = {sname: self._new_schema_instance(self._model_doc['schemas'][sname]) for sname in self._model_doc['schemas']}
+        self._update_referenced_by()
 
     def _update_referenced_by(self):
         """Updates the 'referenced_by back pointers on the table model objects."""

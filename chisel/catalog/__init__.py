@@ -1,9 +1,17 @@
 """Catalog package."""
 from .. import optimizer as _op
 from . import base as _base
-from .ermrest import connect as _ermrest_connect
-from .semistructured import connect as _semistructured_connect
+from .ermrest import ERMrestCatalog
+from .semistructured import SemistructuredCatalog
 from .base import CatalogMutationError, data_types, Schema, Table, Column, Key, ForeignKey
+
+
+_connection_mapping = {
+    'https': ERMrestCatalog,
+    'http': ERMrestCatalog,
+    'file': SemistructuredCatalog
+}
+"""Mappings from URI scheme to concrete catalog class."""
 
 
 def connect(url, credentials=None, **kwargs):
@@ -38,10 +46,11 @@ def connect(url, credentials=None, **kwargs):
     :param credentials: user credentials (optional)
     :return: catalog for data source
     """
-    if url.startswith('http'):
-        return _ermrest_connect(url, credentials, **kwargs)
+    for scheme, clz in _connection_mapping.items():
+        if url.startswith(scheme + ':'):
+            return clz(url, credentials)
     else:
-        return _semistructured_connect(url, credentials, **kwargs)
+        raise ValueError("Unknown connection scheme")
 
 
 def shred(graph, expression):

@@ -13,20 +13,7 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def connect(url, credentials=None, **kwargs):
-    """Connect to a local, semi-structured (i.e., CSV, JSON) data source.
-
-    :param url: connection string url
-    :param credentials: user credentials
-    :return: catalog for data source
-    """
-    parsed_url = util.urlparse(url)
-    if credentials:
-        logger.warning('Credentials not supported by semistructured catalog')
-    return SemistructuredCatalog(parsed_url.path)
-
-
-def introspect_semistructured_files(path):
+def _introspect(path):
     """Introspects the model of semistructured files in a shallow directory hierarchy.
 
     :param path: the directory path
@@ -71,9 +58,12 @@ def introspect_semistructured_files(path):
 
 class SemistructuredCatalog (base.AbstractCatalog):
     """Database catalog backed by semistructured files."""
-    def __init__(self, path):
-        super(SemistructuredCatalog, self).__init__(introspect_semistructured_files(path))
-        self.path = path
+    def __init__(self, url, credentials):
+        parsed_url = util.urlparse(url)
+        if credentials:
+            logger.warning('Credentials not supported by semistructured catalog')
+        self.path = parsed_url.path
+        super(SemistructuredCatalog, self).__init__(_introspect(self.path))
 
     def _new_schema_instance(self, schema_doc):
         return SemistructuredSchema(schema_doc, self)

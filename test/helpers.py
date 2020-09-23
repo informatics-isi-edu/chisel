@@ -141,7 +141,7 @@ class CatalogHelper (AbstractCatalogHelper):
         return os.path.isfile(os.path.join(self._data_dir, tablename))
 
     def connect(self):
-        return chisel.connect(self._data_dir)
+        return chisel.connect('file://' + self._data_dir)
 
 
 class ERMrestHelper (AbstractCatalogHelper):

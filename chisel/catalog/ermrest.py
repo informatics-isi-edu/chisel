@@ -12,20 +12,6 @@ from . import base
 logger = logging.getLogger(__name__)
 
 
-def connect(url, credentials=None):
-    """Connect to an ERMrest data source.
-
-    :param url: connection string url
-    :param credentials: user credentials
-    :return: catalog for data source
-    """
-    parsed_url = util.urlparse(url)
-    if not credentials:
-        credentials = _deriva_core.get_credential(parsed_url.netloc)
-    ec = _deriva_core.ErmrestCatalog(parsed_url.scheme, parsed_url.netloc, parsed_url.path.split('/')[-1], credentials)
-    return ERMrestCatalog(ec)
-
-
 class ERMrestCatalog (base.AbstractCatalog):
     """Database catalog backed by a remote ERMrest catalog service."""
 
@@ -35,9 +21,15 @@ class ERMrestCatalog (base.AbstractCatalog):
     """The set of system columns."""
     syscols = {'RID', 'RCB', 'RMB', 'RCT', 'RMT'}
 
-    def __init__(self, ermrest_catalog):
-        super(ERMrestCatalog, self).__init__(ermrest_catalog.getCatalogSchema())
-        self.ermrest_catalog = ermrest_catalog
+    def __init__(self, url, credentials):
+        # establish connection to ermrest catalog and call super init
+        parsed_url = util.urlparse(url)
+        if not credentials:
+            credentials = _deriva_core.get_credential(parsed_url.netloc)
+        self.ermrest_catalog = _deriva_core.ErmrestCatalog(
+            parsed_url.scheme, parsed_url.netloc, parsed_url.path.split('/')[-1], credentials
+        )
+        super(ERMrestCatalog, self).__init__(self.ermrest_catalog.getCatalogSchema())
 
     def _new_schema_instance(self, schema_doc):
         return ERMrestSchema(schema_doc, self)
