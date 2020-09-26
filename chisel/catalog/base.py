@@ -230,6 +230,14 @@ class AbstractCatalog (object):
         :return: None
         """
 
+    @abc.abstractmethod
+    def logical_plan(self, table):
+        """Symbolic representation of the table extant; intended for internal use.
+
+        :param table: a table instance
+        :return: a symbolic logical plan representing the extant table
+        """
+
     def _abort(self):
         """Abort pending catalog model mutations."""
         if not self._evolve_ctx:
@@ -378,7 +386,7 @@ class Schema (object):
         :param table_doc: the table document
         :return: table model object
         """
-        return Table(table_doc)
+        return Table(table_doc, schema=self)
 
     def describe(self):
         """Returns a text (markdown) description."""
@@ -667,9 +675,10 @@ class Table (object):
         return self._referenced_by
 
     @property
-    @abc.abstractmethod
     def logical_plan(self):
         """The logical plan used to compute this relation; intended for internal use."""
+        assert self._schema, "Cannot return logical plan extant because Table.schema was not initialized."
+        return self._schema.catalog.logical_plan(self)
 
     def _refresh(self):
         """Refreshes the internal state of this table object.

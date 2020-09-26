@@ -65,9 +65,6 @@ class SemistructuredCatalog (base.AbstractCatalog):
         self.path = parsed_url.path
         super(SemistructuredCatalog, self).__init__(_introspect(self.path))
 
-    def _new_schema_instance(self, schema_doc):
-        return SemistructuredSchema(schema_doc, self)
-
     def _materialize_relation(self, plan):
         """Materializes a relation from a physical plan.
 
@@ -95,21 +92,9 @@ class SemistructuredCatalog (base.AbstractCatalog):
         else:
             raise Exception("Unable to materialize relation. Unknown file extension for '{}'.".format(filename))
 
-
-class SemistructuredSchema (base.Schema):
-    """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
-
-    def _new_table_instance(self, table_doc):
-        return SemistructuredTable(table_doc, self)
-
-
-class SemistructuredTable (base.Table):
-    """Extant table in a semistructured catalog."""
-
-    @property
-    def logical_plan(self):
-        """The logical plan used to compute this relation; intended for internal use."""
-        filename = os.path.join(self.schema.catalog.path, self.schema.name, self.name)
+    def logical_plan(self, table):
+        """Symbolic representation of the table extant; intended for internal use."""
+        filename = os.path.join(self.path, table.schema.name, table.name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
             return optimizer.TabularDataExtant(filename=filename)
         elif filename.endswith('.json'):

@@ -31,9 +31,6 @@ class ERMrestCatalog (base.AbstractCatalog):
         )
         super(ERMrestCatalog, self).__init__(self.ermrest_catalog.getCatalogSchema())
 
-    def _new_schema_instance(self, schema_doc):
-        return ERMrestSchema(schema_doc, self)
-
     def _repair_model(self, schema_name, table_name):
         """Repair catalog model for recently created, assigned, or altered table
 
@@ -217,18 +214,6 @@ class ERMrestCatalog (base.AbstractCatalog):
         """Apply model changes in the post conditions of the model changes."""
         pass
 
-
-class ERMrestSchema (base.Schema):
-    """Represents a 'schema' (a.k.a., a namespace) in a database catalog."""
-
-    def _new_table_instance(self, table_doc):
-        return ERMrestTable(table_doc, self)
-
-
-class ERMrestTable (base.Table):
-    """Extant table in an ERMrest catalog."""
-
-    @property
-    def logical_plan(self):
-        """The logical plan used to compute this relation; intended for internal use."""
-        return optimizer.ERMrestExtant(self.schema.catalog, self.schema.name, self.name)
+    def logical_plan(self, table):
+        """Symbolic representation of the table extant; intended for internal use."""
+        return optimizer.ERMrestExtant(self, table.schema.name, table.name)
