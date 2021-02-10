@@ -29,6 +29,7 @@ class ERMrestCatalog (base.AbstractCatalog):
         self.ermrest_catalog = _deriva_core.ErmrestCatalog(
             parsed_url.scheme, parsed_url.netloc, parsed_url.path.split('/')[-1], credentials
         )
+        self.ermrest_catalog.dcctx['cid'] = "api/chisel"
         super(ERMrestCatalog, self).__init__(self.ermrest_catalog.getCatalogSchema())
 
     def _repair_model(self, schema_name, table_name):
