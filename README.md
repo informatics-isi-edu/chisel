@@ -37,10 +37,13 @@ This installation method gets a copy of the source and then installs it.
 2. Install
     ```sh
     $ cd chisel
-    $ pip install .
+    $ pip install -e .
     ```
     You may need to use `sudo` for system-wide install or add the `--user` option 
-    for current user only install.
+    for current user only install. This examples uses the `-e` option which means
+    that the installation simply references your `chisel` local repository. That 
+    way you can quickly update to the latest code just by performing a `git pull`
+    on your local `chisel` repo.
 3. Run the tests
     ```sh
     $ export DERIVA_PY_TEST_HOSTNAME=my-ermrest-host.example.org
@@ -116,51 +119,10 @@ schema object behaves as a collection of tables, and each table behaves as a
 catalog['a_schema']['foo']
 ```
 
-In general, you should _avoid assigning catalog model objects to local
-variables_. The model objects may be invalidated following a catalog model 
-mutation and, if so, future operations on them will raise an exception.
-
-### Begin a catalog evolution context
-
-Catalog model evolution operations _may_ be performed in a block of statements that
-are only processed after exiting the block.
-
-```python
-with catalog.evolve():
-    # catalog model mutation operations...
-```
-
-If any exception is raised and not caught, when the block exits, the pending 
-operations will be aborted. Pending operations may be aborted explicitly by 
-using the catalog mutation context manager.
-
-```python
-with catalog.evolve() as ctx:
-    # catalog model mutation operations...
-    if something_went_wrong:
-        ctx.abort()
-    # all operations before and after the abort() are cancelled
-    # and the block is immediately exited
-```
-
-If you want to do a test run, set the `dry_run` flag in the `evolve()` method.
-
-```python
-with catalog.evolve(dry_run=True):
-    # catalog model mutation operations...
-```
-
-This will dump diagnostic information to the standard output stream.
-
-### When not using a catalog evolution context
-
-If not using the above `catalog.evolve()` context, catalog mutation will be processed 
-immediately (somewhat akin to "autocommit" mode in a database). The catalog object
-has properties `allow_alter_default` and `allow_drop_default` (defaults `True`) that
-are passed to an internal catalog `evolve(...)` method when operations are performed 
-without first establishing an explicit evolve block. These defaults may be changed in
-order to prevent `alter` and `drop` operations from being performed on the catalog 
-model objects.
+The model objects may be invalidated following a catalog model 
+mutation and, if so, future operations on them will raise an exception. In that
+case, just reconnect to the catalog (i.e., using `catalog = chisel.connect(...)`) 
+to refresh the catalog's internal state.
 
 ### Perform operations
 
@@ -168,8 +130,7 @@ Chisel operations begin by calling a method of an existing table (e.g., `foo`)
 or one of its columns. The methods return objects called "computed relations" 
 -- essentially a new table that will be _computed_ from the operations over 
 the initial, extant table. These operations can be _chained_ to form more 
-complex operations. The operations will be evaluated and executed only when 
-the evolve block is existed.
+complex operations.
 
 In this example, a new unique "domain" of terms is created from the `bar`
 column of the `foo` table.
