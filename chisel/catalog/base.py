@@ -433,19 +433,30 @@ class Schema (object):
             for fkey in table.foreign_keys:
                 refcol = fkey['referenced_columns'][0]
                 head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
+                # add head node, if not seen
                 if head_name not in seen:
-                    dot.node(head_name, head_name)
                     seen.add(head_name)
-                dot.edge(tail_name, head_name)
+                    dot.node(head_name, head_name)
+                # add edge, if not seen before
+                edge = (tail_name, head_name)
+                if edge not in seen:
+                    seen.add(edge)
+                    dot.edge(tail_name, head_name)
 
             # add inbound edges
             head_name = tail_name
             for reference in table.referenced_by:
-                tail_name = "%s.%s" % (reference.sname, reference.tname)
+                fkeycol = reference['foreign_key_columns'][0]
+                tail_name = "%s.%s" % (fkeycol['schema_name'], fkeycol['table_name'])
+                # add tail node, if not seen
                 if tail_name not in seen:
-                    dot.node(tail_name, tail_name)
                     seen.add(tail_name)
-                dot.edge(tail_name, head_name)
+                    dot.node(tail_name, tail_name)
+                # add head node, if not seen
+                edge = (tail_name, head_name)
+                if edge not in seen:
+                    seen.add(edge)
+                    dot.edge(tail_name, head_name)
 
         return dot
 
@@ -775,7 +786,8 @@ class Table (object):
         # add inbound edges
         head_name = tail_name
         for reference in self._referenced_by:
-            tail_name = "%s.%s" % (reference.sname, reference.tname)
+            fkeycol = reference['foreign_key_columns'][0]
+            tail_name = "%s.%s" % (fkeycol['schema_name'], fkeycol['table_name'])
             if tail_name not in seen:
                 dot.node(tail_name, tail_name)
                 seen.add(tail_name)
