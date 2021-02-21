@@ -1072,17 +1072,33 @@ class Column (object):
     def type(self):
         return self._type
 
+    # set type property:
+    #   if type == value: ignore
+    #   else: create an alter column op with diff value
+
     @property
     def default(self):
         return self._default
+
+    # set default property:
+    #   if default == value: ignore
+    #   else: create an alter column op with diff value
 
     @property
     def nullok(self):
         return self._nullok
 
+    # set nullok property:
+    #   if nullok == value: ignore
+    #   else: create an alter column op with diff value
+
     @property
     def comment(self):
         return self._comment
+
+    # set comment property:
+    #   if comment == value: ignore
+    #   else: create an alter column op with diff value
 
     def eq(self, other):
         return _op.Comparison(operand1=self.name, operator='=', operand2=str(other))

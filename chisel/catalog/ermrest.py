@@ -62,6 +62,7 @@ class ERMrestCatalog (base.AbstractCatalog):
 
             # Create table
             self._do_create_table(schema_name, plan.description)
+            # TODO: mmo to introduce table into mappings (ie, viz-fkeys) per its relationships
 
             # Repair catalog model
             self._repair_model(schema_name, table_name)
@@ -74,6 +75,7 @@ class ERMrestCatalog (base.AbstractCatalog):
             orig_sname, orig_tname = plan.src_sname, plan.src_tname
             altered_schema_name, altered_table_name = plan.dst_sname, plan.dst_tname
             self._do_alter_table(orig_sname, orig_tname, altered_schema_name, altered_table_name, plan.projection)
+            # TODO: mmo to rename paths in mappings and acls, per table rename ("rename" or "move")
 
             #  invalidate the original table model object
             invalidated_table = self.schemas[orig_sname].tables._backup[orig_tname]
@@ -90,6 +92,7 @@ class ERMrestCatalog (base.AbstractCatalog):
 
             dropped_schema_name, dropped_table_name = plan.description['schema_name'], plan.description['table_name']
             self._do_drop_table(dropped_schema_name, dropped_table_name)
+            # TODO: mmo to remove mappings and acls that depend on the table
 
             # Note: repair the model following the drop table
             #  invalidate the dropped table model object
@@ -156,10 +159,12 @@ class ERMrestCatalog (base.AbstractCatalog):
         if src_schema_name != dst_schema_name:
             logger.debug("Altering table name from schema '{old}' to '{new}'".format(old=src_schema_name, new=dst_schema_name))
             table.alter(schema_name=dst_schema_name)
+            # TODO: mmo fix mappings and acls, per schema name change
 
         elif src_table_name != dst_table_name:
             logger.debug("Altering table name from '{old}' to '{new}'".format(old=src_table_name, new=dst_table_name))
             table.alter(table_name=dst_table_name)
+            # TODO: mmo fix mappings and acls, per table name change
 
         elif projection[0] == optimizer.AllAttributes():  # 'special' case for drops or adds only
             logger.debug("Dropping columns that were explicitly removed.")
@@ -167,10 +172,12 @@ class ERMrestCatalog (base.AbstractCatalog):
                 if isinstance(item, optimizer.AttributeDrop):
                     logger.debug("Dropping column '{cname}'.".format(cname=item.name))
                     original_columns[item.name].drop()
+                    # TODO: mmo to remove mappings and acls that depend on dropped column
                 elif isinstance(item, optimizer.AttributeAdd):
                     col_doc = json.loads(item.definition)
                     logger.debug("Adding column '{cname}'.".format(cname=col_doc['name']))
                     table.create_column(col_doc)
+                    # TODO: mmo to add column to mappings' projects, as defined
                 else:
                     raise AssertionError("Unexpected '%s' in alter operation" % type(item).__name__)
 
@@ -184,6 +191,7 @@ class ERMrestCatalog (base.AbstractCatalog):
                     original_column = original_columns[projected.name]
                     original_column.alter(name=projected.alias)
                     projected_column_names.add(projected.alias)
+                    # TODO: mmo to fix mappings and acls per column name change
                 else:
                     assert isinstance(projected, str)
                     projected_column_names.add(projected)
@@ -194,6 +202,7 @@ class ERMrestCatalog (base.AbstractCatalog):
                 if column.name not in projected_column_names | self.syscols:
                     logger.debug("Dropping column '{cname}'.".format(cname=column.name))
                     column.drop()
+                    # TODO: mmo to remove mappings and acls that depend on dropped column
 
     def _do_drop_table(self, schema_name, table_name):
         """Drop table in the catalog."""
