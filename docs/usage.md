@@ -20,7 +20,7 @@ from chisel import Table, Column, Key, ForeignKey, data_types as typ
 catalog = chisel.connect(...)
 
 # define table and assign to a schema in order to create it in the catalog
-catalog['public'].tables['foo'] = Table.define(
+catalog.schemas['public'].tables['foo'] = Table.define(
     'foo',
     column_defs=[
         Column.define('Col1', typ.int8), 
@@ -38,7 +38,7 @@ catalog['public'].tables['foo'] = Table.define(
     ...)
 
 # get the newly created table in order to use it in operations
-foo = catalog['public'].tables['foo']
+foo = catalog.schemas['public'].tables['foo']
 
 # perform operations on new table 'foo'...
 list(foo.select().fetch())
@@ -49,7 +49,7 @@ list(foo.select().fetch())
 Drop a table using the `del` statement on the table's container.
 
 ```python
-del catalog['public'].tables['foo']
+del catalog.schemas['public'].tables['foo']
 ```
 
 ### Rename a table
@@ -57,7 +57,7 @@ del catalog['public'].tables['foo']
 Rename a table by changing its `.name` property.
 
 ```python
-table = catalog['public'].tables['foo']
+table = catalog.schemas['public'].tables['foo']
 table.name = 'bar'
 ```
 
@@ -67,8 +67,8 @@ Make an exact clone of a table by assigning the results of its `.clone()`
 method to an unused table name.
 
 ```python
-table = catalog['public'].tables['foo']
-catalog['public'].tables['bar'] = table.clone()
+table = catalog.schemas['public'].tables['foo']
+catalog.schemas['public'].tables['bar'] = table.clone()
 ```
 
 ### Move a table to a different schema
@@ -87,7 +87,7 @@ Add a new column to a table by assigning a `Column` definition to an unused
 column name of the table.
 
 ```python
-table = catalog['public'].tables['foo']
+table = catalog.schemas['public'].tables['foo']
 table.columns['baz'] = Column.define('baz', typ.text)
 ```
 
@@ -96,7 +96,7 @@ table.columns['baz'] = Column.define('baz', typ.text)
 Drop a column from a table by deleting it from the table's `.columns` container.
 
 ```python
-table = catalog['public'].tables['foo']
+table = catalog.schemas['public'].tables['foo']
 del table.columns['baz']
 ```
 
@@ -105,7 +105,7 @@ del table.columns['baz']
 Rename a column by setting its `.name` property.
 
 ```python
-table = catalog['public'].tables['foo']
+table = catalog.schemas['public'].tables['foo']
 column = table.columns['baz']
 column.name = 'qux'
 ```
@@ -120,7 +120,7 @@ be assigned to an unused table name of a schema's `tables` container to
 create a new table from the relation.
 
 ```python
-catalog['public']['foo'].join(catalog['public']['bar']).where(...)
+catalog.schemas['public']['foo'].join(catalog.schemas['public']['bar']).where(...)
 ```
 
 ### Union of relations
@@ -129,7 +129,7 @@ Tables (or any relation) may be unioned with the `.union(rel)` method or the
 `+` operator. Like JOINs, UNION does not directly mutate the catalog. 
 
 ```python
-catalog['public']['foo'].union(catalog['public']['bar'])
+catalog.schemas['public']['foo'].union(catalog.schemas['public']['bar'])
 # or... foo + bar
 ```
 
@@ -143,8 +143,8 @@ operations.
 Table `bar` will have a `name` column from the deduplicated values of `foo.bar`.
 
 ```python
-foo = catalog['public'].tables['foo']
-catalog['public'].tables['bar'] = foo.columns['bar'].to_domain()
+foo = catalog.schemas['public'].tables['foo']
+catalog.schemas['public'].tables['bar'] = foo.columns['bar'].to_domain()
 ```
 
 ### Create table as vocabulary from existing column
@@ -154,8 +154,8 @@ _and_ a `synonyms` column that will have all of the remaining values for `name`
 that were not selected as canonical.
 
 ```python
-foo = catalog['public'].tables['foo']
-catalog['public'].tables['bar'] = foo.columns['bar'].to_vocabulary()
+foo = catalog.schemas['public'].tables['foo']
+catalog.schemas['public'].tables['bar'] = foo.columns['bar'].to_vocabulary()
 ```
 
 ### Create table from atomizied values from existing column 
@@ -164,8 +164,8 @@ Table `bar` will have a column `bar` containing the unnested values of
 `foo.bar` and also a foriegn key to `foo`.
 
 ```python
-foo = catalog['public'].tables['foo']
-catalog['public'].tables['bar'] = foo.columns['bar'].to_atoms()
+foo = catalog.schemas['public'].tables['foo']
+catalog.schemas['public'].tables['bar'] = foo.columns['bar'].to_atoms()
 ```
 
 ### Create a table by reifying a concept embedded in another table
@@ -174,8 +174,8 @@ In `reify`, the first set of columns are used as the `key` of the new table,
 and the second set of columns used as the non-key columns of the new table.
 
 ```python
-foo = catalog['public'].tables['foo']
-catalog['public'].tables['barbaz'] = foo.reify(
+foo = catalog.schemas['public'].tables['foo']
+catalog.schemas['public'].tables['barbaz'] = foo.reify(
     {foo.columns['id']}, 
     {foo.columns['bar'], foo.columns['baz']}
 )
@@ -188,8 +188,8 @@ will also have a foriegn key to the source table `foo` based on the
 introspected key of `foo`.
 
 ```python
-foo = catalog['public'].tables['foo']
-catalog['public'].tables['bar'] = foo.reify_sub(foo.columns['bar'])
+foo = catalog.schemas['public'].tables['foo']
+catalog.schemas['public'].tables['bar'] = foo.reify_sub(foo.columns['bar'])
 ```
 
 ### Create a table by aligning a column with a vocabulary or domain table
@@ -202,9 +202,9 @@ target column (`bar` in the example here) replaced with a foreign key to
 the vocabulary or domain table (`vocab.bar` in the example here).
 
 ```python
-foo = catalog['public'].tables['foo']
+foo = catalog.schemas['public'].tables['foo']
 bar_terms = catalog['vocab'].tables['bar']
-catalog['public'].tables['foo_fixed'] = foo.columns['bar'].align(bar_terms)
+catalog.schemas['public'].tables['foo_fixed'] = foo.columns['bar'].align(bar_terms)
 ```
 
 ### Create a table by unnesting and aligning a column with a vocabulary or domain
@@ -217,7 +217,7 @@ column `bars` (which can be renamed per the basic usage above) but also a
 foreign key to `foo` from where it came.
 
 ```python
-foo = catalog['public'].tables['foo']
+foo = catalog.schemas['public'].tables['foo']
 bar_terms = catalog['vocab'].tables['bar']
-catalog['public'].tables['foo_bar'] = foo.columns['bars'].to_tags(bar_terms)
+catalog.schemas['public'].tables['foo_bar'] = foo.columns['bars'].to_tags(bar_terms)
 ```
