@@ -82,11 +82,14 @@ class TestBaseCatalog (BaseTestCase):
             del self._catalog.schemas['.'].tables[self.catalog_helper.samples]
         self.assertFalse(self.catalog_helper.exists(self.catalog_helper.samples))
 
+    def test_catalog_describe(self):
+        chisel.describe(self._catalog)
+
     def test_schema_describe(self):
-        self._catalog['.'].describe()
+        chisel.describe(self._catalog.schemas['.'])
 
     def test_table_describe(self):
-        self._catalog['.'][self.catalog_helper.samples].describe()
+        chisel.describe(self._catalog.schemas['.'].tables[self.catalog_helper.samples])
 
     def test_schema_graph(self):
         self._catalog['.'].graph()

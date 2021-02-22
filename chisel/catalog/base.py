@@ -9,6 +9,8 @@ import logging
 import pprint as pp
 from graphviz import Digraph
 from deriva.core import ermrest_model as _em
+from ..util import describe, deprecated
+
 from .. import optimizer as _op, operators, util
 
 logger = logging.getLogger(__name__)
@@ -86,27 +88,10 @@ class AbstractCatalog (object):
     def _ipython_key_completions_(self):
         return self.schemas.keys()
 
+    @deprecated
     def describe(self):
         """Returns a text (markdown) description."""
-
-        def _make_markdown_repr(quote=lambda s: s):
-            data = [
-                ["Name", "Comment"]
-            ] + [
-                [s.name, s.comment] for s in self.schemas.values()
-            ]
-            desc = "### List of schemas\n" + \
-                   util.markdown_table(data, quote)
-            return desc
-
-        class Description:
-            def _repr_markdown_(self):
-                return _make_markdown_repr(quote=util.markdown_quote)
-
-            def __repr__(self):
-                return _make_markdown_repr()
-
-        return Description()
+        return describe(self)
 
     def graph(self, engine='fdp'):
         """Generates and returns a graphviz Digraph.
@@ -388,27 +373,10 @@ class Schema (object):
         """
         return Table(table_doc, schema=self)
 
+    @deprecated
     def describe(self):
         """Returns a text (markdown) description."""
-
-        def _make_markdown_repr(quote=lambda s: s):
-            data = [
-                ["Schema", "Name", "Kind", "Comment"]
-            ] + [
-                [self.name, t.name, t.kind, t.comment] for t in self.tables.values()
-            ]
-            desc = "### List of Tables\n" + \
-                   util.markdown_table(data, quote)
-            return desc
-
-        class Description:
-            def _repr_markdown_(self):
-                return _make_markdown_repr(quote=util.markdown_quote)
-
-            def __repr__(self):
-                return _make_markdown_repr()
-
-        return Description()
+        return describe(self)
 
     def graph(self, engine='fdp'):
         """Generates and returns a graphviz Digraph.
@@ -731,30 +699,10 @@ class Table (object):
         """
         return self._table_doc
 
-    @valid_model_object
+    @deprecated
     def describe(self):
         """Returns a text (markdown) description."""
-        def type2str(t):
-            return t['typename']
-
-        def _make_markdown_repr(quote=lambda s: s):
-            data = [
-                ["Column", "Type", "Nullable", "Default", "Comment"]
-            ] + [
-                [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in self.columns.values()
-            ]
-            desc = "### Table \"" + str(self.schema.name) + "." + str(self.name) + "\"\n" + \
-                   util.markdown_table(data, quote)
-            return desc
-
-        class Description:
-            def _repr_markdown_(self):
-                return _make_markdown_repr(quote=util.markdown_quote)
-
-            def __repr__(self):
-                return _make_markdown_repr()
-
-        return Description()
+        return describe(self)
 
     @valid_model_object
     def graph(self, engine='fdp'):

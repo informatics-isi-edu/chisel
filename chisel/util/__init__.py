@@ -1,9 +1,11 @@
 """Utility functions (internal use)."""
 
-from collections import defaultdict
 import logging
 import nltk as _nltk
 import sys
+import warnings
+
+from .describe import describe
 
 logger = logging.getLogger(__name__)
 
@@ -95,36 +97,9 @@ def edit_distance_fn(tuple1, tuple2, **kwargs):
         return 1.0
 
 
-def markdown_quote(s, special="\\`*_{}[]()#+-.!"):
-    """Simple markdown quoting that returns a new encoded string for the original input string."""
-    if not s:
-        return s
-
-    t = ""
-    for c in s:
-        if c in special:
-            t += '\\'
-        t += c
-    return t
-
-
-def markdown_table(data=[[""]], quote=lambda s: s):
-    """Generates markdown table from input data."""
-
-    # convert data into text
-    text = [list(map(lambda x: str(x), row)) for row in data]
-
-    # determine the padding for each column
-    padding = defaultdict(int)
-    for row in text:
-        for i, value in enumerate(row):
-            padding[i] = max(padding[i], len(value))
-
-    # generate the markdown table
-    table = '| ' + ' | '.join([quote(val).ljust(padding[i]) for i, val in enumerate(text[0])]) + ' |\n' + \
-            '|-' + '-|-'.join([''.ljust(padding[i], '-') for i in range(len(text[0]))]) + '-|\n' + \
-            ''.join([
-                '| ' + ' | '.join([(quote(val)).ljust(padding[i]) for i, val in enumerate(row)]) + ' |\n'
-                for row in text[1:]
-            ])
-    return table
+def deprecated(f):
+    """A simple 'deprecated' function decorator."""
+    def wrapper(*args, **kwargs):
+        warnings.warn("'%s' has been deprecated" % f.__name__, DeprecationWarning, stacklevel=2)
+        return f(*args, **kwargs)
+    return wrapper
