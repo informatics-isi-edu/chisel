@@ -6,6 +6,7 @@ import sys
 import warnings
 
 from .describe import describe
+from .graph import graph
 
 logger = logging.getLogger(__name__)
 

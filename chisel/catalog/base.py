@@ -7,9 +7,8 @@ import itertools
 import json
 import logging
 import pprint as pp
-from graphviz import Digraph
 from deriva.core import ermrest_model as _em
-from ..util import describe, deprecated
+from ..util import describe, deprecated, graph
 
 from .. import optimizer as _op, operators, util
 
@@ -93,31 +92,14 @@ class AbstractCatalog (object):
         """Returns a text (markdown) description."""
         return describe(self)
 
+    @deprecated
     def graph(self, engine='fdp'):
         """Generates and returns a graphviz Digraph.
 
         :param engine: text name for the graphviz engine (dot, neato, circo, etc.)
         :return: a Graph object that can be rendered directly by jupyter notbook or qtconsole
         """
-        dot = Digraph(name='Catalog Model', engine=engine, node_attr={'shape': 'box'})
-
-        # add nodes
-        for schema in self.schemas.values():
-            with dot.subgraph(name=schema.name, node_attr={'shape': 'box'}) as subgraph:
-                for table in schema.tables.values():
-                    label = "%s.%s" % (schema.name, table.name)
-                    subgraph.node(label, label)
-
-        # add edges
-        for schema in self.schemas.values():
-            for table in schema.tables.values():
-                tail_name = "%s.%s" % (schema.name, table.name)
-                for fkey in table.foreign_keys:
-                    refcol = fkey['referenced_columns'][0]
-                    head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
-                    dot.edge(tail_name, head_name)
-
-        return dot
+        return graph(self, engine=engine)
 
     class _CatalogMutationContextManager (object):
         """A context manager (i.e., 'with' statement enter/exit) for catalog model mutation."""
@@ -378,56 +360,14 @@ class Schema (object):
         """Returns a text (markdown) description."""
         return describe(self)
 
+    @deprecated
     def graph(self, engine='fdp'):
         """Generates and returns a graphviz Digraph.
 
         :param engine: text name for the graphviz engine (dot, neato, circo, etc.)
         :return: a Graph object that can be rendered directly by jupyter notbook or qtconsole
         """
-        dot = Digraph(name=self.name, engine=engine, node_attr={'shape': 'box'})
-
-        # add nodes
-        for table in self.tables.values():
-            label = "%s.%s" % (self.name, table.name)
-            dot.node(label, label)
-
-        # track referenced nodes
-        seen = set()
-
-        # add edges
-        for table in self.tables.values():
-            # add outbound edges
-            tail_name = "%s.%s" % (self.name, table.name)
-            for fkey in table.foreign_keys:
-                refcol = fkey['referenced_columns'][0]
-                head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
-                # add head node, if not seen
-                if head_name not in seen:
-                    seen.add(head_name)
-                    dot.node(head_name, head_name)
-                # add edge, if not seen before
-                edge = (tail_name, head_name)
-                if edge not in seen:
-                    seen.add(edge)
-                    dot.edge(tail_name, head_name)
-
-            # add inbound edges
-            head_name = tail_name
-            for reference in table.referenced_by:
-                fkeycol = reference['foreign_key_columns'][0]
-                tail_name = "%s.%s" % (fkeycol['schema_name'], fkeycol['table_name'])
-                # add tail node, if not seen
-                if tail_name not in seen:
-                    seen.add(tail_name)
-                    dot.node(tail_name, tail_name)
-                # add head node, if not seen
-                edge = (tail_name, head_name)
-                if edge not in seen:
-                    seen.add(edge)
-                    dot.edge(tail_name, head_name)
-
-        return dot
-
+        return graph(self, engine=engine)
 
 class TableCollection (collections.abc.MutableMapping):
     """Container class for schema tables (for internal use only).
@@ -704,44 +644,14 @@ class Table (object):
         """Returns a text (markdown) description."""
         return describe(self)
 
-    @valid_model_object
+    @deprecated
     def graph(self, engine='fdp'):
         """Generates and returns a graphviz Digraph.
 
         :param engine: text name for the graphviz engine (dot, neato, circo, etc.)
         :return: a Graph object that can be rendered directly by jupyter notbook or qtconsole
         """
-        dot = Digraph(name=self.name, engine=engine, node_attr={'shape': 'box'})
-
-        # add node
-        label = "%s.%s" % (self.schema.name, self.name)
-        dot.node(label, label)
-
-        # track referenced nodes
-        seen = set()
-
-        # add edges
-        # add outbound edges
-        tail_name = "%s.%s" % (self.schema.name, self.name)
-        for fkey in self.foreign_keys:
-            refcol = fkey['referenced_columns'][0]
-            head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
-            if head_name not in seen:
-                dot.node(head_name, head_name)
-                seen.add(head_name)
-            dot.edge(tail_name, head_name)
-
-        # add inbound edges
-        head_name = tail_name
-        for reference in self._referenced_by:
-            fkeycol = reference['foreign_key_columns'][0]
-            tail_name = "%s.%s" % (fkeycol['schema_name'], fkeycol['table_name'])
-            if tail_name not in seen:
-                dot.node(tail_name, tail_name)
-                seen.add(tail_name)
-            dot.edge(tail_name, head_name)
-
-        return dot
+        return graph(self, engine=engine)
 
     @valid_model_object
     def clone(self):

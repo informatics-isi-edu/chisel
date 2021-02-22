@@ -12,6 +12,6 @@ example:
 
 from .catalog import connect, shred, CatalogMutationError, data_types, Schema, Table, Column, Key, ForeignKey
 from .catalog.semistructured import csv_reader, json_reader
-from .util import describe
+from .util import describe, graph
 
 __version__ = "0.0.7"

@@ -91,8 +91,11 @@ class TestBaseCatalog (BaseTestCase):
     def test_table_describe(self):
         chisel.describe(self._catalog.schemas['.'].tables[self.catalog_helper.samples])
 
+    def test_catalog_graph(self):
+        chisel.graph(self._catalog)
+
     def test_schema_graph(self):
-        self._catalog['.'].graph()
+        chisel.graph(self._catalog.schemas['.'])
 
     def test_table_graph(self):
-        self._catalog['.'][self.catalog_helper.samples].graph()
+        chisel.graph(self._catalog.schemas['.'].tables[self.catalog_helper.samples])

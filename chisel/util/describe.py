@@ -1,8 +1,14 @@
+"""Methods for describing a catalog model."""
+
 from collections import defaultdict
 
 
 def describe(obj):
-    """Returns a text (markdown) description."""
+    """Returns a text (markdown) description.
+
+    :param obj: a catalog model object
+    :return: a Description object that can be dumped to the console for text or markdown display
+    """
     if hasattr(obj, 'schemas'):
         return describe_catalog(obj)
     elif hasattr(obj, 'tables'):
@@ -14,7 +20,11 @@ def describe(obj):
 
 
 def describe_catalog(model):
-    """Returns a text (markdown) description."""
+    """Returns a text (markdown) description.
+
+    :param model: a catalog model
+    :return: a Description object that can be dumped to the console for text or markdown display
+    """
 
     def _make_markdown_repr(quote=lambda s: s):
         data = [
@@ -37,7 +47,11 @@ def describe_catalog(model):
 
 
 def describe_schema(schema):
-    """Returns a text (markdown) description."""
+    """Returns a text (markdown) description.
+
+    :param schema: a catalog schema object
+    :return: a Description object that can be dumped to the console for text or markdown display
+    """
 
     def _make_markdown_repr(quote=lambda s: s):
         data = [
@@ -60,7 +74,12 @@ def describe_schema(schema):
 
 
 def describe_table(table):
-    """Returns a text (markdown) description."""
+    """Returns a text (markdown) description.
+
+    :param table: a catalog table object
+    :return: a Description object that can be dumped to the console for text or markdown display
+    """
+
     def type2str(t):
         return t['typename']
 
