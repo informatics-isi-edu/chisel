@@ -28,6 +28,7 @@ def graph_catalog(model, engine='fdp'):
     :return: a Graph object that can be rendered directly by jupyter notbook or qtconsole
     """
     dot = Digraph(name='Catalog Model', engine=engine, node_attr={'shape': 'box'})
+    dot.attr('graph', overlap='false', splines='true')
 
     # add nodes
     for schema in model.schemas.values():
@@ -56,6 +57,7 @@ def graph_schema(schema, engine='fdp'):
     :return: a Graph object that can be rendered directly by jupyter notbook or qtconsole
     """
     dot = Digraph(name=schema.name, engine=engine, node_attr={'shape': 'box'})
+    dot.attr('graph', overlap='false', splines='true')
 
     # add nodes
     for table in schema.tables.values():
@@ -108,6 +110,7 @@ def graph_table(table, engine='fdp'):
     :return: a Graph object that can be rendered directly by jupyter notbook or qtconsole
     """
     dot = Digraph(name=table.name, engine=engine, node_attr={'shape': 'box'})
+    dot.attr('graph', overlap='false', splines='true')
 
     # add node
     label = "%s.%s" % (table.schema.name, table.name)
