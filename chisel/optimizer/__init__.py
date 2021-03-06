@@ -74,3 +74,12 @@ def physical_planner(plan):
     :return: physical plan
     """
     return _execute_rules(_rules.physical_transformation_rules, plan)
+
+
+def planner(plan):
+    """CHiSEL expression planner from logical plan to physical plan.
+
+    :param plan: logical plan.
+    :return: physical plan
+    """
+    return physical_planner(logical_planner(plan))

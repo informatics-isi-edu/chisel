@@ -12,9 +12,9 @@ class Model (object):
         :param catalog: ErmrestCatalog object
         """
         super(Model, self).__init__()
-        self._wrapped_catalog = catalog
+        self._wrapped_catalog = catalog  # NOTE: why "wrapped catalog"; maybe just public "catalog" (?)
         self._wrapped_model = catalog.getCatalogModel()
-        self._new_schema = lambda obj: _Schema(self, obj)
+        self._new_schema = lambda obj: Schema(self, obj)
         self.acls = self._wrapped_model.acls
         self.annotations = self._wrapped_model.annotations
         self.apply = self._wrapped_model.apply
@@ -34,7 +34,7 @@ class Model (object):
         return self._new_schema(self._wrapped_model.create_schema(schema_def))
 
 
-class _Schema (ModelObjectWrapper):
+class Schema (ModelObjectWrapper):
     """Schema within a catalog model.
     """
     def __init__(self, parent, schema):
@@ -43,9 +43,9 @@ class _Schema (ModelObjectWrapper):
         :param parent: the parent of this model object.
         :param schema: underlying ermrest_model.Schema instance.
         """
-        super(_Schema, self).__init__(schema)
+        super(Schema, self).__init__(schema)
         self.model = parent
-        self._new_table = lambda obj: _Table(self, obj)
+        self._new_table = lambda obj: Table(self, obj)
 
     @property
     def tables(self):
@@ -62,7 +62,7 @@ class _Schema (ModelObjectWrapper):
         return self._new_table(self._wrapped_obj.create_table(table_def))
 
 
-class _Table (ModelObjectWrapper):
+class Table (ModelObjectWrapper):
     """Table within a schema.
     """
     def __init__(self, parent, table):
@@ -71,11 +71,11 @@ class _Table (ModelObjectWrapper):
         :param parent: the parent of this model object.
         :param table: the underlying ermrest_model.Table instance.
         """
-        super(_Table, self).__init__(table)
+        super(Table, self).__init__(table)
         self.schema = parent
-        self._new_column = lambda obj: _Column(self, obj)
-        self._new_key = lambda obj: _Key(self, obj)
-        self._new_fkey = lambda obj: _ForeignKey(self, obj)
+        self._new_column = lambda obj: Column(self, obj)
+        self._new_key = lambda obj: Key(self, obj)
+        self._new_fkey = lambda obj: ForeignKey(self, obj)
 
     @property
     def column_definitions(self):
@@ -127,7 +127,7 @@ class _Table (ModelObjectWrapper):
         return self._new_fkey(self._wrapped_obj.create_fkey(fkey_def))
 
 
-class _Column (ModelObjectWrapper):
+class Column (ModelObjectWrapper):
     """Column within a table.
     """
     def __init__(self, parent, column):
@@ -136,7 +136,7 @@ class _Column (ModelObjectWrapper):
         :param parent: the parent of this model object.
         :param column: the underlying ermrest_model.Column
         """
-        super(_Column, self).__init__(column)
+        super(Column, self).__init__(column)
         self.table = parent
 
     @property
@@ -152,7 +152,7 @@ class _Column (ModelObjectWrapper):
         return self._wrapped_obj.default
 
 
-class _Constraint (ModelObjectWrapper):
+class Constraint (ModelObjectWrapper):
     """Constraint within a table.
     """
     def __init__(self, parent, constraint):
@@ -161,10 +161,10 @@ class _Constraint (ModelObjectWrapper):
         :param parent: the parent of this model object.
         :param constraint: the underlying ermrest_model.{Key|ForeignKey}
         """
-        super(_Constraint, self).__init__(constraint)
+        super(Constraint, self).__init__(constraint)
         self.table = parent
-        self._new_schema = lambda obj: _Schema(self, obj)
-        self._new_column = lambda obj: _Column(self, obj)
+        self._new_schema = lambda obj: Schema(self, obj)
+        self._new_column = lambda obj: Column(self, obj)
 
     @property
     def name(self):
@@ -173,7 +173,7 @@ class _Constraint (ModelObjectWrapper):
         return self._new_schema(constraint_schema), constraint_name
 
 
-class _Key (_Constraint):
+class Key (Constraint):
     """Key within a table.
     """
 
@@ -186,7 +186,7 @@ class _Key (_Constraint):
         return self.unique_columns
 
 
-class _ForeignKey (_Constraint):
+class ForeignKey (Constraint):
     """ForeignKey within a table.
     """
 
