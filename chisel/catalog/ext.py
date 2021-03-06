@@ -1,14 +1,23 @@
 """Extended catalog model classes.
 """
+import itertools
+import logging
+from pprint import pformat
 from . import model
 from .stubs import CatalogStub, ModelStub
-from ..optimizer import symbols, planner, ERMrestExtant
+from ..optimizer import symbols, planner, logical_planner, physical_planner, consolidate
+from ..operators import Assign
 from .. import util
+
+logger = logging.getLogger(__name__)
 
 
 class Model (model.Model):
     """Catalog model.
     """
+
+    provide_system = True
+
     def __init__(self, catalog):
         """Initializes the model.
 
@@ -17,8 +26,78 @@ class Model (model.Model):
         super(Model, self).__init__(catalog)
         self._new_schema = lambda obj: Schema(self, obj)
 
-        self.ermrest_catalog = self._wrapped_catalog  # NOTE: this should be reworked when refactoring complete
-        self.make_extant_symbol = lambda sname, tname: ERMrestExtant(self, sname, tname)  # NOTE: revisit this too; can be param of constructor
+        self.ermrest_catalog = self.catalog  # TODO: rename downstream usages to '.catalog'
+        self.make_extant_symbol = lambda sname, tname: symbols.ERMrestExtant(self, sname, tname)  # NOTE: revisit this too; can be param of constructor
+
+    def commit(self, computed_relations, dry_run=False, enable_work_sharing=False):
+        """Commits a set of computed relations to the remote catalog.
+
+        :param computed_relations: sequence of computed relations to be committed to the model
+        :param dry_run: run operations, but do not materialize to the remote catalog
+        :param enable_work_sharing: enable the (experimental) work sharing algorithm
+        """
+
+        # decompose, optimize and rewrite the logical plans for each computed relation
+        for computed_relation in computed_relations:
+            computed_relation._logical_plan = logical_planner(computed_relation._logical_plan)
+
+        # look for work sharing (consolidation) of computed relations
+        if enable_work_sharing:
+            consolidate(computed_relations)
+
+        # materialize the computed relations
+        for computed_relation in computed_relations:
+
+            # rewrite logical to physical plan
+            physical_plan = physical_planner(computed_relation._logical_plan)
+
+            if dry_run:
+                # log details of the evaluated operation without committing to remote catalog
+                logging.debug('LOGICAL PLAN')
+                logging.debug(pformat(computed_relation._logical_plan))
+                logging.debug('PHYSICAL PLAN')
+                logging.debug(pformat(physical_plan))
+                logging.debug('SCHEMA')
+                logging.debug(pformat(physical_plan.description))
+                logging.debug('DATA')
+                logging.debug(pformat(list(itertools.islice(physical_plan, 100))))
+
+            elif isinstance(physical_plan, Assign):
+                # commit to the remove catalog
+                logger.debug('Creating table "%s"' % physical_plan.description['table_name'])
+                schema_name = physical_plan.description['schema_name']
+                table_name = physical_plan.description['table_name']
+
+                # re-define table from plan description (allows us to provide system columns)
+                desc = physical_plan.description
+                table_doc = Table.define(
+                    desc['table_name'],
+                    column_defs=desc['column_definitions'],
+                    key_defs=desc['keys'],
+                    fkey_defs=desc['foreign_keys'],
+                    comment=desc['comment'],
+                    acls=desc.get('acls', {}),
+                    acl_bindings=desc.get('acl_bindings', {}),
+                    annotations=desc.get('annotations', {}),
+                    provide_system=Model.provide_system
+                )
+
+                # create table in remote catalog
+                self.schemas[schema_name].create_table(table_doc)
+
+                # populate new_table from physical plan for this relation
+                paths = self.catalog.getPathBuilder()
+                new_table = paths.schemas[schema_name].tables[table_name]
+
+                # ...determine the nondefaults for the insert
+                planned_column_names = set([col['name'] for col in desc['column_definitions']])
+                nondefaults = {'RID', 'RCB', 'RCT'} & planned_column_names  # write syscol values if defined in plan
+
+                # ...stream tuples from the physical operator to the remote catalog
+                new_table.insert(physical_plan, nondefaults=nondefaults)
+
+            else:
+                raise ValueError('Computed relation evaluated to "%s" object cannot be materialized' % type(physical_plan).__name__)
 
 
 class Schema (model.Schema):
@@ -32,6 +111,30 @@ class Schema (model.Schema):
         """
         super(Schema, self).__init__(parent, schema)
         self._new_table = lambda obj: Table(self, obj)
+
+    def create_table_as(self, table_name, expression, dry_run=False):
+        """Create table as defined by an expression.
+
+        For example, to create a new relation 'bar' from the normalized values of a column 'bar' in table 'foo':
+        ```
+        schema.create_table_as('bar', foo.columns['bar'].to_atoms())
+        ```
+
+        :param table_name: table name
+        :param expression: expression producing a table definition
+        :param dry_run: evaluate expression but do not create new table in the remote catalog
+        :return: a Table instance representing the newly created table in the remote catalog, or None if dry_run
+        """
+        if not table_name or not isinstance(table_name, str):
+            raise ValueError('"table_name" must be a non-empty string')
+        if not isinstance(expression, ComputedRelation):
+            raise ValueError('"expression" must be instance of ComputedRelation')
+
+        self.model.commit([
+            ComputedRelation(self, symbols.Assign(expression._logical_plan, self.name, table_name))
+        ], dry_run=dry_run)
+
+        return None if dry_run else self.tables[table_name]
 
 
 class Table (model.Table):

@@ -1,5 +1,6 @@
 """Catalog model classes.
 """
+from deriva.core import ermrest_model as _erm
 from chisel.catalog.wrapper import MappingWrapper, SequenceWrapper, ModelObjectWrapper
 
 
@@ -12,7 +13,7 @@ class Model (object):
         :param catalog: ErmrestCatalog object
         """
         super(Model, self).__init__()
-        self._wrapped_catalog = catalog  # NOTE: why "wrapped catalog"; maybe just public "catalog" (?)
+        self.catalog = catalog
         self._wrapped_model = catalog.getCatalogModel()
         self._new_schema = lambda obj: Schema(self, obj)
         self.acls = self._wrapped_model.acls
@@ -37,6 +38,9 @@ class Model (object):
 class Schema (ModelObjectWrapper):
     """Schema within a catalog model.
     """
+
+    define = _erm.Schema.define
+
     def __init__(self, parent, schema):
         """Initializes the schema.
 
@@ -65,6 +69,9 @@ class Schema (ModelObjectWrapper):
 class Table (ModelObjectWrapper):
     """Table within a schema.
     """
+
+    define = _erm.Table.define
+
     def __init__(self, parent, table):
         """Initializes the table.
 
@@ -130,6 +137,9 @@ class Table (ModelObjectWrapper):
 class Column (ModelObjectWrapper):
     """Column within a table.
     """
+
+    define = _erm.Column.define
+
     def __init__(self, parent, column):
         """Initializes the column.
 
@@ -177,6 +187,8 @@ class Key (Constraint):
     """Key within a table.
     """
 
+    define = _erm.Key.define
+
     @property
     def unique_columns(self):
         return SequenceWrapper(self._new_column, self._wrapped_obj.unique_columns)
@@ -189,6 +201,8 @@ class Key (Constraint):
 class ForeignKey (Constraint):
     """ForeignKey within a table.
     """
+
+    define = _erm.ForeignKey.define
 
     @property
     def on_update(self):
