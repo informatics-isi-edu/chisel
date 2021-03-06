@@ -29,7 +29,92 @@ class Model (model.Model):
         self.ermrest_catalog = self.catalog  # TODO: rename downstream usages to '.catalog'
         self.make_extant_symbol = lambda sname, tname: symbols.ERMrestExtant(self, sname, tname)  # NOTE: revisit this too; can be param of constructor
 
-    def commit(self, computed_relations, dry_run=False, enable_work_sharing=False):
+    class ModelEvolutionContextManager (object):
+        """Represents a model evolution session.
+        """
+
+        class Rollback (Exception):
+            """Exception that triggers an immediate rollback and exit from a model evolution session."""
+            pass
+
+        def __init__(self, parent, dry_run=False, enable_work_sharing=False):
+            """Initializes the model evolution session.
+
+            :param parent: catalog model
+            :param dry_run: run operations, but do not materialize to the remote catalog
+            :param enable_work_sharing: enable the (experimental) work sharing algorithm
+            """
+            assert isinstance(parent, Model), 'Parameter "model" must be an instance of Model'
+            self.model = parent
+            self.dry_run = dry_run
+            self.enable_work_sharing = enable_work_sharing
+            self.computed_relations = []
+
+        def create_table_as(self, schema_name, table_name, expression, dry_run=False):
+            """Create table as defined by an expression, on exit from model evolution session.
+
+            For example, to create a new relation 'bar' from the normalized values of a column 'bar' in table 'foo':
+            ```
+            with model.begin() as session:
+                session.create_table_as('public', 'bar', foo.columns['bar'].to_atoms())
+            ```
+
+            :param schema_name: schema name
+            :param table_name: table name
+            :param expression: expression producing a table definition
+            :param dry_run: evaluate expression but do not create new table in the remote catalog
+            """
+            if not schema_name or not isinstance(schema_name, str):
+                raise ValueError('"schema_name" must be a non-empty string')
+            if not table_name or not isinstance(table_name, str):
+                raise ValueError('"table_name" must be a non-empty string')
+            if not isinstance(expression, ComputedRelation):
+                raise ValueError('"expression" must be instance of ComputedRelation')
+
+            self.computed_relations.append(
+                ComputedRelation(self.model.schemas[schema_name], symbols.Assign(expression._logical_plan, schema_name, table_name))
+            )
+
+        def __enter__(self):
+            assert len(self.computed_relations) == 0, 'Field "computed_relations" must be empty'
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if exc_type == Model.ModelEvolutionContextManager.Rollback:
+                return True
+            elif exc_type:
+                return False
+
+            self.model._commit(self.computed_relations, dry_run=self.dry_run, enable_work_sharing=self.enable_work_sharing)
+
+        def rollback(self):
+            """Rollback the model evolution session without committing any changes to the remote catalog."""
+            raise Model.ModelEvolutionContextManager.Rollback()
+
+    def evolve(self, dry_run=False, enable_work_sharing=False):
+        """Begins a model evolution session for use as a context manager in `with` blocks.
+
+        This should be called in a `with` statement block. At the end of the block, the pending changes will be
+        committed to the catalog. If an exception, any exception, is raised during the block the current mutations will
+        be cancelled.
+
+        Usage:
+        ```
+        with model.begin() as session:
+            session.create_table_as('foo', 'baz', model.schemas['foo'].tables['bar'].where(...).select(...)
+            session.create_table_as('foo', 'qux', model.schemas['foo'].tables['bar'].columns['qux'].to_atoms())
+        ```
+
+        The `session` maybe rolled back using the `session.rollback()` method at any time in the block and the block
+        will immediately terminate without any change to the remote catalog.
+
+        :param dry_run: run operations, but do not materialize to the remote catalog
+        :param enable_work_sharing: enable the (experimental) work sharing algorithm
+        :return: model evolution context manager for use in `with` statements
+        """
+        return Model.ModelEvolutionContextManager(self, dry_run=dry_run, enable_work_sharing=enable_work_sharing)
+
+    def _commit(self, computed_relations, dry_run=False, enable_work_sharing=False):
         """Commits a set of computed relations to the remote catalog.
 
         :param computed_relations: sequence of computed relations to be committed to the model
@@ -130,7 +215,7 @@ class Schema (model.Schema):
         if not isinstance(expression, ComputedRelation):
             raise ValueError('"expression" must be instance of ComputedRelation')
 
-        self.model.commit([
+        self.model._commit([
             ComputedRelation(self, symbols.Assign(expression._logical_plan, self.name, table_name))
         ], dry_run=dry_run)
 
