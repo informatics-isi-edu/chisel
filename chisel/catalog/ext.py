@@ -92,7 +92,7 @@ class Model (model.Model):
             """Rollback the model evolution session without committing any changes to the remote catalog."""
             raise Model.ModelEvolutionContextManager.Rollback()
 
-    def evolve(self, dry_run=False, enable_work_sharing=False):
+    def begin(self, dry_run=False, enable_work_sharing=False):
         """Begins a model evolution session for use as a context manager in `with` blocks.
 
         This should be called in a `with` statement block. At the end of the block, the pending changes will be
@@ -101,7 +101,7 @@ class Model (model.Model):
 
         Usage:
         ```
-        with model.evolve() as session:
+        with model.begin() as session:
             session.create_table_as('foo', 'baz', model.schemas['foo'].tables['bar'].where(...).select(...))
             session.create_table_as('foo', 'qux', model.schemas['foo'].tables['bar'].columns['qux'].to_atoms())
         ```

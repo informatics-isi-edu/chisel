@@ -1,15 +1,22 @@
-#!/usr/bin/env python
-"""Example of using the 'scan' operator."""
+"""Example of using the 'scan' operator.
+
+    TODO: This is not yet working after the refactoring
+"""
 import os
-import chisel
+from deriva.core import DerivaServer
+from chisel import Model, csv_reader
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
-__catalog_url__ = os.getenv('CHISEL_EXAMPLE_CATALOG_URL', 'http://localhost/ermrest/catalog/1')
+__host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')
+__catalog_id__ = os.getenv('CHISEL_EXAMPLES_CATALOG', '1')
 
-catalog = chisel.connect(__catalog_url__)
-print('CONNECTED')
+server = DerivaServer('https', __host__)
+catalog = server.connect_ermrest(__catalog_id__)
+model = Model.from_catalog(catalog)
 
 # Create a new relation computed from the a scan of the csv file
-with catalog.evolve(dry_run=__dry_run__):
-    catalog['isa']['enhancer_reporter_assay'] = chisel.csv_reader(os.getenv('CHISEL_EXAMPLE_CSV'))
-print('DONE')
+with model.begin(dry_run=__dry_run__) as session:
+    session.create_table_as(
+        'isa', 'enhancer_reporter_assay',
+        csv_reader(os.getenv('CHISEL_EXAMPLES_CSV'))
+    )

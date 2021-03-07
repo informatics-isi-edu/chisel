@@ -30,3 +30,16 @@ class ModelStub (_erm.Model):
         """Stubbed out method to allow unresolvable foreign keys in an incomplete model document.
         """
         return
+
+
+class SchemaStub (object):
+    """Stubbed out schema to simulate minimal ermrest_model.Schema.
+    """
+
+    def __init__(self, name):
+        """Initializes the schema stub.
+
+        :param name: name of the schema
+        """
+        super(SchemaStub, self).__init__()
+        self.name = name

@@ -1,4 +1,10 @@
-"""Catalog package."""
+"""Catalog model package.
+"""
+from .ext import Model
+
+# TODO: remove everything below this line
+# ---------------------------------------
+
 from .. import optimizer as _op
 from . import base as _base
 from .ermrest import ERMrestCatalog

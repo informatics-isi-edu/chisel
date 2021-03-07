@@ -1,4 +1,7 @@
-"""Catalog model for semistructured data source."""
+"""Catalog model for semistructured data source.
+
+TODO: refactoring
+"""
 
 import os
 import csv
@@ -9,6 +12,7 @@ from .. import optimizer
 from .. import operators
 from .. import util
 from . import base
+from . import ext, stubs
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +115,7 @@ def csv_reader(filename):
     :param filename: a filename of a tabular data file in CSV format
     :return: a computed relation object
     """
-    return base.ComputedRelation(optimizer.TabularDataExtant(filename))
+    return ext.ComputedRelation(stubs.SchemaStub('none'), optimizer.TabularDataExtant(filename))
 
 
 def json_reader(input_filename=None, json_content=None, object_payload=None, key_regex='^RID$|^ID$|^id$|^name$|^Name$'):
@@ -129,4 +133,7 @@ def json_reader(input_filename=None, json_content=None, object_payload=None, key
     :param key_regex: a regular expression used to guess a key column from a property name
     :return: a computed relation object
     """
-    return base.ComputedRelation(optimizer.JSONDataExtant(input_filename, json_content, object_payload, key_regex))
+    return ext.ComputedRelation(
+        stubs.SchemaStub('none'),
+        optimizer.JSONDataExtant(input_filename, json_content, object_payload, key_regex)
+    )

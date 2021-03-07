@@ -1,18 +1,21 @@
-#!/usr/bin/env python
-"""
-Example of using the 'ReifySub' transformation.
+"""Example of using the 'ReifySub' transformation.
 """
 import os
-import chisel
+from deriva.core import DerivaServer
+from chisel import Model
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
-__catalog_url__ = os.getenv('CHISEL_EXAMPLE_CATALOG_URL', 'http://localhost/ermrest/catalog/1')
+__host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')
+__catalog_id__ = os.getenv('CHISEL_EXAMPLES_CATALOG', '1')
 
-catalog = chisel.connect(__catalog_url__)
-print('CONNECTED')
+server = DerivaServer('https', __host__)
+catalog = server.connect_ermrest(__catalog_id__)
+model = Model.from_catalog(catalog)
 
-# Create a new relation computed from the reifySubed column(s) of the source relation
-with catalog.evolve(dry_run=__dry_run__):
-    dataset = catalog['isa']['dataset']  # assigning to local var just for readability
-    catalog['isa']['dataset_jbrowse'] = dataset.reify_sub(dataset['show_in_jbrowse'])
-print('DONE')
+# Create a new (child) relation computed from a subset of column(s) of the source relation
+with model.begin(dry_run=__dry_run__) as session:
+    dataset = model.schemas['isa'].tables['dataset']
+    session.create_table_as(
+        'isa', 'dataset_study_designs',
+        dataset.reify_sub(dataset.columns['study_design'])
+    )

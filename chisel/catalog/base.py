@@ -155,7 +155,7 @@ class AbstractCatalog (object):
         ```
         # let `catalog` be a chisel catalog object
         with catalog.evolve:
-            catalog['foo']['baz'] = catalog['foo']['bar'].select(...).where(...)
+            model.schemas['foo']['baz'] = model.schemas['foo']['bar'].select(...).where(...)
 
             ...perform other mutating operations
 
@@ -166,7 +166,7 @@ class AbstractCatalog (object):
         ```
         # let `catalog` be a chisel catalog object
         with catalog.evolve as context:
-            catalog['foo']['baz'] = catalog['foo']['bar'].select(...).where(...)
+            model.schemas['foo']['baz'] = model.schemas['foo']['bar'].select(...).where(...)
 
             ...perform other mutating operations
 

@@ -10,6 +10,11 @@ example:
 >>> help(chisel.connect)
 """
 
+from .catalog import Model
+
+# TODO: remove everything below this line
+# ---------------------------------------
+
 from .catalog import connect, shred, CatalogMutationError, data_types, Schema, Table, Column, Key, ForeignKey
 from .catalog.semistructured import csv_reader, json_reader
 from .util import describe, graph

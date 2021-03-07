@@ -1,4 +1,4 @@
-"""Example of using the 'atomize' (a.k.a., 'to_atoms()') transformation.
+"""Example of rolling back a model evolution session.
 """
 import os
 from deriva.core import DerivaServer
@@ -12,9 +12,10 @@ server = DerivaServer('https', __host__)
 catalog = server.connect_ermrest(__catalog_id__)
 model = Model.from_catalog(catalog)
 
-# Create a new relation computed from the atomized source relation
+# Begin a model evolution session and then rollback before exit
 with model.begin(dry_run=__dry_run__) as session:
     session.create_table_as(
-        'isa', 'enhancer_closest_genes',
-        model.schemas['isa'].tables['enhancer'].columns['list_of_closest_genes'].to_atoms()
+        'vocab', 'ethnicity',
+        model.schemas['isa'].tables['clinical_assay'].columns['ethnicity'].to_domain(similarity_fn=None)
     )
+    session.rollback()

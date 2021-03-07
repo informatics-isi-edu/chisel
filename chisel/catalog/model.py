@@ -13,12 +13,22 @@ class Model (object):
         :param catalog: ErmrestCatalog object
         """
         super(Model, self).__init__()
-        self.catalog = catalog
+        self._catalog = catalog
         self._wrapped_model = catalog.getCatalogModel()
         self._new_schema = lambda obj: Schema(self, obj)
         self.acls = self._wrapped_model.acls
         self.annotations = self._wrapped_model.annotations
         self.apply = self._wrapped_model.apply
+
+    @classmethod
+    def from_catalog(cls, catalog):
+        """Retrieve catalog Model management object.
+        """
+        return cls(catalog)
+
+    @property
+    def catalog(self):
+        return self._catalog
 
     @property
     def schemas(self):
