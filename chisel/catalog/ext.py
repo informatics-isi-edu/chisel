@@ -233,17 +233,18 @@ class Schema (model.Schema):
 class Table (model.Table):
     """Table within a schema.
     """
-    def __init__(self, parent, table):
+    def __init__(self, parent, table, logical_plan=None):
         """Initializes the table.
 
         :param parent: the parent of this model object.
         :param table: the underlying ermrest_model.Table instance.
+        :param logical_plan: logical plan to use instead of an 'extant' representation
         """
         super(Table, self).__init__(parent, table)
         self._new_column = lambda obj: Column(self, obj)
         self._new_key = lambda obj: Key(self, obj)
         self._new_fkey = lambda obj: ForeignKey(self, obj)
-        self._logical_plan = self.schema.model.make_extant_symbol(self.schema.name, self.name)
+        self._logical_plan = logical_plan or self.schema.model.make_extant_symbol(self.schema.name, self.name)
 
     def clone(self):
         """Clone this table.
@@ -378,10 +379,11 @@ class ComputedRelation (Table):
         computed_model = ModelStub(CatalogStub(), computed_model_doc)
 
         # instantiate this object's super class (i.e., Table object)
-        super(ComputedRelation, self).__init__(parent, computed_model.schemas[parent.name].tables[plan.description['table_name']])
-
-        # overwrite the extant expression with the actual computed relation's logical plan
-        self._logical_plan = logical_plan
+        super(ComputedRelation, self).__init__(
+            parent,
+            computed_model.schemas[parent.name].tables[plan.description['table_name']],
+            logical_plan=logical_plan
+        )
 
     @property
     def logical_plan(self):
