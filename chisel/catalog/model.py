@@ -95,6 +95,10 @@ class Table (ModelObjectWrapper):
         self._new_fkey = lambda obj: ForeignKey(self, obj)
 
     @property
+    def kind(self):
+        return self._wrapped_obj.kind
+
+    @property
     def column_definitions(self):
         return SequenceWrapper(self._new_column, self._wrapped_obj.columns)
 
@@ -184,7 +188,7 @@ class Constraint (ModelObjectWrapper):
         super(Constraint, self).__init__(constraint)
         self.table = parent
         self._new_schema = lambda obj: Schema(self, obj)
-        self._new_column = lambda obj: Column(self, obj)
+        self._new_column = lambda obj: Column(self.table, obj)
 
     @property
     def name(self):
@@ -224,7 +228,7 @@ class ForeignKey (Constraint):
 
     @property
     def foreign_key_columns(self):
-        return SequenceWrapper(self._new_column, self._wrapped_obj.unique_columns)
+        return SequenceWrapper(self._new_column, self._wrapped_obj.foreign_key_columns)
 
     @property
     def referenced_columns(self):

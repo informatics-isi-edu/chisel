@@ -80,14 +80,11 @@ def describe_table(table):
     :return: a Description object that can be dumped to the console for text or markdown display
     """
 
-    def type2str(t):
-        return t['typename']
-
     def _make_markdown_repr(quote=lambda s: s):
         data = [
             ["Column", "Type", "Nullable", "Default", "Comment"]
         ] + [
-            [col.name, type2str(col.type), str(col.nullok), col.default, col.comment] for col in table.columns.values()
+            [col.name, col.type.typename, str(col.nullok), col.default, col.comment] for col in table.columns
         ]
         desc = "### Table \"" + str(table.schema.name) + "." + str(table.name) + "\"\n" + \
                markdown_table(data, quote)

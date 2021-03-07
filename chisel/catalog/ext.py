@@ -543,7 +543,7 @@ class Key (model.Key):
         """
         super(Key, self).__init__(parent, constraint)
         self._new_schema = lambda obj: Schema(self, obj)
-        self._new_column = lambda obj: Column(self, obj)
+        self._new_column = lambda obj: Column(self.table, obj)
 
 
 class ForeignKey (model.ForeignKey):
@@ -557,4 +557,4 @@ class ForeignKey (model.ForeignKey):
         """
         super(ForeignKey, self).__init__(parent, constraint)
         self._new_schema = lambda obj: Schema(self, obj)
-        self._new_column = lambda obj: Column(self, obj)
+        self._new_column = lambda obj: Column(self.table, obj)
