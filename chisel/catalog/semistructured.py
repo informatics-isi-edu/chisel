@@ -85,8 +85,8 @@ class SemiStructuredModel (ext.Model):
 
         :param catalog: SemiStructuredCatalog object
         """
-        assert isinstance(SemiStructuredCatalog)
-        super(Model, self).__init__(catalog)
+        assert isinstance(catalog, SemiStructuredCatalog)
+        super(SemiStructuredModel, self).__init__(catalog)
 
     def make_extant_symbol(self, schema_name, table_name):
         """Makes a symbol for representing an extant relation.
@@ -94,7 +94,7 @@ class SemiStructuredModel (ext.Model):
         :param schema_name: schema name
         :param table_name: table name
         """
-        filename = os.path.join(os.path.expanduser(self.path), schema_name, table_name)
+        filename = os.path.join(os.path.expanduser(self.catalog.path), schema_name, table_name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
             return symbols.TabularDataExtant(filename=filename)
         elif filename.endswith('.json'):
