@@ -1,5 +1,7 @@
+"""A few direct tests on computed relatoin expressions.
+"""
 import unittest
-import chisel
+from chisel.catalog.semistructured import json_reader
 
 payload = [
     {
@@ -25,7 +27,7 @@ domain = [
 
 class TestComputedRelation (unittest.TestCase):
     def setUp(self):
-        self._rel = chisel.catalog.semistructured.json_reader(object_payload=payload)
+        self._rel = json_reader(object_payload=payload)
 
     def tearDown(self):
         self._rel = None
@@ -35,13 +37,13 @@ class TestComputedRelation (unittest.TestCase):
         self.assertEqual(len(self._rel.columns), len(payload[0].keys()))
 
     def test_reifySub(self):
-        parted = self._rel.reify_sub(self._rel['property_2'])
+        parted = self._rel.reify_sub(self._rel.columns['property_2'])
         self.assertEqual(len(parted.columns), 2)
 
     def test_atomize(self):
-        atomized = self._rel['property_3'].to_atoms()
+        atomized = self._rel.columns['property_3'].to_atoms()
         self.assertEqual(len(atomized.columns), 2)
 
     def test_tagify(self):
-        tagged = self._rel['property_3'].to_tags(chisel.json_reader(object_payload=domain))
+        tagged = self._rel.columns['property_3'].to_tags(json_reader(object_payload=domain))
         self.assertEqual(len(tagged.columns), 2)
