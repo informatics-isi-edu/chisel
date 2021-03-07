@@ -281,7 +281,7 @@ class Table (model.Table):
                     projection = [symbols.AllAttributes()] + projection
 
         else:
-            projection = [cname for cname in self.columns]
+            projection = [c.name for c in self.columns]
 
         return ComputedRelation(self.schema, symbols.Project(self._logical_plan, tuple(projection)))
 
