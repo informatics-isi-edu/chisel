@@ -50,7 +50,7 @@ class Model (model.Model):
             self.enable_work_sharing = enable_work_sharing
             self.computed_relations = []
 
-        def create_table_as(self, schema_name, table_name, expression, dry_run=False):
+        def create_table_as(self, schema_name, table_name, expression):
             """Create table as defined by an expression, on exit from model evolution session.
 
             For example, to create a new relation 'bar' from the normalized values of a column 'bar' in table 'foo':
@@ -62,7 +62,6 @@ class Model (model.Model):
             :param schema_name: schema name
             :param table_name: table name
             :param expression: expression producing a table definition
-            :param dry_run: evaluate expression but do not create new table in the remote catalog
             """
             if not schema_name or not isinstance(schema_name, str):
                 raise ValueError('"schema_name" must be a non-empty string')
@@ -84,6 +83,8 @@ class Model (model.Model):
                 return True
             elif exc_type:
                 return False
+            elif not self.computed_relations:
+                return
 
             self.model._commit(self.computed_relations, dry_run=self.dry_run, enable_work_sharing=self.enable_work_sharing)
 
@@ -100,8 +101,8 @@ class Model (model.Model):
 
         Usage:
         ```
-        with model.begin() as session:
-            session.create_table_as('foo', 'baz', model.schemas['foo'].tables['bar'].where(...).select(...)
+        with model.evolve() as session:
+            session.create_table_as('foo', 'baz', model.schemas['foo'].tables['bar'].where(...).select(...))
             session.create_table_as('foo', 'qux', model.schemas['foo'].tables['bar'].columns['qux'].to_atoms())
         ```
 
@@ -283,7 +284,7 @@ class Table (model.Table):
         :return: computed relation
         """
         if not isinstance(right, Table):
-            raise ValueError('Object to the right of the join is not an instance of "Table"')
+            raise ValueError('Right-hand object must be an instance of "Table"')
 
         return ComputedRelation(self.schema, symbols.Join(self._logical_plan, right._logical_plan))
 
@@ -294,7 +295,7 @@ class Table (model.Table):
         :return: table instance
         """
         if not any(isinstance(expression, symbol) for symbol in [symbols.Comparison, symbols.Conjunction]):
-            raise ValueError('invalid expression')
+            raise ValueError('Invalid where-clause "expression"')
 
         return ComputedRelation(self.schema, symbols.Select(self._logical_plan, expression))
 
@@ -334,9 +335,9 @@ class Table (model.Table):
         :return: computed relation
         """
         if not all(isinstance(col, Column) for col in key_columns | nonkey_columns):
-            raise ValueError("All column arguments must be instances of Column")
+            raise ValueError("All column parameters must be instances of Column")
         if set(key_columns) & set(nonkey_columns):
-            raise ValueError('"key_columns" and "nonkey_columns" must be disjoin sets')
+            raise ValueError('"key_columns" and "nonkey_columns" must be disjoint sets')
 
         return ComputedRelation(self.schema, symbols.Reify(self._logical_plan, tuple([col.name for col in key_columns]), tuple([col.name for col in nonkey_columns])))
 
@@ -374,6 +375,19 @@ class ComputedRelation (Table):
 
         # overwrite the extant expression with the actual computed relation's logical plan
         self._logical_plan = logical_plan
+
+    @property
+    def logical_plan(self):
+        return self._logical_plan
+
+    @logical_plan.setter
+    def logical_plan(self, value):
+        self._logical_plan = value
+
+    def fetch(self):
+        """Returns an iterator over the rows of this relation.
+        """
+        return planner(self._logical_plan)
 
 
 class Column (model.Column):
