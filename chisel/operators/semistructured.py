@@ -1,5 +1,5 @@
-"""Physical operators specific to semi-structured (CSV, JSON) data sources."""
-
+"""Physical operators specific to semi-structured (CSV, JSON) data sources.
+"""
 import csv
 from datetime import datetime
 import json
@@ -13,7 +13,7 @@ from .base import PhysicalOperator
 logger = logging.getLogger(__name__)
 
 #: Default regular expression for shallow introspection of a key based on the attribute name.
-_default_key_regex = '^RID$|^ID$|^id$|^name$|^Name$'
+_default_key_regex = '^RID$|^ID$|^Name$|^Key$|^pk$'
 
 
 class JSONScan (PhysicalOperator):
@@ -52,12 +52,11 @@ class JSONScan (PhysicalOperator):
 
         row_0_keys = self._data[0].keys()
         col_defs = [_em.Column.define(name, _em.builtin_types['text']) for name in row_0_keys]
-        key_defs = [_em.Key.define([name]) for name in row_0_keys if re.match(key_regex, name)]
+        key_defs = [_em.Key.define([name]) for name in row_0_keys if re.match(key_regex, name, re.IGNORECASE)]
         assert key_defs, "Expected to find at least one key, but none were identified."
         self._description = _em.Table.define(table_name, column_defs=col_defs, key_defs=key_defs, provide_system=False)
         self._description['schema_name'] = os.path.dirname(input_filename) if input_filename else ''
         self._description['kind'] = 'file' if input_filename else 'json'
-        # TODO: do deeper introspection of JSON input
 
     def __iter__(self):
         return iter(self._data)
@@ -69,7 +68,7 @@ class TabularFileScan (PhysicalOperator):
     #: schema cache to avoid multiple file seeks for same input file; keyed on 'filename'
     _schema_cache = {}
 
-    def __init__(self, filename, key_regex=_default_key_regex):
+    def __init__(self, filename, key_regex=_default_key_regex, deep_introspection=False):
         super(TabularFileScan, self).__init__()
         self._filename = filename
         self._dialect = 'excel' if filename.endswith('.csv') else 'excel-tab'  # csv or tabular dialect expected
@@ -77,9 +76,11 @@ class TabularFileScan (PhysicalOperator):
 
         if filename in TabularFileScan._schema_cache:
             self._description = TabularFileScan._schema_cache[filename]
-        else:  # TODO: add option to do a deeper introspection
+        else:
             # shallow introspection of relation schema based on field names
             self._description = self._shallow_introspection()
+            if deep_introspection:
+                self._deep_introspection()
             TabularFileScan._schema_cache[filename] = self._description
 
     def __iter__(self):
@@ -94,14 +95,16 @@ class TabularFileScan (PhysicalOperator):
         with open(self._filename) as f:
             field_names = csv.DictReader(f, dialect=self._dialect).fieldnames
             col_defs = [_em.Column.define(name, _em.builtin_types['text']) for name in field_names]
-            key_defs = [_em.Key.define([name]) for name in field_names if re.match(self._key_regex, name)]
+            key_defs = [_em.Key.define([name]) for name in field_names if re.match(self._key_regex, name, re.IGNORECASE)]
         table_doc = _em.Table.define(self._filename, col_defs, key_defs, provide_system=False)
         table_doc['schema_name'] = os.path.dirname(self._filename)
         table_doc['kind'] = 'file'
         return table_doc
 
     def _deep_introspection(self):
-        """Introspects the schema by inspecting the row data."""
+        """Introspects the schema by inspecting the row data.
+        """
+
         # initialize candidates for types, notnulls, and uniques
         columns = self._description['column_definitions']
         candidate_types = {col['name']: {float, int, bool, datetime} for col in columns}
@@ -141,10 +144,8 @@ class TabularFileScan (PhysicalOperator):
             column['nullok'] = False if cname in candidate_notnull else True
             column['type'] = self._py_to_ermrest_types(candidate_types.get(cname, {})).prejson()
 
-        # TODO: Key.define(...) for columns in candidate_uniques and update self._description.keys
-
-    @staticmethod
-    def _valid_types(types, value):
+    @classmethod
+    def _valid_types(cls, types, value):
         """Given a set of types, returns the valid types for the given value."""
         if not value or value == '':
             # do not rule out any types if the value was None or empty string
@@ -173,7 +174,7 @@ class TabularFileScan (PhysicalOperator):
                 return {bool}
 
         if datetime in types:
-            # TODO this function can be _much_ improved; this is Q&D.
+            # very simple method for detecting a timestamptz value
             pattern = "%Y-%m-%d %H:%M:%S.%f%z"
             try:
                 datetime.strptime(value, pattern)
@@ -188,8 +189,8 @@ class TabularFileScan (PhysicalOperator):
 
         return {}
 
-    @staticmethod
-    def _py_to_ermrest_types(types):
+    @classmethod
+    def _py_to_ermrest_types(cls, types):
         """Takes a set of native python types and returns the best matching ERMrest type.
 
         :param types: set of python types

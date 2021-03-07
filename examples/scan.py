@@ -1,10 +1,9 @@
 """Example of using the 'scan' operator.
-
-    TODO: This is not yet working after the refactoring
 """
 import os
 from deriva.core import DerivaServer
-from chisel import Model, csv_reader
+from chisel import Model
+from chisel.catalog.semistructured import csv_reader
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
 __host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')

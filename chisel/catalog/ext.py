@@ -21,13 +21,20 @@ class Model (model.Model):
     def __init__(self, catalog):
         """Initializes the model.
 
-        :param catalog: ErmrestCatalog object
+        :param catalog: ErmrestCatalog or catalog-like object
         """
         super(Model, self).__init__(catalog)
         self._new_schema = lambda obj: Schema(self, obj)
 
         self.ermrest_catalog = self.catalog  # TODO: rename downstream usages to '.catalog'
-        self.make_extant_symbol = lambda sname, tname: symbols.ERMrestExtant(self, sname, tname)  # NOTE: revisit this too; can be param of constructor
+
+    def make_extant_symbol(self, schema_name, table_name):
+        """Makes a symbol for representing an extant relation.
+
+        :param schema_name: schema name
+        :param table_name: table name
+        """
+        return symbols.ERMrestExtant(self, schema_name, table_name)
 
     class ModelEvolutionContextManager (object):
         """Represents a model evolution session.
@@ -370,7 +377,7 @@ class ComputedRelation (Table):
         # instantiate a stubbed out model object
         computed_model = ModelStub(CatalogStub(), computed_model_doc)
 
-        # instantiate this objects super class (i.e., Table object)
+        # instantiate this object's super class (i.e., Table object)
         super(ComputedRelation, self).__init__(parent, computed_model.schemas[parent.name].tables[plan.description['table_name']])
 
         # overwrite the extant expression with the actual computed relation's logical plan

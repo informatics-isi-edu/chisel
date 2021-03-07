@@ -10,16 +10,16 @@ class CatalogStub (object):
     __not_implemented_message__ = 'The model object does not support this method.'
 
     def get(self, path):
-        raise NotImplementedError(CatalogStub.__not_implemented_message__)
+        raise Exception(CatalogStub.__not_implemented_message__)
 
     def put(self, path, json=None):
-        raise NotImplementedError(CatalogStub.__not_implemented_message__)
+        raise Exception(CatalogStub.__not_implemented_message__)
 
     def post(self, path, json=None):
-        raise NotImplementedError(CatalogStub.__not_implemented_message__)
+        raise Exception(CatalogStub.__not_implemented_message__)
 
     def delete(self, path):
-        raise NotImplementedError(CatalogStub.__not_implemented_message__)
+        raise Exception(CatalogStub.__not_implemented_message__)
 
 
 class ModelStub (_erm.Model):
@@ -36,10 +36,17 @@ class SchemaStub (object):
     """Stubbed out schema to simulate minimal ermrest_model.Schema.
     """
 
+    class _ModelStub (object):
+        """Model stub within a schema stub.
+        """
+        def make_extant_symbol(self, s, t):
+            return
+
     def __init__(self, name):
         """Initializes the schema stub.
 
         :param name: name of the schema
         """
         super(SchemaStub, self).__init__()
+        self.model = SchemaStub._ModelStub()
         self.name = name
