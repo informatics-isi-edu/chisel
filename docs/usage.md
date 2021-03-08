@@ -203,7 +203,7 @@ the vocabulary or domain table (`vocab.bar` in the example here).
 
 ```python
 foo = catalog.schemas['public'].tables['foo']
-bar_terms = catalog['vocab'].tables['bar']
+bar_terms = model.schemas['vocab'].tables['bar']
 catalog.schemas['public'].tables['foo_fixed'] = foo.columns['bar'].align(bar_terms)
 ```
 
@@ -218,6 +218,6 @@ foreign key to `foo` from where it came.
 
 ```python
 foo = catalog.schemas['public'].tables['foo']
-bar_terms = catalog['vocab'].tables['bar']
+bar_terms = model.schemas['vocab'].tables['bar']
 catalog.schemas['public'].tables['foo_bar'] = foo.columns['bars'].to_tags(bar_terms)
 ```

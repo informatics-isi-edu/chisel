@@ -1,12 +1,11 @@
 """Example of using the 'shred' transformation.
 
-    You will need a copy of 'zfs.owl' and specify its location at 'CHISEL_EXAMPLES_ZFS_OWL'.
-
-    TODO: This is not yet working after the refactoring
+You will need a copy of 'zfs.owl' and specify its location at 'CHISEL_EXAMPLES_ZFS_OWL'.
 """
 import os
 from deriva.core import DerivaServer
-from chisel import Model, shred
+from chisel import Model
+from chisel.catalog.semistructured import shred
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
 __host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')

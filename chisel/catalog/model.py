@@ -81,6 +81,8 @@ class Table (ModelObjectWrapper):
     """
 
     define = _erm.Table.define
+    define_vocabulary = _erm.Table.define_vocabulary
+    define_asset = _erm.Table.define_asset
 
     def __init__(self, parent, table):
         """Initializes the table.
