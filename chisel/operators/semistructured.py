@@ -50,10 +50,11 @@ class JSONScan (PhysicalOperator):
         # make sure key_regex has a default value
         key_regex = key_regex if key_regex else _default_key_regex
 
-        row_0_keys = self._data[0].keys()
+        row_0_keys = self._data[0].keys() if self._data else []
         col_defs = [_em.Column.define(name, _em.builtin_types['text']) for name in row_0_keys]
         key_defs = [_em.Key.define([name]) for name in row_0_keys if re.match(key_regex, name, re.IGNORECASE)]
-        assert key_defs, "Expected to find at least one key, but none were identified."
+        if not key_defs:
+            logger.warning("Expected to find at least one key, but none were identified.")
         self._description = _em.Table.define(table_name, column_defs=col_defs, key_defs=key_defs, provide_system=False)
         self._description['schema_name'] = os.path.dirname(input_filename) if input_filename else ''
         self._description['kind'] = 'file' if input_filename else 'json'

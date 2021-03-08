@@ -1,3 +1,5 @@
+"""Unit tests against a remote ermrest catalog.
+"""
 import os
 import unittest
 from test.helpers import ERMrestHelper, BaseTestCase

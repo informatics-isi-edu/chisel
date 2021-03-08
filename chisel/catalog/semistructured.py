@@ -8,10 +8,12 @@ import os
 import csv
 import json
 import logging
+import re
+from typing import Optional, Any
+from urllib.parse import unquote as urlunquote
 from deriva.core import ermrest_model as _erm
+from deriva.core import datapath, DEFAULT_HEADERS
 from ..optimizer import symbols
-from .. import operators
-from .. import util
 from . import ext, stubs
 
 logger = logging.getLogger(__name__)
@@ -63,16 +65,151 @@ def _introspect(path):
 class SemiStructuredCatalog (stubs.CatalogStub):
     """Catalog of semi-structured data.
     """
-    def __init__(self, path):
+    def __init__(self, rootdir):
         """Initializes the semi-structured catalog.
 
-        :param path: the root directory of the semi-structured catalog
+        :param rootdir: the root directory of the semi-structured catalog
         """
         super(SemiStructuredCatalog, self).__init__()
-        self.path = path
+        self.rootdir = rootdir
+        self._server_uri = 'file://%s' % rootdir
+
+    class Response (object):
+        """Response object for catalog stub operations.
+        """
+        def __init__(self, error: Optional[Exception] = None, payload: Any = None):
+            """Initializes the response object.
+
+            :param error: exception to raise
+            :param payload: JSON-like object representing the response body.
+            """
+            self._error = error
+            self._payload = payload
+
+        def raise_for_status(self):
+            if self._error:
+                raise self._error
+
+        def json(self):
+            return self._payload
 
     def getCatalogModel(self):
-        return _erm.Model(self, _introspect(self.path))
+        return _erm.Model(self, _introspect(self.rootdir))
+
+    def getPathBuilder(self):
+        """Returns the 'path builder' interface for this catalog."""
+        return datapath.from_catalog(self)
+
+    def post(self, path, data=None, json=None, headers=DEFAULT_HEADERS):
+        """Handles POST request, returns Response object.
+
+        This interface supports the minimal dialect for:
+          - table creation
+          - row insertion
+
+        :param path: resource path
+        :param data: buffer or file-like content value (not supported)
+        :param json: in-memmory data object
+        :param headers: request headers
+        :return: response object
+        """
+        logger.debug('path: %s' % path)
+        logger.debug('json: %s' % str(json))
+
+        # handle table creation
+        m = re.match(r'/schema/(?P<schema_name>[^/]+)/table', path)
+        if m:
+            try:
+                schema_name = urlunquote(m.group('schema_name'))
+                return SemiStructuredCatalog.Response(payload=self._create_table_on_disk(schema_name, json))
+            except Exception as e:
+                return SemiStructuredCatalog.Response(error=e)
+
+        # handle row insertion
+        m = re.match(r'/entity/(?P<schema_name>[^/]+):(?P<table_name>[^/?]+)([?]defaults=(?P<defaults>.+))?', path)
+        if m:
+            try:
+                schema_name = urlunquote(m.group('schema_name'))
+                table_name = urlunquote(m.group('table_name'))
+                return SemiStructuredCatalog.Response(payload=self._write_rows_to_file(schema_name, table_name, json))
+            except Exception as e:
+                return SemiStructuredCatalog.Response(error=e)
+
+        # all others, unhandled
+        super(SemiStructuredCatalog, self).post(path, data=data, json=json, headers=headers)
+
+    def _create_table_on_disk(self, schema_name: str, table_def: dict) -> dict:
+        """Creates a table on disk.
+
+        :param schema_name: subdir "schema" name
+        :param table_def: table description document
+        :return: returns the table description document as it was created on disk
+        """
+        _table_name_ = 'table_name'
+        _column_definitions_ = 'column_definitions'
+
+        if _table_name_ not in table_def:
+            raise ValueError('"table_def" object must include %s' % _table_name_)
+        if _column_definitions_ not in table_def:
+            raise ValueError('"table_def" object must include %s' % _column_definitions_)
+
+        filename = os.path.join(self.rootdir, schema_name, table_def[_table_name_])
+        logger.debug('Creating table in file: %s' % filename)
+
+        if os.path.exists(filename):
+            raise ValueError('%s:%s exists')
+
+        if filename.endswith('.json'):
+            with open(filename, 'w') as jsonfile:
+                json.dump([], jsonfile, indent=2)
+        elif filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
+            dialect = 'excel' if filename.endswith('.csv') else 'excel-tab'
+            field_names = [col['name'] for col in table_def['column_definitions']]
+            with open(filename, 'w') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=field_names, dialect=dialect)
+                writer.writeheader()
+        else:
+            raise ValueError("Unsupported filename extension for file: %s" % filename)
+
+        created_table_def = {
+            _table_name_: table_def[_table_name_],
+            _column_definitions_: table_def[_column_definitions_]
+        }
+        return created_table_def
+
+    def _write_rows_to_file(self, schema_name: str, table_name: str, rows: list) -> list:
+        """Appends rows of data into a file on disk.
+
+        :param schema_name: subdir "schema" name
+        :param table_name: file "table" name
+        :param rows: list of dictionary-like objects
+        :return: returns the rows written to file on disk
+        """
+
+        if not isinstance(rows, list):
+            raise ValueError('Expecting "list" payload but received "%s"' % type(rows).__name__)
+
+        filename = os.path.join(self.rootdir, schema_name, table_name)
+        logger.debug('Inserting rows in file: %s' % filename)
+
+        if not os.path.exists(filename):
+            raise KeyError('%s:%s does not exist')
+
+        if filename.endswith('.json'):
+            with open(filename, 'a') as jsonfile:
+                json.dump(rows, jsonfile, indent=2)
+        elif filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
+            dialect = 'excel' if filename.endswith('.csv') else 'excel-tab'
+            with open(filename, 'r') as csvfile:
+                reader = csv.DictReader(csvfile)
+                field_names = reader.fieldnames
+            with open(filename, 'a') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=field_names, dialect=dialect)
+                writer.writerows(rows)
+        else:
+            raise ValueError("Unsupported filename extension for file: %s" % filename)
+
+        return rows
 
 
 class SemiStructuredModel (ext.Model):
@@ -94,7 +231,7 @@ class SemiStructuredModel (ext.Model):
         :param schema_name: schema name
         :param table_name: table name
         """
-        filename = os.path.join(os.path.expanduser(self.catalog.path), schema_name, table_name)
+        filename = os.path.join(os.path.expanduser(self.catalog.rootdir), schema_name, table_name)
         if filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
             return symbols.TabularDataExtant(filename=filename)
         elif filename.endswith('.json'):

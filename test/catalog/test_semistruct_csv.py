@@ -1,4 +1,5 @@
-import unittest
+"""Unit tests against an on disk CSV data source.
+"""
 from test.helpers import CatalogHelper, BaseTestCase
 
 
@@ -10,48 +11,40 @@ class TestSemistructuredCsv (BaseTestCase):
     catalog_helper = CatalogHelper(table_names=[output_basename])
 
     def test_catalog_from_csv(self):
-        self.assertIsNotNone(self._catalog)
-        self.assertEqual(len(self._catalog.schemas), 1)
+        self.assertIsNotNone(self._model)
+        self.assertEqual(len(self._model.schemas), 1)
 
     def test_computed_relation_from_csv(self):
-        domain = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain()
+        domain = self._model.schemas['.'].tables[self.catalog_helper.samples].columns['species'].to_domain()
         self.assertIsNotNone(domain)
 
     def test_materialize_to_csv(self):
-        with self._catalog.evolve():
-            domain = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain(similarity_fn=None)
-            self._catalog['.'][self.output_basename] = domain
+        samples = self._model.schemas['.'].tables[self.catalog_helper.samples]
+        domain = samples.columns['species'].to_domain(similarity_fn=None)
+        self._model.schemas['.'].create_table_as(self.output_basename, domain)
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
     def test_clone(self):
-        with self._catalog.evolve():
-            self._catalog['.'][self.output_basename] = self._catalog['.'][self.catalog_helper.samples].clone()
+        self._model.schemas['.'].create_table_as(
+            self.output_basename, self._model.schemas['.'].tables[self.catalog_helper.samples].clone())
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
     def test_join(self):
-        with self._catalog.evolve():
-            self._catalog['.'][self.output_basename] = self._catalog['.'][self.catalog_helper.samples].join(
-                self._catalog['.'][self.catalog_helper.samples]
-            )
+        samples = self._model.schemas['.'].tables[self.catalog_helper.samples]
+        self._model.schemas['.'].create_table_as(self.output_basename, samples.join(samples))
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
     def test_union(self):
-        with self._catalog.evolve():
-            self._catalog['.'][self.output_basename] = self._catalog['.'][self.catalog_helper.samples].union(
-                self._catalog['.'][self.catalog_helper.samples]
-            )
+        samples = self._model.schemas['.'].tables[self.catalog_helper.samples]
+        self._model.schemas['.'].create_table_as(self.output_basename, samples.union(samples))
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
     def test_union_add(self):
-        with self._catalog.evolve():
-            self._catalog['.'][self.output_basename] = \
-                self._catalog['.'][self.catalog_helper.samples] + self._catalog['.'][self.catalog_helper.samples]
+        samples = self._model.schemas['.'].tables[self.catalog_helper.samples]
+        self._model.schemas['.'].create_table_as(self.output_basename, samples + samples)
         self.assertTrue(self.catalog_helper.exists(self.output_basename))
 
-    @unittest.skip
     def test_do_not_clobber(self):
-        # This is actually a general test of the 'do not clobber' feature built into the catalog
-        def clobbers():
-            domain = self._catalog['.'][self.catalog_helper.samples]['species'].to_domain(similarity_fn=None)
-            self._catalog['.'][self.catalog_helper.samples] = domain
-        self.assertRaises(ValueError, clobbers)
+        samples = self._model.schemas['.'].tables[self.catalog_helper.samples]
+        with self.assertRaises(ValueError):
+            self._model.schemas['.'].create_table_as(self.catalog_helper.samples, samples.clone())

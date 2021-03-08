@@ -1,6 +1,6 @@
 """Catalog model stubs.
 """
-from deriva.core import ermrest_model as _erm
+from deriva.core import ermrest_model as _erm, DEFAULT_HEADERS
 
 
 class CatalogStub (object):
@@ -9,16 +9,16 @@ class CatalogStub (object):
 
     __not_implemented_message__ = 'The model object does not support this method.'
 
-    def get(self, path):
+    def get(self, path, headers=DEFAULT_HEADERS, raise_not_modified=False, stream=False):
         raise Exception(CatalogStub.__not_implemented_message__)
 
-    def put(self, path, json=None):
+    def put(self, path, data=None, json=None, headers=DEFAULT_HEADERS, guard_response=None):
         raise Exception(CatalogStub.__not_implemented_message__)
 
-    def post(self, path, json=None):
+    def post(self, path, data=None, json=None, headers=DEFAULT_HEADERS):
         raise Exception(CatalogStub.__not_implemented_message__)
 
-    def delete(self, path):
+    def delete(self, path, headers=DEFAULT_HEADERS, guard_response=None):
         raise Exception(CatalogStub.__not_implemented_message__)
 
 
