@@ -214,8 +214,6 @@ class SemiStructuredCatalog (stubs.CatalogStub):
 
 class SemiStructuredModel (ext.Model):
     """Catalog model representation of semi-structured data.
-
-    NOTE: only read operations are supported at this time.
     """
     def __init__(self, catalog):
         """Initializes the model.
@@ -239,34 +237,6 @@ class SemiStructuredModel (ext.Model):
                 input_filename=filename, json_content=None, object_payload=None, key_regex=None)
         else:
             raise ValueError('Filename extension must be "csv" or "json" (filename: %s)' % filename)
-
-    # TODO: refactor old code below to restore support for writeable semi-structured catalogs
-    # def _materialize_relation(self, plan):
-    #     """Materializes a relation from a physical plan.
-    #
-    #     :param plan: a `PhysicalOperator` instance from which to materialize the relation
-    #     :return: None
-    #     """
-    #     if isinstance(plan, operators.Alter) or isinstance(plan, operators.Drop):
-    #         raise NotImplementedError('"%s" operation not supported' % type(plan).__name__)
-    #
-    #     filename = os.path.join(self.path, plan.description['schema_name'], plan.description['table_name'])
-    #     if os.path.exists(filename) and not self._evolve_ctx.allow_alter:
-    #         raise base.CatalogMutationError('"allow_alter" flag is not True')
-    #
-    #     if filename.endswith('.json'):
-    #         with open(filename, 'w') as jsonfile:
-    #             json.dump(list(plan), jsonfile, indent=2)
-    #     elif filename.endswith('.csv') or filename.endswith('.tsv') or filename.endswith('.txt'):
-    #         dialect = 'excel' if filename.endswith('.csv') else 'excel-tab'
-    #         # else, by default materialize as csv
-    #         field_names = [col['name'] for col in plan.description['column_definitions']]
-    #         with open(filename, 'w') as csvfile:
-    #             writer = csv.DictWriter(csvfile, fieldnames=field_names, dialect=dialect)
-    #             writer.writeheader()
-    #             writer.writerows(plan)
-    #     else:
-    #         raise Exception("Unable to materialize relation. Unknown file extension for '{}'.".format(filename))
 
 
 def csv_reader(filename):
