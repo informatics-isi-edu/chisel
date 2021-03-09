@@ -69,7 +69,7 @@ logical_optimization_rules = Matcher([
         lambda: Nil()
     ),
     (
-        'Rename(child, dict())',  # TODO: remove this rule so it doesn't conflict with sname/tname only renames
+        'Rename(child, dict())',
         lambda child: child
     ),
     (
