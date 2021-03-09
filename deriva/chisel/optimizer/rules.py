@@ -1,11 +1,13 @@
-"""Logical optimization, composition, and transformation rules."""
-
+"""Logical optimization, composition, and transformation rules.
+"""
 import json
 from pyfpm.matcher import Matcher
 from .. import util
 from .. import operators as _op
-from ..operators import PhysicalOperator  # don't believe linters that tell you this isn't used in this module!
+from ..operators import PhysicalOperator  # required for the physical planning rules to compile
 from .symbols import *
+
+__pop__ = PhysicalOperator  # this is a dummy statement to keep IDEs from pruning the reference to PhysicalOperator
 
 
 #
@@ -67,7 +69,7 @@ logical_optimization_rules = Matcher([
         lambda: Nil()
     ),
     (
-        'Rename(child, dict())',  # TODO: remove this rule so it doesn't conflict with sname/tname only renames
+        'Rename(child, dict())',
         lambda child: child
     ),
     (
@@ -171,15 +173,15 @@ physical_transformation_rules = Matcher([
         lambda child, schema, table: _op.Create(_op.Metadata(json.loads(child)), schema, table)
     ),
     (
-        'Assign(Project(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)'
+        'Assign(Project(TableExtant(model, src_sname, src_tname), attributes), dst_sname, dst_tname)'
         '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
-        lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
-        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
+        lambda model, src_sname, src_tname, dst_sname, dst_tname, attributes:
+        _op.Alter(_op.ERMrestProjectSelect(model, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
     ),
     (
-        'Assign(Rename(ERMrestExtant(catalog, src_sname, src_tname), attributes), dst_sname, dst_tname)',
-        lambda catalog, src_sname, src_tname, dst_sname, dst_tname, attributes:
-        _op.Alter(_op.ERMrestProjectSelect(catalog, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
+        'Assign(Rename(TableExtant(model, src_sname, src_tname), attributes), dst_sname, dst_tname)',
+        lambda model, src_sname, src_tname, dst_sname, dst_tname, attributes:
+        _op.Alter(_op.ERMrestProjectSelect(model, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
     ),
     (
         'Assign(Nil(), schema, table)',
@@ -198,20 +200,20 @@ physical_transformation_rules = Matcher([
         lambda child, attributes, similarity_fn, grouping_fn: _op.NestedLoopsSimilarityAggregation(_op.HashDistinct(child, attributes), attributes, [], similarity_fn, grouping_fn)
     ),
     (
-        'Project(Select(ERMrestExtant(catalog, sname, tname), formula), attributes)',
-        lambda catalog, sname, tname, formula, attributes: _op.ERMrestProjectSelect(catalog, sname, tname, attributes, formula)
+        'Project(Select(TableExtant(model, sname, tname), formula), attributes)',
+        lambda model, sname, tname, formula, attributes: _op.ERMrestProjectSelect(model, sname, tname, attributes, formula)
     ),
     (
-        'Project(ERMrestExtant(catalog, sname, tname), attributes)',
-        lambda catalog, sname, tname, attributes: _op.ERMrestProjectSelect(catalog, sname, tname, attributes)
+        'Project(TableExtant(model, sname, tname), attributes)',
+        lambda model, sname, tname, attributes: _op.ERMrestProjectSelect(model, sname, tname, attributes)
     ),
     (
-        'Select(ERMrestExtant(catalog, sname, tname), formula)',
-        lambda catalog, sname, tname, formula: _op.ERMrestSelect(catalog, sname, tname, formula)
+        'Select(TableExtant(model, sname, tname), formula)',
+        lambda model, sname, tname, formula: _op.ERMrestSelect(model, sname, tname, formula)
     ),
     (
-        'ERMrestExtant(catalog, sname, tname)',
-        lambda catalog, sname, tname: _op.ERMrestSelect(catalog, sname, tname)
+        'TableExtant(model, sname, tname)',
+        lambda model, sname, tname: _op.ERMrestSelect(model, sname, tname)
     ),
     (
         'JSONDataExtant(input_filename, json_content, object_payload, key_regex)',

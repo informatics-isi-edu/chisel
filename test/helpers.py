@@ -12,7 +12,8 @@ from requests import HTTPError
 from deriva.core import DerivaServer, ErmrestCatalog, urlquote, get_credential
 from deriva.core.ermrest_model import Schema, Table, Column, Key, builtin_types
 
-import chisel
+from deriva.chisel.catalog.semistructured import SemiStructuredCatalog, SemiStructuredModel
+from deriva.chisel import Model
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ class CatalogHelper (AbstractCatalogHelper):
         return os.path.isfile(os.path.join(self._data_dir, tablename))
 
     def connect(self):
-        return chisel.connect('file://' + self._data_dir)
+        return SemiStructuredModel(SemiStructuredCatalog(self._data_dir))
 
 
 class ERMrestHelper (AbstractCatalogHelper):
@@ -188,10 +189,9 @@ class ERMrestHelper (AbstractCatalogHelper):
             self._ermrest_catalog = server.create_ermrest_catalog()
 
     def suite_teardown(self):
-        # delete catalog
-        assert isinstance(self._ermrest_catalog, ErmrestCatalog)
-        if not self._reuse_catalog_id:
-            self._ermrest_catalog.delete_ermrest_catalog(really=True)
+        # leave test catalogs to be cleaned up by the server policy rather than risk someone pointing the test suite
+        # at their production server and catalog, and deleting it by accident.
+        return
 
     def unit_setup(self):
         # get public schema
@@ -279,12 +279,7 @@ class ERMrestHelper (AbstractCatalogHelper):
     def connect(self):
         # connect to catalog
         assert isinstance(self._ermrest_catalog, ErmrestCatalog)
-        return chisel.connect(
-            'https://{hostname}/ermrest/catalog/{id}'.format(
-                hostname=self._hostname,
-                id=self._ermrest_catalog.catalog_id
-            )
-        )
+        return Model.from_catalog(self._ermrest_catalog)
 
 
 class BaseTestCase (unittest.TestCase):
@@ -303,7 +298,7 @@ class BaseTestCase (unittest.TestCase):
 
     def setUp(self):
         self.catalog_helper.unit_setup()
-        self._catalog = self.catalog_helper.connect()
+        self.model = self.catalog_helper.connect()
 
     def tearDown(self):
         self.catalog_helper.unit_teardown()

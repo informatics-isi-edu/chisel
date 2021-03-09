@@ -60,14 +60,13 @@ def introspect_key_fn(rel):
 
 
 def edit_distance_fn(tuple1, tuple2, **kwargs):
-    """Basic edit distance similarity function.
+    """A very simple edit distance similarity function.
 
     :param tuple1: a tuple or a single value
     :param tuple2: a tuple or a single value
     :param kwargs: a context; e.g., may include threshold and algorithm-specific parameters
     :return: measure in [0 1] where 0 is exact match and 1 is no similarity
     """
-    # TODO: This is a simple implementation; needs further review
     threshold = kwargs.get('threshold', 0.2)
     assert 0.0 <= threshold <= 1.0, 'threshold not in [0.0, 1.0]'
     tuple1 = tuple1 if isinstance(tuple1, tuple) else tuple([tuple1])

@@ -2,8 +2,8 @@
 import logging
 import os
 import unittest
-import chisel.operators as _op
-import chisel.util as _util
+import deriva.chisel.operators as _op
+import deriva.chisel.util as _util
 
 logger = logging.getLogger(__name__)
 if os.getenv('CHISEL_TEST_VERBOSE'):

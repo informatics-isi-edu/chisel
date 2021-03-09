@@ -2,7 +2,7 @@
 
 import collections
 import logging
-from ..catalog import base
+from ..catalog import ext
 from .symbols import TempVar
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def _consolidate_plan(parent, plan, counts, tempvars):
             return TempVar(tempvars[plan]), []
         else:
             logger.debug('Temp var for this plan not found, generating a new temp var.')
-            tempvars[plan] = tempvar = base.ComputedRelation(plan)
+            tempvars[plan] = tempvar = ext.ComputedRelation(parent.schema, plan)
             return TempVar(tempvar), [tempvar]
 
     # recursively rewrite the children

@@ -2,222 +2,362 @@
 
 This guide covers usage examples.
 
-## Simple operations
+## Schema Definition
 
-The simple operators are generally equivalent to operations available in SQL 
-DDL (data definition language).
+These operations are generally equivalent to operations available in SQL's
+Data Definition Language (DDL).
 
-### Create a table
+### Create Table
 
-To create a table, use the `.define()` method for the Table, Column, etc. classes
-of the class hierarchy. The exact signatures of the `define` methods are currently
-identical to those of `deriva-py`. For further detail see [deriva-py docs](https://github.com/informatics-isi-edu/deriva-py/tree/master/docs).
+To create a table, use the `define` method of the `Table` class and pass its 
+output to the `create_table` method of a `Schema` instance. For further details, 
+see [deriva-py docs](https://github.com/informatics-isi-edu/deriva-py/tree/master/docs).
 
 ```python
-import chisel
-from chisel import Table, Column, Key, ForeignKey, data_types as typ
+from deriva.core import DerivaServer
+from deriva.chisel import Model, Schema, Table, Column, Key, ForeignKey, builtin_types
 
-catalog = chisel.connect(...)
+# connect to ermrest catalog and get model management interface
+model = Model.from_catalog(
+    DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+)
 
 # define table and assign to a schema in order to create it in the catalog
-catalog.schemas['public'].tables['foo'] = Table.define(
-    'foo',
+foo = model.schemas['public'].create_table(Table.define(
+    'Foo',
     column_defs=[
-        Column.define('Col1', typ.int8), 
-        Column.define('Col2', typ.text), 
+        Column.define('Col1', builtin_types.int8),
+        Column.define('Col2', builtin_types.text),
         ...
     ],
     key_defs=[
-        Key.define(['Col1']),
+        Key.define(
+            ['Col1']  # list of column names of the key
+        ),
         ...
     ],
     fkey_defs=[
-        ForeignKey.define(['Col2'], 'Other Schema', 'Other Table', ['Other Col2']),
+        ForeignKey.define(
+            ['Col2'],  # list of column names of the foreign key
+            'Other Schema', 'Other Table',  # referenced schema and table
+            ['Other Col2']  # list of column names of the referenced key
+        ),
         ...
     ],
     ...)
-
-# get the newly created table in order to use it in operations
-foo = catalog.schemas['public'].tables['foo']
-
-# perform operations on new table 'foo'...
-list(foo.select().fetch())
-```
-
-### Drop a table
-
-Drop a table using the `del` statement on the table's container.
-
-```python
-del catalog.schemas['public'].tables['foo']
-```
-
-### Rename a table
-
-Rename a table by changing its `.name` property.
-
-```python
-table = catalog.schemas['public'].tables['foo']
-table.name = 'bar'
-```
-
-### Clone a table
-
-Make an exact clone of a table by assigning the results of its `.clone()` 
-method to an unused table name.
-
-```python
-table = catalog.schemas['public'].tables['foo']
-catalog.schemas['public'].tables['bar'] = table.clone()
-```
-
-### Move a table to a different schema
-
-"Move" a table by reassigning its `.schema` property to the desired 
-schema.
-
-```python
-table = catalog.schemas['public'].tables['foo']
-table.schema = catalog.schemas['bar']
-```
-
-### Alter table add a column
-
-Add a new column to a table by assigning a `Column` definition to an unused 
-column name of the table.
-
-```python
-table = catalog.schemas['public'].tables['foo']
-table.columns['baz'] = Column.define('baz', typ.text)
-```
-
-### Alter table drop a column
-
-Drop a column from a table by deleting it from the table's `.columns` container.
-
-```python
-table = catalog.schemas['public'].tables['foo']
-del table.columns['baz']
-```
-
-### Alter table rename a column
-
-Rename a column by setting its `.name` property.
-
-```python
-table = catalog.schemas['public'].tables['foo']
-column = table.columns['baz']
-column.name = 'qux'
-```
-
-### Join relations
-
-JOINs are very limited in chisel at this time. The `.join(rel)` method will
-produce an unfiltered cross-join of two relations, which may be filtered
-with an also very limited WHERE clause, using the `.where(...)` method. These
-operations do not directly mutate the catalog, but the resultant relation can
-be assigned to an unused table name of a schema's `tables` container to 
-create a new table from the relation.
-
-```python
-catalog.schemas['public']['foo'].join(catalog.schemas['public']['bar']).where(...)
-```
-
-### Union of relations
-
-Tables (or any relation) may be unioned with the `.union(rel)` method or the
-`+` operator. Like JOINs, UNION does not directly mutate the catalog. 
-
-```python
-catalog.schemas['public']['foo'].union(catalog.schemas['public']['bar'])
-# or... foo + bar
-```
-
-## Complex operations
-
-The complex operations cover chisel features that go beyond SQL DDL types of 
-operations.
-
-### Create table as domain from existing column
-
-Table `bar` will have a `name` column from the deduplicated values of `foo.bar`.
-
-```python
-foo = catalog.schemas['public'].tables['foo']
-catalog.schemas['public'].tables['bar'] = foo.columns['bar'].to_domain()
-```
-
-### Create table as vocabulary from existing column
-
-Table `bar` will have a `name` column from the deduplicated values of `foo.bar`
-_and_ a `synonyms` column that will have all of the remaining values for `name`
-that were not selected as canonical.
-
-```python
-foo = catalog.schemas['public'].tables['foo']
-catalog.schemas['public'].tables['bar'] = foo.columns['bar'].to_vocabulary()
-```
-
-### Create table from atomizied values from existing column 
-
-Table `bar` will have a column `bar` containing the unnested values of 
-`foo.bar` and also a foriegn key to `foo`.
-
-```python
-foo = catalog.schemas['public'].tables['foo']
-catalog.schemas['public'].tables['bar'] = foo.columns['bar'].to_atoms()
-```
-
-### Create a table by reifying a concept embedded in another table
-
-In `reify`, the first set of columns are used as the `key` of the new table, 
-and the second set of columns used as the non-key columns of the new table.
-
-```python
-foo = catalog.schemas['public'].tables['foo']
-catalog.schemas['public'].tables['barbaz'] = foo.reify(
-    {foo.columns['id']}, 
-    {foo.columns['bar'], foo.columns['baz']}
 )
 ```
 
-### Create a table by reifying a sub-concept embedded in another table
+### Drop Table
 
-In addition to the columns explicitly given in `reifysub(...)`, table `bar` 
-will also have a foriegn key to the source table `foo` based on the 
-introspected key of `foo`.
+Drop a table using the `drop` method on the table instance.
 
 ```python
-foo = catalog.schemas['public'].tables['foo']
-catalog.schemas['public'].tables['bar'] = foo.reify_sub(foo.columns['bar'])
+foo.drop()
 ```
 
-### Create a table by aligning a column with a vocabulary or domain table
+### Rename Table
 
-Given a vocabulary table `vocab.bar`, `foo_fixed` is the result of aligning
-its column `bar` with the terms in `vobar.bar`. Columns can be aligned 
-against a "vocabulary" with `name` and `synonyms` or against a simpler
-"domain" with only a `name` column. Table `foo_fixed` is `foo` with the
-target column (`bar` in the example here) replaced with a foreign key to
-the vocabulary or domain table (`vocab.bar` in the example here).
+Rename a table using the `alter` method of a table instance.
 
 ```python
-foo = catalog.schemas['public'].tables['foo']
-bar_terms = catalog['vocab'].tables['bar']
-catalog.schemas['public'].tables['foo_fixed'] = foo.columns['bar'].align(bar_terms)
+foo.alter(table_name='bar')
 ```
 
-### Create a table by unnesting and aligning a column with a vocabulary or domain
+### Move Table
 
-In the following example, a table `foo` contains a column `bars` with a 
-denormalized, delimited list of values. The values of `bars` are unnested
-into atomic values, which are then aligned against a vocabulary `vocab.bar`.
-The output relation assigned to `foo_bar` contains not only the normalized 
-column `bars` (which can be renamed per the basic usage above) but also a
-foreign key to `foo` from where it came.
+"Move" a table to a different schema in the catalog model using the `alter` method
+of a table instance.
 
 ```python
-foo = catalog.schemas['public'].tables['foo']
-bar_terms = catalog['vocab'].tables['bar']
-catalog.schemas['public'].tables['foo_bar'] = foo.columns['bars'].to_tags(bar_terms)
+foo.alter(schema_name='acme')
 ```
+
+### Alter Table -- Add Column
+
+Add a column to an existing table by calling the `define` method of the `Column`
+class and passing the result to the `create_column` method of a `Table` instance.
+
+```python
+foo.create_column(Column.define('qux', builtin_types.text))
+```
+
+### Alter Table -- Drop Column
+
+Drop a column from a table by calling the `drop` method of a `Column` instance.
+
+```python
+foo.columns['qux'].drop()
+```
+
+### Alter Table -- Rename Column
+
+Rename a column by calling the `alter` method of a `Column` instance.
+
+```python
+foo.columns['qux'].alter(name='quux')
+```
+
+### Alter Table -- Key and ForeignKey Definition
+
+Analogous operations exist for creating, dropping, and altering `Key` and `ForeignKey`
+instances of a `Table`. They follow the same pattern of `define` and `create_key` or
+`create_fkey`.
+
+## Schema Evolution Expressions
+
+In addition to the schema definition interfaces, chisel supports schema evolution
+_expressions_ similar to the SQL `CREATE TABLE AS` statement.
+
+```python
+acme = model.schemas['acme']
+acme.create_table_as(
+    'bar',  # table name
+    foo.where(foo.columns['Col1'] == 42).select(foo.columns['Col2']) # expression
+)
+```
+
+Above a new table named `bar` in schema `acme` is created from the _expression_ on
+the table `Foo` (referenced by Python variable `foo`) where `Col1` is equal to
+`42` and then selects only the `Col2` column out of the relation. 
+
+The example also demostrates that an expression _is_ also a relation like the 
+source table, and therefore you can continue to chain operations off of it like 
+the `where` followed by the `select` in the example.
+
+In order to materialize the new relation, it must be executed by the 
+`create_table_as` method. Unlike the [schema definition](#schema-definition) 
+methods defined above, the [schema evolution expressions](#schema-evolution-expressions) must be passed to the `create_table_as` method of
+a `Schema` instance in order to be materialized in the catalog.
+
+Chisel comes with several pre-defined expressions to reduce the effort required for
+composing some common but complicated transformations.
+
+### SQL vs CHiSEL (SMO) Expressions
+
+The key distinction between SQL and CHiSEL expressions is that CHiSEL expressions
+are translated into Schema Modification Operators (SMOs). A CHiSEL SMO not only
+computes the attributes (i.e., column names) and tuples (i.e., rows) of the new
+relation, it also preserves the column definitions and translates the constraints, 
+schema annotations, and ACLs per the expression.
+
+### Where
+
+Use the `where` method on a `Table` instance to filter the rows of the source
+relation. In relational theory, this operation is actually called a _select_ or
+_restrict_. Currently, the where-clause may consist of a `COLUMN OP LITERAL` 
+comparison or conjunctions of these simple comparisons.
+
+**Limitation**: currently the only operator (`OP`) supported in chisel comparisons
+is equality (`==`) in order to support equijoins. Check back as this will soon be
+remedied.
+
+```python
+# relation with just tuples that satisfy "Col1 == 42"
+acme.create_table_as(
+    'bar',
+    foo.where(foo.columns['Col1'] == 42)
+)
+
+# conjunction of above and 'Col2 == hello'
+acme.create_table_as(
+    'bar',
+    foo.where((foo.columns['Col1'] == 42) & (foo.columns['Col1'] == 'hello'))
+)
+```
+**NOTE**: if you are new to Python, be aware that `&` and `|` are actually bit-wise
+operators, but have been overloaded as logical operators here.
+
+### Select
+
+Use the `select` method on a `Table` instance to filter the columns of the 
+source relation. In relational theory, this operation is actually called 
+a _projection_.
+
+```python
+# relation with just 2 columns from the source relation
+acme.create_table_as(
+    'bar',
+    foo.select(foo.columns['Col1'], foo.columns['Col2'])
+)
+
+# relation with 2 columns but renamed
+acme.create_table_as(
+    'bar',
+    foo.select(
+        foo.columns['Col1'].alias('ColONE'), 
+        foo.columns['Col2'].alias('ColTWO')
+    )
+)
+
+# all except 1 column
+acme.create_table_as(
+    'bar',
+    foo.select(~foo.columns['Col2'])
+)
+
+# all columns
+acme.create_table_as(
+    'bar',
+    foo.select()
+)
+```
+**NOTE**: the `~` is a bit-wise operator but overloaded here to drop a column from
+a projection list.
+
+### Join
+
+The expression returned by the `join` method on a `Table` instance is equivalent
+to a `CROSS JOIN` (a.k.a., cartesian product) in SQL. Obvoiusly, it is 
+therefore a very expensive operation to perform. The relation produced by a
+Join will include all column from both relations, in some cases qualified with
+the source table's name to resolve name collisions.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.join(catalog.schemas['acme'].tables['baz'])
+)
+```
+
+### Union
+
+The expression returned by the `union` method on a `Table` instance produces a 
+relation that has the same table definition as the source table but combines the
+rows from the source table and the input table. The schemas of the source and input
+tables _must_ match.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.union(catalog.schemas['acme'].tables['baz'])
+)
+
+# or use the plus operator
+acme.create_table_as(
+    'bar',
+    foo + catalog.schemas['acme'].tables['baz']
+)
+```
+
+### Clone
+
+The `clone` method on a `Table` instance returns an expression that clones the
+source table. In fact, `clone` is nothing more than `select()`; i.e., selecting
+all of the columns of the source relation.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.clone()
+)
+```
+
+### To Domain
+
+The expression returned by the `to_domain` method on a `Column` instance produces 
+a relation from the deduplicated values of the source column. In other words, it 
+takes an unconstrained text column and returns a deduplicated set of terms that can
+be used as a custom domain of values.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.columns['Col2'].to_domain()
+)
+```
+
+### To Vocabulary
+
+The expression returned by the `to_vocabulary` method on a `Column` instance is
+similar to the `to_domain`, except that it returns not only the term column but 
+also a column of `synonyms` of the remaining values of the input column.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.columns['Col2'].to_vocabulary()
+)
+```
+
+### To Atoms
+
+The expression returned by the `to_atoms` method on a `Column` instance produces 
+a relation that _unnests_ the source columns values. Examples of nested values 
+include comma-separated or other delimiter-separated values. These values will be
+unnested and each individual value (i.e., atom) returned in a separate row. In 
+addition, the relation will include a foreign key to the source relation.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.columns['Col2'].to_atoms()
+)
+```
+
+### Reify
+
+The `reify` method on a `Table` instance will return an expression for reifying
+a concept embedded in the source table. The first set of columns of the `reify`
+method are used as the `key` of the new table, and the second set of columns 
+used as the non-key columns of the new table.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.reify(
+        {foo.columns['Col1']},  # set of key columns
+        {foo.columns['Col2'], foo.columns['Col8']}  # non-key columns
+    )
+)
+```
+
+### Reify Subconcept
+
+The `reify_sub` method on a `Table` instance will return an expression for 
+reifying a sub-concept embedded in the source table. In addition to the columns
+explicitly passed `reify_sub`, the resulting relation will also have an
+inferred foreign key to the source table based on introspection of the table 
+definition.
+
+```python
+acme.create_table_as(
+    'bar',
+    foo.reify_sub(foo.columns['Col1'])
+)
+```
+
+### Align
+
+The `align` method on a `Column` instance returns an expression for aligning it
+with a vocabulary or domain table. Columns can be aligned against a "vocabulary" with `name` and `synonyms` or against a simpler "domain" with only a `name` column.
+
+```python
+terms = catalog.schemas['acme'].tables['Terminology']
+acme.create_table_as(
+    'bar',
+    foo.columns['Col2'].align(terms)
+)
+```
+
+### To Tags
+
+The `to_tags` method on a `Column` instance returns an expression for unnesting 
+and aligning a column with a vocabulary or domain. In addition to the aligned
+values, the relation will also include an inferred foreign key to the source 
+relation. The relation produced by `to_tags` can therefore be used as an 
+associative relation between the source table and the domain or vocabulary table.
+
+```python
+terms = catalog.schemas['acme'].tables['Terminology']
+acme.create_table_as(
+    'bar',
+    foo.columns['bars'].to_tags(terms)
+)
+```
+
+## Session Manager
+
+Schema evolution expressions can be performed in a `with` block and materialized
+only at the exit of the block. To learn more, read about the 
+[Model Evolution Session Manager](./context.md).

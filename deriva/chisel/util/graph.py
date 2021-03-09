@@ -43,7 +43,7 @@ def graph_catalog(model, engine='fdp'):
             tail_name = "%s.%s" % (schema.name, table.name)
             for fkey in table.foreign_keys:
                 refcol = fkey['referenced_columns'][0]
-                head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
+                head_name = "%s.%s" % (refcol.table.schema.name, refcol.table.name)
                 dot.edge(tail_name, head_name)
 
     return dot
@@ -72,8 +72,8 @@ def graph_schema(schema, engine='fdp'):
         # add outbound edges
         tail_name = "%s.%s" % (schema.name, table.name)
         for fkey in table.foreign_keys:
-            refcol = fkey['referenced_columns'][0]
-            head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
+            refcol = fkey.referenced_columns[0]
+            head_name = "%s.%s" % (refcol.table.schema.name, refcol.table.name)
             # add head node, if not seen
             if head_name not in seen:
                 seen.add(head_name)
@@ -87,8 +87,8 @@ def graph_schema(schema, engine='fdp'):
         # add inbound edges
         head_name = tail_name
         for reference in table.referenced_by:
-            fkeycol = reference['foreign_key_columns'][0]
-            tail_name = "%s.%s" % (fkeycol['schema_name'], fkeycol['table_name'])
+            fkeycol = reference.foreign_key_columns[0]
+            tail_name = "%s.%s" % (fkeycol.table.schema.name, fkeycol.table.name)
             # add tail node, if not seen
             if tail_name not in seen:
                 seen.add(tail_name)
@@ -123,8 +123,8 @@ def graph_table(table, engine='fdp'):
     # add outbound edges
     tail_name = "%s.%s" % (table.schema.name, table.name)
     for fkey in table.foreign_keys:
-        refcol = fkey['referenced_columns'][0]
-        head_name = "%s.%s" % (refcol['schema_name'], refcol['table_name'])
+        refcol = fkey.referenced_columns[0]
+        head_name = "%s.%s" % (refcol.table.schema.name, refcol.table.name)
         if head_name not in seen:
             dot.node(head_name, head_name)
             seen.add(head_name)
@@ -132,9 +132,9 @@ def graph_table(table, engine='fdp'):
 
     # add inbound edges
     head_name = tail_name
-    for reference in table._referenced_by:
-        fkeycol = reference['foreign_key_columns'][0]
-        tail_name = "%s.%s" % (fkeycol['schema_name'], fkeycol['table_name'])
+    for reference in table.referenced_by:
+        fkeycol = reference.foreign_key_columns[0]
+        tail_name = "%s.%s" % (fkeycol.table.schema.name, fkeycol.table.name)
         if tail_name not in seen:
             dot.node(tail_name, tail_name)
             seen.add(tail_name)

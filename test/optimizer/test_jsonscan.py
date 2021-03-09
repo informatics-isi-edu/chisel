@@ -1,6 +1,7 @@
-"""Tests for the JSONDataExtant operator."""
+"""Unit tests for the JSONDataExtant operator.
+"""
 import unittest
-import chisel.optimizer as _opt
+import deriva.chisel.optimizer as _opt
 
 payload = [
     {

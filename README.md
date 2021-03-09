@@ -1,173 +1,141 @@
-# Welcome to CHiSEL...
+# Welcome to CHiSEL
 
 CHiSEL is a high-level, user-oriented framework for schema evolution.
 
-## Installation
+Features:
+  * Compatible with [DERIVA](http://docs.derivacloud.org)'s [deriva-py catalog model management API](http://docs.derivacloud.org/users-guide/project-tutorial.html#your-first-catalog);
+  * Support for SQL-like `CREATE TABLE AS` schema evolution expressions;
+  * Several built-in functions to reduce effort of writing complicated expressions;
+  * Ability to view the output of expressions before materializing;
+  * Schema evolution expressions that update schema annotations too;
+  * Bulk operation execution to increase efficiency.
 
-You can either install quickly from the source repository using Python's `pip`
-package manager, or you can clone the source first which has the advantage of 
-getting the examples and tests.
-
-### System Requirements
-
-- Python 3.5+
-- [setuptools](https://pypi.org/project/setuptools/)
-- Dependencies listed in [setup.py](./setup.py)
-
-### Quick install
-
-Install the library directly from its source code repository. You will 
-_not_ get the `examples` and `tests` with the quick install instructions.
-
-```
-$ pip install https://github.com/informatics-isi-edu/chisel.git
-```
-
-For system-wide installations, use `sudo` and execute the command without the 
-`--user` option.
-
-### Clone and install
-
-This installation method gets a copy of the source and then installs it.
-
-1. Clone the source repository
-    ```sh
-    $ git clone https://github.com/informatics-isi-edu/chisel.git
-    ```
-2. Install
-    ```sh
-    $ cd chisel
-    $ pip install -e .
-    ```
-    You may need to use `sudo` for system-wide install or add the `--user` option 
-    for current user only install. This examples uses the `-e` option which means
-    that the installation simply references your `chisel` local repository. That 
-    way you can quickly update to the latest code just by performing a `git pull`
-    on your local `chisel` repo.
-3. Run the tests
-    ```sh
-    $ export DERIVA_PY_TEST_HOSTNAME=my-ermrest-host.example.org
-    $ python -m unittest discover
-    ```
-    See [the notes below on setting environment variables for testing](#testing). 
-    Note that there may be transient network errors during the running of the tests 
-    but if the final status of the tests reads `OK` then the CHiSEL tests have run 
-    successfully. The final lines of the output should look something like this, though 
-    the total number of tests may change as we add new tests.
-    ```sh
-    ....................s....s.......................
-    ----------------------------------------------------------------------
-    Ran 102 tests in 36.071s
-    
-    OK (skipped=2)
-    ```
-    Some expensive tests are skipped by default but can be enabled by setting 
-    additional environment variables.
-4. See examples in the [`./examples` directory](./examples) of this repository.
-
-### Testing
-
-The package includes unit tests. They may be run without any configuration, 
-however, certain test cases and suites will be skipped without the following
-environment variables defined.
-
-* `DERIVA_PY_TEST_HOSTNAME`:
-  To run the ERMrest catalog test suite, set this variable to the hostname of
-  a server running an ERMrest service. You will also need to establish valid
-  user credentials (e.g., by using the Deriva-Auth client).
-* `DERIVA_PY_TEST_CATALOG`:
-  In addition, set this variable to reuse a catalog. This variable is typically
-  only used during development activities that would motivate frequently
-  repeated test runs.
-* `CHISEL_TEST_ALL`:
-  Set this variable (any value will do) to run all tests rather than skipping the
-  most expensive tests.
-
-
-## Usage
-
-### Connect to a data source
-
-A data source (e.g., your database) is represented as a `catalog` object.
-You will likely need to establish a _user credential_ depending on the type of
-data source you are using. For DERIVA catalogs, use the Authentication Agent
-available in the [DERIVA Client](https://github.com/informatics-isi-edu/deriva-client) 
-bundle. Note that you will need to establish your user credential (i.e., 
-log in to the server) before performing operations on it that may mutate it.
+A brief example:
 
 ```python
-import chisel
+from deriva.core import DerivaServer
+from deriva.chisel import Model
 
-# Connect to a data source
-catalog = chisel.connect('https://example.org/ermrest/catalog/1')
+model = Model.from_catalog(
+   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+)
+
+public = model.schemas['public']
+foo = public.tables['foo']
+
+public.create_table_as('bar', foo.columns['bar'].to_vocabulary())
 ```
 
-### Reference a table in the catalog
+## Clone and Install
 
-Catalogs are organized by _schemas_ (a.k.a., namespaces). Within a schema are 
-_tables_.
+You will need Python **3.7+**, and `git` and `pip` for installation.
+
+```sh
+$ git clone https://github.com/informatics-isi-edu/chisel.git
+$ cd chisel
+$ pip install -e .
+```
+
+For more details, see the [Installation](./docs/install.md) guide.
+
+## Get Started
+
+Connect to a DERIVA catalog and create the `Model` management interface.
 
 ```python
-catalog.schemas['a_schema'].tables['foo']
-```
+from deriva.core import DerivaServer
+from deriva.chisel import Model
 
-For readability, the catalog itself behaves as a collection of schemas, each 
-schema object behaves as a collection of tables, and each table behaves as a
- collection of columns. The above expression could be rewritten like this.
+model = Model.from_catalog(
+   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+)
+```
+**Note**: use the 
+[DERIVA Authentication Agent](http://docs.derivacloud.org/users-guide/managing-data.html) 
+to login to the server _before_ creating the `DerivaServer` object.
+
+### Schema Definition
+
+The deriva-py `Model` interface implemented by `chisel` follows a pattern:
+
+1. **Define**: `define` class methods on `Schema`, `Table`, `Column`, `Key`, and 
+   `ForeignKey` classes to define the respective parts of the catalog model.
+2. **Create**: `create_schema`, `create_table`, `create_column`, etc. instance 
+   methods on `Model`, `Schema`, and `Table` objects, respectively, that 
+   accept their respective definitions (returned by their `define` method) and 
+   issue requests to the DERIVA server to create that part of the catalog model.
+3. **Alter**: `alter` instance methods on model objects for altering aspects of 
+   their definitions.
+4. **Drop**: `drop` instance methods on model object for dropping them from the 
+   catalog model.
 
 ```python
-catalog['a_schema']['foo']
+from deriva.core import DerivaServer
+from deriva.chisel import Model, Schema, Table, Column, Key, ForeignKey, builtin_types
+
+# connect to catalog
+model = Model.from_catalog(
+   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+)
+
+# create a schema
+acme = model.create_schema(Schema.define('acme'))
+
+# create a table
+foo = acme.create_table(Table.define(
+   'foo',
+   column_defs=[
+      Column.define('bar', builtin_types.int8, nullok=False),
+      Column.define('baz', builtin_types.text),
+      Column.define('qux', builtin_types.timestamptz),
+      Column.define('xyzzy', builtin_types.text)
+   ],
+   key_defs=[
+      Key.define(...)
+   ],
+   fkey_defs=[
+      ForeignKey.define(...)
+   ]
+))
+
+# rename column
+foo.columns['xyzzy'].alter(name='zzyzx')
+
+# drop column
+foo.columns['baz'].drop()
 ```
 
-The model objects may be invalidated following a catalog model 
-mutation and, if so, future operations on them will raise an exception. In that
-case, just reconnect to the catalog (i.e., using `catalog = chisel.connect(...)`) 
-to refresh the catalog's internal state.
+For more details, see the [deriva-py tutorial](http://docs.derivacloud.org/users-guide/project-tutorial.html#your-first-catalog).
 
-### Perform operations
+### Schema Evolution Expressions
 
-Chisel operations begin by calling a method of an existing table (e.g., `foo`)
-or one of its columns. The methods return objects called "computed relations" 
--- essentially a new table that will be _computed_ from the operations over 
-the initial, extant table. These operations can be _chained_ to form more 
-complex operations.
+In addition to schema definition, chisel supports table creation from 
+schema evolution _expressions_. If you are familiar with SQL, these are akin
+to the `CREATE TABLE <name> AS <expr>` statement.
 
-In this example, a new unique "domain" of terms is created from the `bar`
+```python
+acme.create_table_as(
+   'bar',  # table name
+   foo.where(foo.columns['qux'] == '2008').select(foo.columns['bar'])  # expression
+)
+```
+
+Chisel comes with several builtin expression builders to reduce the difficulty
+of expressing some complicated transformations. 
+
+In this example, a new unique "domain" of terms is created from the `zzyzx`
 column of the `foo` table.
 
 ```python
-catalog['a_schema']['foo']['bar'].to_domain()
+acme.create_table_as(
+   'zzyzx_terms',  # table name
+   foo.columns['zzyzx'].to_domain()  # expression
+)
 ```
 
-This `to_domain` method, when executed, will select the values of 
-column `bar` from table `foo`. It will also _deduplicate_ the values using a 
-string similarity comparison of them. Then it will generate a new relation
-(i.e., table) to store just those deduplicated values of the column `bar`.
+The `to_domain` method, when executed, will select the values of column `zzyzx`. 
+It will also _deduplicate_ the values using a string similarity comparison. Then 
+it will generate a new relation (i.e., table) to store just those deduplicated 
+values of the column `zzyzx`.
 
-### Assign to catalog
-
-Up to this point, we have only expressed schema evolution operations, but none
-have been executed nor has the catalog been altered in any way.
-
-To make our changes permanent, we first need to assign this new relation 
-(i.e., table) to the catalog.
-
-```python
-catalog['a_schema']['foobar'] = catalog['a_schema']['foo']['bar'].to_domain()
-```
-
-### More examples
-
-For more details, see the brief [usage guide](./docs/usage.md). In addition, 
-the [examples](./examples) directory incudes several scripts to illustrate
-usage of chisel. To run the example scripts, you must set your 
-`CHISEL_EXAMPLE_CATALOG_URL` environment variable to an ERMrest catalog URL.
-
-## API
-
-Chisel is under active development and its API is subject to change. Currently,
-the best way to learn about the API is to use Python's built-in `help(...)` 
-method on tables and columns. Such as `help(catalog['a_schema']['foo'])` or 
-`help(catalog['a_schema']['foo']['bar'])` to get a description of the object 
-and listing of its methods. This also works on functions, like 
-`help(catalog['a_schema']['foo']['bar'].to_domain)`.
+For more details, see the [usage examples](./examples) and the [usage guide](./docs/usage.md).
