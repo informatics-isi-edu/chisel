@@ -11,9 +11,9 @@ class TestConsolidate (BaseTestCase):
 
     def test_consolidate_disabled(self):
 
-        with self._model.begin(enable_work_sharing=False) as sess:
-            enhancer_anatomy = self._model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_anatomical_structures'].to_atoms()
-            enhancer_genes = self._model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_closest_genes'].to_atoms()
+        with self.model.begin(enable_work_sharing=False) as sess:
+            enhancer_anatomy = self.model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_anatomical_structures'].to_atoms()
+            enhancer_genes = self.model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_closest_genes'].to_atoms()
             sess.create_table_as('.', self._test_output_consolidate_anatomy, enhancer_anatomy)
             sess.create_table_as('.', self._test_output_consolidate_gene, enhancer_genes)
 
@@ -22,9 +22,9 @@ class TestConsolidate (BaseTestCase):
 
     def test_consolidate_enabled(self):
 
-        with self._model.begin(enable_work_sharing=True) as sess:
-            enhancer_anatomy = self._model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_anatomical_structures'].to_atoms()
-            enhancer_genes = self._model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_closest_genes'].to_atoms()
+        with self.model.begin(enable_work_sharing=True) as sess:
+            enhancer_anatomy = self.model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_anatomical_structures'].to_atoms()
+            enhancer_genes = self.model.schemas['.'].tables[self.catalog_helper.samples].columns['list_of_closest_genes'].to_atoms()
             sess.create_table_as('.', self._test_output_consolidate_anatomy, enhancer_anatomy)
             sess.create_table_as('.', self._test_output_consolidate_gene, enhancer_genes)
 

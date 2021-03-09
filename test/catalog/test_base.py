@@ -13,25 +13,25 @@ class TestBaseCatalog (BaseTestCase):
 
     def test_evolve_ctx_rollback(self):
         val = 'foo'
-        with self._model.begin() as sess:
+        with self.model.begin() as sess:
             sess.rollback()
             val = 'bar'
         self.assertEqual(val, 'foo', "catalog model evolve session did not exit on rollback")
 
     def test_catalog_describe(self):
-        _util.describe(self._model)
+        _util.describe(self.model)
 
     def test_schema_describe(self):
-        _util.describe(self._model.schemas['.'])
+        _util.describe(self.model.schemas['.'])
 
     def test_table_describe(self):
-        _util.describe(self._model.schemas['.'].tables[self.catalog_helper.samples])
+        _util.describe(self.model.schemas['.'].tables[self.catalog_helper.samples])
 
     def test_catalog_graph(self):
-        _util.graph(self._model)
+        _util.graph(self.model)
 
     def test_schema_graph(self):
-        _util.graph(self._model.schemas['.'])
+        _util.graph(self.model.schemas['.'])
 
     def test_table_graph(self):
-        _util.graph(self._model.schemas['.'].tables[self.catalog_helper.samples])
+        _util.graph(self.model.schemas['.'].tables[self.catalog_helper.samples])

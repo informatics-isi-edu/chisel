@@ -298,7 +298,7 @@ class BaseTestCase (unittest.TestCase):
 
     def setUp(self):
         self.catalog_helper.unit_setup()
-        self._model = self.catalog_helper.connect()
+        self.model = self.catalog_helper.connect()
 
     def tearDown(self):
         self.catalog_helper.unit_teardown()
