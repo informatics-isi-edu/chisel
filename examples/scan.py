@@ -2,8 +2,8 @@
 """
 import os
 from deriva.core import DerivaServer
-from chisel import Model
-from chisel.catalog.semistructured import csv_reader
+from deriva.chisel import Model
+from deriva.chisel.catalog.semistructured import csv_reader
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
 __host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')

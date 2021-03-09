@@ -12,8 +12,8 @@ from requests import HTTPError
 from deriva.core import DerivaServer, ErmrestCatalog, urlquote, get_credential
 from deriva.core.ermrest_model import Schema, Table, Column, Key, builtin_types
 
-from chisel.catalog.semistructured import SemiStructuredCatalog, SemiStructuredModel
-from chisel import Model
+from deriva.chisel.catalog.semistructured import SemiStructuredCatalog, SemiStructuredModel
+from deriva.chisel import Model
 
 logger = logging.getLogger(__name__)
 

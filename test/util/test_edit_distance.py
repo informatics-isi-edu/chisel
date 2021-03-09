@@ -1,5 +1,5 @@
 import unittest
-from chisel import util
+from deriva.chisel import util
 
 
 class TestEditDistance (unittest.TestCase):

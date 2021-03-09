@@ -2,7 +2,7 @@
 """
 import os
 from deriva.core import DerivaServer
-from chisel import Model
+from deriva.chisel import Model
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
 __host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')

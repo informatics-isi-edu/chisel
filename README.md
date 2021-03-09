@@ -14,10 +14,10 @@ A brief example:
 
 ```python
 from deriva.core import DerivaServer
-from chisel import Model
+from deriva.chisel import Model
 
 model = Model.from_catalog(
-    DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
 )
 
 public = model.schemas['public']
@@ -44,10 +44,10 @@ Connect to a DERIVA catalog and create the `Model` management interface.
 
 ```python
 from deriva.core import DerivaServer
-from chisel import Model
+from deriva.chisel import Model
 
 model = Model.from_catalog(
-    DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
 )
 ```
 **Note**: use the 
@@ -70,26 +70,32 @@ The deriva-py `Model` interface implemented by `chisel` follows a pattern:
    catalog model.
 
 ```python
-from chisel import Schema, Table, Column, Key, ForeignKey, builtin_types
+from deriva.core import DerivaServer
+from deriva.chisel import Model, Schema, Table, Column, Key, ForeignKey, builtin_types
+
+# connect to catalog
+model = Model.from_catalog(
+   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+)
 
 # create a schema
 acme = model.create_schema(Schema.define('acme'))
 
 # create a table
 foo = acme.create_table(Table.define(
-    'foo',
-    column_defs=[
-        Column.define('bar', builtin_types.int8, nullok=False),
-        Column.define('baz', builtin_types.text),
-        Column.define('qux', builtin_types.timestamptz),
-        Column.define('xyzzy', builtin_types.text)
-    ],
-    key_defs=[
-        Key.define(...)
-    ],
-    fkey_defs=[
-        ForeignKey.define(...)
-    ]
+   'foo',
+   column_defs=[
+      Column.define('bar', builtin_types.int8, nullok=False),
+      Column.define('baz', builtin_types.text),
+      Column.define('qux', builtin_types.timestamptz),
+      Column.define('xyzzy', builtin_types.text)
+   ],
+   key_defs=[
+      Key.define(...)
+   ],
+   fkey_defs=[
+      ForeignKey.define(...)
+   ]
 ))
 
 # rename column

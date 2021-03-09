@@ -1,7 +1,6 @@
 """A few very basic tests.
 """
-import unittest
-import chisel
+from deriva.chisel import util as _util
 from test.helpers import CatalogHelper, BaseTestCase
 
 
@@ -20,19 +19,19 @@ class TestBaseCatalog (BaseTestCase):
         self.assertEqual(val, 'foo', "catalog model evolve session did not exit on rollback")
 
     def test_catalog_describe(self):
-        chisel.describe(self._model)
+        _util.describe(self._model)
 
     def test_schema_describe(self):
-        chisel.describe(self._model.schemas['.'])
+        _util.describe(self._model.schemas['.'])
 
     def test_table_describe(self):
-        chisel.describe(self._model.schemas['.'].tables[self.catalog_helper.samples])
+        _util.describe(self._model.schemas['.'].tables[self.catalog_helper.samples])
 
     def test_catalog_graph(self):
-        chisel.graph(self._model)
+        _util.graph(self._model)
 
     def test_schema_graph(self):
-        chisel.graph(self._model.schemas['.'])
+        _util.graph(self._model.schemas['.'])
 
     def test_table_graph(self):
-        chisel.graph(self._model.schemas['.'].tables[self.catalog_helper.samples])
+        _util.graph(self._model.schemas['.'].tables[self.catalog_helper.samples])

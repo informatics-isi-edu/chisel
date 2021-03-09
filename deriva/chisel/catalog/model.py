@@ -1,7 +1,7 @@
 """Catalog model classes.
 """
 from deriva.core import ermrest_model as _erm
-from chisel.catalog.wrapper import MappingWrapper, SequenceWrapper, ModelObjectWrapper
+from .wrapper import MappingWrapper, SequenceWrapper, ModelObjectWrapper
 
 
 class Model (object):

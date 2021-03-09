@@ -4,8 +4,8 @@ You will need a copy of 'zfs.owl' and specify its location at 'CHISEL_EXAMPLES_Z
 """
 import os
 from deriva.core import DerivaServer
-from chisel import Model
-from chisel.catalog.semistructured import shred
+from deriva.chisel import Model
+from deriva.chisel import shred
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
 __host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')

@@ -3,7 +3,7 @@
 import os
 import unittest
 from test.helpers import ERMrestHelper, BaseTestCase
-from chisel import builtin_types, Column, Table, ForeignKey
+from deriva.chisel import builtin_types, Column, Table, ForeignKey
 
 ermrest_hostname = os.getenv('DERIVA_PY_TEST_HOSTNAME')
 ermrest_catalog_id = os.getenv('DERIVA_PY_TEST_CATALOG')

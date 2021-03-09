@@ -1,8 +1,8 @@
-"""Example of using the 'domainify' transformation.
+"""Example of using the 'tagify' transformation.
 """
 import os
 from deriva.core import DerivaServer
-from chisel import Model
+from deriva.chisel import Model
 
 __dry_run__ = os.getenv('CHISEL_EXAMPLE_DRY_RUN', True)
 __host__ = os.getenv('CHISEL_EXAMPLES_HOSTNAME', 'localhost')
@@ -16,5 +16,5 @@ model = Model.from_catalog(catalog)
 with model.begin(dry_run=__dry_run__) as session:
     session.create_table_as(
         'vocab', 'ethnicity',
-        model.schemas['isa']['clinical_assay']['ethnicity'].to_domain()
+        model.schemas['isa'].tables['clinical_assay'].columns['ethnicity'].to_domain()
     )

@@ -1,7 +1,7 @@
 """A few direct tests on computed relatoin expressions.
 """
 import unittest
-from chisel.catalog.semistructured import json_reader
+from deriva.chisel.catalog.semistructured import json_reader
 
 payload = [
     {

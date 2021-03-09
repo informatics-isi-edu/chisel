@@ -4,8 +4,10 @@ import json
 from pyfpm.matcher import Matcher
 from .. import util
 from .. import operators as _op
-from ..operators import PhysicalOperator  # don't believe linters that tell you this isn't used in this module!
+from ..operators import PhysicalOperator  # required for the physical planning rules to compile
 from .symbols import *
+
+__pop__ = PhysicalOperator  # this is a dummy statement to keep IDEs from pruning the reference to PhysicalOperator
 
 
 #

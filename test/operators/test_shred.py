@@ -4,8 +4,8 @@ import itertools
 import os
 import unittest
 import rdflib as _rdflib
-import chisel.operators as _op
-from chisel.catalog.semistructured import shred as chisel_shred
+import deriva.chisel.operators as _op
+from deriva.chisel.catalog.semistructured import shred as chisel_shred
 
 # flag to run all unit tests
 CHISEL_TEST_ALL = os.getenv('CHISEL_TEST_ALL')

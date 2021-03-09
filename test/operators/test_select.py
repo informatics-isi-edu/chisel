@@ -2,8 +2,8 @@
 import logging
 import os
 import unittest
-import chisel.operators as _op
-import chisel.optimizer as _opt
+import deriva.chisel.operators as _op
+import deriva.chisel.optimizer as _opt
 from test.helpers import TestHelper
 
 logger = logging.getLogger(__name__)

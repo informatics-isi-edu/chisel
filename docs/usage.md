@@ -15,7 +15,7 @@ see [deriva-py docs](https://github.com/informatics-isi-edu/deriva-py/tree/maste
 
 ```python
 from deriva.core import DerivaServer
-from chisel import Model, Schema, Table, Column, Key, ForeignKey, builtin_types
+from deriva.chisel import Model, Schema, Table, Column, Key, ForeignKey, builtin_types
 
 # connect to ermrest catalog and get model management interface
 model = Model.from_catalog(
@@ -26,8 +26,8 @@ model = Model.from_catalog(
 foo = model.schemas['public'].create_table(Table.define(
     'Foo',
     column_defs=[
-        Column.define('Col1', builtin_types.int8), 
-        Column.define('Col2', builtin_types.text), 
+        Column.define('Col1', builtin_types.int8),
+        Column.define('Col2', builtin_types.text),
         ...
     ],
     key_defs=[
