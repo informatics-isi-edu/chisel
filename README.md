@@ -110,7 +110,7 @@ to the `CREATE TABLE <name> AS <expr>` statement.
 ```python
 acme.create_table_as(
    'bar',  # table name
-   foo.where(foo.columns['qux'] > '2008').select(foo.columns['bar'])  # expression
+   foo.where(foo.columns['qux'] == '2008').select(foo.columns['bar'])  # expression
 )
 ```
 
