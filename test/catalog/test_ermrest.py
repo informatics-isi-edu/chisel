@@ -42,7 +42,7 @@ class TestERMrestCatalog (BaseTestCase):
         """Helper function to test if named table exists and is valid.
         """
         # is it in the ermrest schema?
-        ermrest_schema = self._model.ermrest_catalog.getCatalogSchema()
+        ermrest_schema = self._model.catalog.getCatalogSchema()
         self.assertIn(new_tname, ermrest_schema['schemas']['public']['tables'], 'New table not found in ermrest schema')
         # is it in the local model?
         self.assertIn(new_tname, self._model.schemas['public'].tables)
@@ -145,5 +145,5 @@ class TestERMrestCatalog (BaseTestCase):
         cname = 'list_of_closest_genes'
         self._model.schemas['public'].create_table_as(cname, samples.columns[cname].to_atoms())
         # validate new table is in ermrest
-        ermrest_schema = self._model.ermrest_catalog.getCatalogSchema()
+        ermrest_schema = self._model.catalog.getCatalogSchema()
         self.assertIn(cname, ermrest_schema['schemas']['public']['tables'])

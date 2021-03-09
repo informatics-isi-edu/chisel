@@ -26,8 +26,6 @@ class Model (model.Model):
         super(Model, self).__init__(catalog)
         self._new_schema = lambda obj: Schema(self, obj)
 
-        self.ermrest_catalog = self.catalog  # TODO: rename downstream usages to '.catalog'
-
     def make_extant_symbol(self, schema_name, table_name):
         """Makes a symbol for representing an extant relation.
 

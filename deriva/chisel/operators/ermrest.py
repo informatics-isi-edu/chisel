@@ -42,7 +42,7 @@ class ERMrestProjectSelect (Project):
         self._formula = formula
 
     def __iter__(self):
-        paths = self._catalog.ermrest_catalog.getPathBuilder()
+        paths = self._catalog.catalog.getPathBuilder()
         table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
         cols = [
@@ -67,7 +67,7 @@ class ERMrestSelect (PhysicalOperator):
         self._formula = formula
 
     def __iter__(self):
-        paths = self._catalog.ermrest_catalog.getPathBuilder()
+        paths = self._catalog.catalog.getPathBuilder()
         table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
         rows = filtered_path.entities()
