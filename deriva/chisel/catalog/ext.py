@@ -32,7 +32,7 @@ class Model (model.Model):
         :param schema_name: schema name
         :param table_name: table name
         """
-        return symbols.ERMrestExtant(self, schema_name, table_name)
+        return symbols.TableExtant(self, schema_name, table_name)
 
     class ModelEvolutionContextManager (object):
         """Represents a model evolution session.

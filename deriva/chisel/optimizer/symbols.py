@@ -1,5 +1,5 @@
-"""Logical symbols (operators, terms, etc.) of the planner and optimizer."""
-
+"""Logical symbols (operators, terms, etc.) of the planner and optimizer.
+"""
 from collections import namedtuple
 
 
@@ -36,13 +36,13 @@ def _conjunction_and_fn(left, right):
 # Extant definitions
 #
 
-#: Represents an extant (existing table) from an ERMrest catalog
-ERMrestExtant = namedtuple('ERMrestExtant', 'catalog sname tname')
+#: Represents an extant (existing table) from a catalog model
+TableExtant = namedtuple('TableExtant', 'model sname tname')
 
-#: JSONDataExtant operator
+#: Represents an extant file in JSON format from an on disk catalog model
 JSONDataExtant = namedtuple('JSONDataExtant', 'input_filename json_content object_payload key_regex')
 
-#: TabularDataExtant operator
+#: Represents an extant file in text-delimited format from an on disk catalog model
 TabularDataExtant = namedtuple('TabularDataExtant', 'filename')
 
 

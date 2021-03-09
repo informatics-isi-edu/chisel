@@ -1,5 +1,5 @@
-"""Physical operators specific to ERMrest data sources."""
-
+"""Physical operators specific to ERMrest data sources.
+"""
 import logging
 from .base import PhysicalOperator, Metadata, Project
 from .base import _op
@@ -32,17 +32,25 @@ def _filter_table(table, formula):
 
 
 class ERMrestProjectSelect (Project):
-    """Fused project-scan operator for ERMrest data sources."""
-    def __init__(self, catalog, sname, tname, projection, formula=None):
-        super(ERMrestProjectSelect, self).__init__(Metadata(catalog.schemas[sname].tables[tname].prejson()), projection)
-        self._catalog = catalog
+    """Fused project-scan operator for ERMrest data sources.
+    """
+    def __init__(self, model, sname, tname, projection, formula=None):
+        """Initialize the operator.
+
+        :param model: an ermrest Model object
+        :param sname: schema name
+        :param tname: table name
+        :param projection: projection list of attributes
+        """
+        super(ERMrestProjectSelect, self).__init__(Metadata(model.schemas[sname].tables[tname].prejson()), projection)
+        self._model = model
         self._sname = sname
         self._tname = tname
         self._projection = projection
         self._formula = formula
 
     def __iter__(self):
-        paths = self._catalog.catalog.getPathBuilder()
+        paths = self._model.catalog.getPathBuilder()
         table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
         cols = [
@@ -57,17 +65,25 @@ class ERMrestProjectSelect (Project):
 
 
 class ERMrestSelect (PhysicalOperator):
-    """Select operator for ERMrest data sources."""
-    def __init__(self, catalog, sname, tname, formula=None):
+    """Select operator for ERMrest data sources.
+    """
+    def __init__(self, model, sname, tname, formula=None):
+        """Initialize the operator.
+
+        :param model: an ermrest Model object
+        :param sname: schema name
+        :param tname: table name
+        :param formula: where-clause formula
+        """
         super(ERMrestSelect, self).__init__()
-        self._description = catalog.schemas[sname].tables[tname].prejson()
-        self._catalog = catalog
+        self._description = model.schemas[sname].tables[tname].prejson()
+        self._model = model
         self._sname = sname
         self._tname = tname
         self._formula = formula
 
     def __iter__(self):
-        paths = self._catalog.catalog.getPathBuilder()
+        paths = self._model.catalog.getPathBuilder()
         table = paths.schemas[self._sname].tables[self._tname]
         filtered_path = _filter_table(table, self._formula)
         rows = filtered_path.entities()
