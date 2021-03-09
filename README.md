@@ -8,7 +8,7 @@ Features:
   * Several built-in functions to reduce effort of writing complicated expressions;
   * Ability to view the output of expressions before materializing;
   * Schema evolution expressions that update schema annotations too;
-  * Bulk operation execution to increase efficiency;
+  * Bulk operation execution to increase efficiency.
 
 A brief example:
 
@@ -54,14 +54,14 @@ model = Model.from_catalog(
 [DERIVA Authentication Agent](http://docs.derivacloud.org/users-guide/managing-data.html) 
 to login to the server _before_ creating the `DerivaServer` object.
 
-### Basic Schema Definition
+### Schema Definition
 
 The deriva-py `Model` interface implemented by `chisel` follows a pattern:
 
 1. **Define**: `define` class methods on `Schema`, `Table`, `Column`, `Key`, and 
    `ForeignKey` classes to define the respective parts of the catalog model.
 2. **Create**: `create_schema`, `create_table`, `create_column`, etc. instance 
-   methods on `Model`, `Schema`, `Table`, etc. model objects, respectively, that 
+   methods on `Model`, `Schema`, and `Table` objects, respectively, that 
    accept their respective definitions (returned by their `define` method) and 
    issue requests to the DERIVA server to create that part of the catalog model.
 3. **Alter**: `alter` instance methods on model objects for altering aspects of 
@@ -103,7 +103,7 @@ For more details, see the [deriva-py tutorial](http://docs.derivacloud.org/users
 
 ### Schema Evolution Expressions
 
-In addition to basic schema definition, `chisel` support table creation from 
+In addition to schema definition, chisel supports table creation from 
 schema evolution _expressions_. If you are familiar with SQL, these are akin
 to the `CREATE TABLE <name> AS <expr>` statement.
 
