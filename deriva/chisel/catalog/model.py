@@ -190,7 +190,7 @@ class Constraint (ModelObjectWrapper):
         super(Constraint, self).__init__(constraint)
         self.table = parent
         self._new_schema = lambda obj: Schema(self, obj)
-        self._new_column = lambda obj: Column(self.table, obj)
+        self._new_column = lambda obj: Column(parent.schema.model.schemas[obj.table.schema.name].tables[obj.table.name], obj)
 
     @property
     def name(self):
