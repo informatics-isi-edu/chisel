@@ -1,8 +1,10 @@
 """Catalog model classes.
 """
+import logging
 from deriva.core import ermrest_model as _erm
 from .wrapper import MappingWrapper, SequenceWrapper, ModelObjectWrapper
 
+logger = logging.getLogger(__name__)
 
 class Model (object):
     """Catalog model.
@@ -74,6 +76,20 @@ class Schema (ModelObjectWrapper):
            The returned Table is also added to self.tables.
         """
         return self._new_table(self._wrapped_obj.create_table(table_def))
+
+    def drop(self, cascade=False):
+        """Remove this schema from the remote database.
+
+        :param cascade: automatically drop objects (namely tables) that are contained in the schema. Note that this will
+                        only drop object managed by ERMrest (i.e., tables, keys, and foreign keys).
+        """
+        logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
+        if cascade:
+            # drop dependent objects
+            for table in list(self.tables.values()):
+                table.drop(cascade=True)
+
+        super(Schema, self).drop()
 
 
 class Table (ModelObjectWrapper):
@@ -148,6 +164,19 @@ class Table (ModelObjectWrapper):
 
         """
         return self._new_fkey(self._wrapped_obj.create_fkey(fkey_def))
+
+    def drop(self, cascade=False):
+        """Remove this table from the remote database.
+
+        :param cascade: automatically drop objects (namely foreign keys) that depend on this table. Note that this will
+                        only drop object managed by ERMrest (i.e., foreign keys).
+        """
+        logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
+        if cascade:
+            # drop dependent objects
+            for fkey in list(self.referenced_by):
+                fkey.drop()
+        super(Table, self).drop()
 
 
 class Column (ModelObjectWrapper):

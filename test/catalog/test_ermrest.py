@@ -3,7 +3,7 @@
 import os
 import unittest
 from test.helpers import ERMrestHelper, BaseTestCase
-from deriva.chisel import builtin_types, Column, Table, ForeignKey
+from deriva.chisel import builtin_types, Column, Table, ForeignKey, Schema
 
 ermrest_hostname = os.getenv('DERIVA_PY_TEST_HOSTNAME')
 ermrest_catalog_id = os.getenv('DERIVA_PY_TEST_CATALOG')
@@ -121,6 +121,12 @@ class TestERMrestCatalog (BaseTestCase):
         samples.drop()
         with self.assertRaises(KeyError):
             samples.columns[self.catalog_helper.samples]
+
+    def test_drop_schema_cascade(self):
+        self.model.create_schema(Schema.define('foo'))
+        self.model.schemas['foo'].create_table(Table.define('bar'))
+        self.model.schemas['foo'].drop(cascade=True)
+        self.assertNotIn('foo', self.model.schemas, msg='failed to drop schema')
 
     def test_clone_table(self):
         samples = self.model.schemas['public'].tables[self.catalog_helper.samples]
