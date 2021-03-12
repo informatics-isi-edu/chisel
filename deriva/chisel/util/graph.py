@@ -11,7 +11,7 @@ def graph(obj, engine='fdp'):
     :return: a Graph object that can be rendered directly by jupyter notbook or qtconsole
     """
     if hasattr(obj, 'schemas'):
-        return graph_catalog(obj, engine=engine)
+        return graph_model(obj, engine=engine)
     elif hasattr(obj, 'tables'):
         return graph_schema(obj, engine=engine)
     elif hasattr(obj, 'columns'):
@@ -20,7 +20,7 @@ def graph(obj, engine='fdp'):
     return TypeError('Objects of type {typ} are not supported'.format(typ=type(obj).__name__))
 
 
-def graph_catalog(model, engine='fdp'):
+def graph_model(model, engine='fdp'):
     """Generates and returns a graphviz Digraph.
 
     :param model: a catalog model
@@ -42,7 +42,7 @@ def graph_catalog(model, engine='fdp'):
         for table in schema.tables.values():
             tail_name = "%s.%s" % (schema.name, table.name)
             for fkey in table.foreign_keys:
-                refcol = fkey['referenced_columns'][0]
+                refcol = fkey.referenced_columns[0]
                 head_name = "%s.%s" % (refcol.table.schema.name, refcol.table.name)
                 dot.edge(tail_name, head_name)
 
