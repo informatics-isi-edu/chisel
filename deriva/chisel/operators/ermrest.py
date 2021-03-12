@@ -1,8 +1,7 @@
 """Physical operators specific to ERMrest data sources.
 """
 import logging
-from .base import PhysicalOperator, Metadata, Project
-from .base import _op
+from .base import symbols, PhysicalOperator, Metadata, Project
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +13,13 @@ def _filter_table(table, formula):
     :param formula: a comparison or conjunction of comparisons
     :return: a filtered data path
     """
-    assert not formula or isinstance(formula, _op.Comparison) or isinstance(formula, _op.Conjunction)
+    assert not formula or isinstance(formula, symbols.Comparison) or isinstance(formula, symbols.Conjunction)
     path = table.path
 
     # turn formula into list of comparisons
     if not formula:
         return path
-    elif isinstance(formula, _op.Comparison):
+    elif isinstance(formula, symbols.Comparison):
         comparisons = [formula]
     else:
         comparisons = formula.comparisons

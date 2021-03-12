@@ -8,7 +8,7 @@ import logging
 from operator import itemgetter
 import uuid
 from deriva.core import ermrest_model as _em
-from .. import optimizer as _op
+from ..optimizer import symbols
 
 logger = logging.getLogger(__name__)
 
@@ -165,8 +165,8 @@ class Select (PhysicalOperator):
         super(Select, self).__init__()
         assert isinstance(child, PhysicalOperator)
         self._child = child
-        assert isinstance(formula, _op.Comparison) or isinstance(formula, _op.Conjunction)
-        if isinstance(formula, _op.Comparison):
+        assert isinstance(formula, symbols.Comparison) or isinstance(formula, symbols.Conjunction)
+        if isinstance(formula, symbols.Comparison):
             self._comparisons = [formula]
         else:
             self._comparisons = formula.comparisons
@@ -186,7 +186,7 @@ class Project (PhysicalOperator):
     """Basic projection operator."""
     def __init__(self, child, projection):
         super(Project, self).__init__()
-        projection = projection or [_op.AllAttributes()]
+        projection = projection or [symbols.AllAttributes()]
         assert hasattr(projection, '__iter__'), "Projection is not an iterable collection"
         assert isinstance(child, PhysicalOperator)
         self._child = child
@@ -203,13 +203,13 @@ class Project (PhysicalOperator):
         # Attributes may contain an introspection function. If so, call it on the table model object, and combine its
         # results with the rest of the given attributes list.
         for item in projection:
-            if isinstance(item, _op.AllAttributes):
+            if isinstance(item, symbols.AllAttributes):
                 logger.debug("projecting all attributes")
                 self._attributes |= {col_def['name'] for col_def in table_def['column_definitions']}
             elif isinstance(item, str):
                 logger.debug("projecting attribute by name: %s", item)
                 self._attributes.add(item)
-            elif isinstance(item, _op.IntrospectionFunction):
+            elif isinstance(item, symbols.IntrospectionFunction):
                 logger.debug("projecting attributes returned by an introspection function: %s", item)
                 attrs = item.fn(table_def)
                 if 'RID' in attrs:
@@ -219,14 +219,14 @@ class Project (PhysicalOperator):
                     self._cname_to_alias['RID'].append(renamed_rid)
                 self._attributes |= set(attrs)
                 # TODO: could add a fkey to the source relation here, if it is an extant table in the catalog
-            elif isinstance(item, _op.AttributeAlias):
+            elif isinstance(item, symbols.AttributeAlias):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
                 self._cname_to_alias[item.name].append(item.alias)
-            elif isinstance(item, _op.AttributeDrop):
+            elif isinstance(item, symbols.AttributeDrop):
                 logger.debug("projection with attribute drop: %s", item)
                 removals.add(item.name)
-            elif isinstance(item, _op.AttributeAdd):
+            elif isinstance(item, symbols.AttributeAdd):
                 logger.debug("projection with attribute add: %s", item)
                 additions.append(json.loads(item.definition))
             else:
@@ -311,7 +311,7 @@ class Rename (Project):
         assert isinstance(child, PhysicalOperator)
         assert child.description
         assert isinstance(renames, tuple)
-        assert all([isinstance(rename, _op.AttributeAlias) for rename in renames])
+        assert all([isinstance(rename, symbols.AttributeAlias) for rename in renames])
 
         # compile list of renames, and handle >1 alias per original column
         rename_dict = collections.defaultdict(list)
@@ -541,7 +541,7 @@ class NestedLoopsSimilarityJoin (CrossJoin):
     def __init__(self, left, right, condition):
         super(NestedLoopsSimilarityJoin, self).__init__(left, right)
         self._condition = condition
-        assert isinstance(self._condition, _op.Similar), "only similarity is supported in the comparison, currently"
+        assert isinstance(self._condition, symbols.Similar), "only similarity is supported in the comparison, currently"
         self._target = condition.attribute
         self._domain = condition.domain
         self._synonyms = condition.synonyms
