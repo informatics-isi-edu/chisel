@@ -160,26 +160,43 @@ class Drop (Assign):
 
 
 class Select (PhysicalOperator):
-    """Basic select operator."""
+    """Base Select operator.
+    """
     def __init__(self, child, formula):
+        """Initializes the Select operator.
+
+        :param child: input expression
+        :param formula: select formula; basically a parsed where-clause
+        """
         super(Select, self).__init__()
         assert isinstance(child, PhysicalOperator)
+        logger.debug('Select "formula" => %s' % str(formula))
         self._child = child
         assert isinstance(formula, symbols.Comparison) or isinstance(formula, symbols.Conjunction)
         if isinstance(formula, symbols.Comparison):
             self._comparisons = [formula]
         else:
             self._comparisons = formula.comparisons
-        assert([all(comparison.operator == '=' for comparison in self._comparisons)])
 
     def __iter__(self):
-        def predicate(row):
-            if not self._comparisons:  # if no comparisons than return tuple by default
-                return True
-            # otherwise, test that all comparisons match
-            return all([row[comparison.operand1] == comparison.operand2 for comparison in self._comparisons])
+        return filter(self._eval_formula, self._child)
 
-        return filter(predicate, self._child)
+    def _eval_comparison(self, row: dict, comparison: symbols.Comparison):
+        """Evaluates a single comparison.
+        """
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug('eval: %s %s %s' % (row[comparison.operand1], comparison.operator, comparison.operand2))
+        if isinstance(comparison, symbols.Conjunction):
+            raise ValueError('Nested conjunctions are not supported')
+        return getattr(row[comparison.operand1], '__%s__' % comparison.operator)(comparison.operand2)
+
+    def _eval_formula(self, row):
+        """Evalutates the current row against the select operator's formula.
+        """
+        if not self._comparisons:  # if no comparisons than return tuple by default
+            return True
+        # otherwise, test that all comparisons match
+        return all([self._eval_comparison(row, comparison) for comparison in self._comparisons])
 
 
 class Project (PhysicalOperator):

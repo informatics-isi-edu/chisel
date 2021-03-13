@@ -6,7 +6,7 @@ from .base import symbols, PhysicalOperator, Metadata, Project
 logger = logging.getLogger(__name__)
 
 
-def _filter_table(table, formula):
+def _apply_filters(table, formula):
     """Applies filters to a datapath table.
 
     :param table: datapath table object
@@ -25,8 +25,16 @@ def _filter_table(table, formula):
         comparisons = formula.comparisons
 
     # turn comparisons into path filters
+    def _to_datapath_comparison(symbolic_comparison: symbols.Comparison):
+        if isinstance(symbolic_comparison, symbols.Conjunction):
+            raise ValueError('Nested conjunctions not supported')
+        column = table.column_definitions[symbolic_comparison.operand1]
+        op = getattr(column, symbolic_comparison.operator)
+        return op(symbolic_comparison.operand2)
+
+    # apply all filters
     for comparison in comparisons:
-        path.filter(table.column_definitions[comparison.operand1] == comparison.operand2)
+        path.filter(_to_datapath_comparison(comparison))
     return path
 
 
@@ -51,7 +59,7 @@ class ERMrestProjectSelect (Project):
     def __iter__(self):
         paths = self._model.catalog.getPathBuilder()
         table = paths.schemas[self._sname].tables[self._tname]
-        filtered_path = _filter_table(table, self._formula)
+        filtered_path = _apply_filters(table, self._formula)
         cols = [
             table.column_definitions[a] for a in self._attributes
         ] + [
@@ -84,7 +92,7 @@ class ERMrestSelect (PhysicalOperator):
     def __iter__(self):
         paths = self._model.catalog.getPathBuilder()
         table = paths.schemas[self._sname].tables[self._tname]
-        filtered_path = _filter_table(table, self._formula)
+        filtered_path = _apply_filters(table, self._formula)
         rows = filtered_path.entities()
         logger.debug("Fetching rows from '{}'".format(rows.uri))
         return iter(rows)

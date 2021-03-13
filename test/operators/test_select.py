@@ -24,21 +24,21 @@ class TestSelect (unittest.TestCase):
     _child = _op.JSONScan(object_payload=_test_helper.test_data)
 
     def test_select_eq_on_field_0(self):
-        comparison = _opt.Comparison(self._test_helper.FIELDS[0], '=', 0)
+        comparison = _opt.Comparison(self._test_helper.FIELDS[0], 'eq', 0)
         oper = _op.Select(self._child, comparison)
         self.assertDictEqual(self._child.description, oper.description, "table definition should match source")
         self.assertEqual(1, count(oper), 'incorrect number of rows returned by operator')
 
     def test_select_eq_on_field_1(self):
-        comparison = _opt.Comparison(self._test_helper.FIELDS[1], '=', self._test_helper.test_data[0][self._test_helper.FIELDS[1]])
+        comparison = _opt.Comparison(self._test_helper.FIELDS[1], 'eq', self._test_helper.test_data[0][self._test_helper.FIELDS[1]])
         oper = _op.Select(self._child, comparison)
         self.assertDictEqual(self._child.description, oper.description, "table definition should match source")
         self.assertLess(1, count(oper), 'incorrect number of rows returned by operator')
 
     def test_select_conjunction(self):
         comparisons = [
-            _opt.Comparison(self._test_helper.FIELDS[0], '=', 0),
-            _opt.Comparison(self._test_helper.FIELDS[1], '=', self._test_helper.test_data[0][self._test_helper.FIELDS[1]])
+            _opt.Comparison(self._test_helper.FIELDS[0], 'eq', 0),
+            _opt.Comparison(self._test_helper.FIELDS[1], 'eq', self._test_helper.test_data[0][self._test_helper.FIELDS[1]])
             ]
         comparison = _opt.Conjunction(comparisons)
         oper = _op.Select(self._child, comparison)

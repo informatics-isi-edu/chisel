@@ -412,27 +412,27 @@ class Column (model.Column):
         return super(Column, self).__hash__()
 
     def eq(self, other):
-        return symbols.Comparison(operand1=self.name, operator='=', operand2=str(other))
+        return symbols.Comparison(operand1=self.name, operator='eq', operand2=other)
 
     __eq__ = eq
 
     def lt(self, other):
-        return symbols.Comparison(operand1=self.name, operator='<', operand2=str(other))
+        return symbols.Comparison(operand1=self.name, operator='lt', operand2=other)
 
     __lt__ = lt
 
     def le(self, other):
-        return symbols.Comparison(operand1=self.name, operator='<=', operand2=str(other))
+        return symbols.Comparison(operand1=self.name, operator='le', operand2=other)
 
     __le__ = le
 
     def gt(self, other):
-        return symbols.Comparison(operand1=self.name, operator='>', operand2=str(other))
+        return symbols.Comparison(operand1=self.name, operator='gt', operand2=other)
 
     __gt__ = gt
 
     def ge(self, other):
-        return symbols.Comparison(operand1=self.name, operator='>=', operand2=str(other))
+        return symbols.Comparison(operand1=self.name, operator='ge', operand2=other)
 
     __ge__ = ge
 
@@ -443,7 +443,7 @@ class Column (model.Column):
     ge.__doc__ = \
         """Creates and returns a comparison clause.
 
-        :param other: assumes a literal; any allowed but `str(other)` will be used to cast its value to text
+        :param other: assumes a literal value; column references not allows
         :return: a symbolic comparison clause to be used in other statements
         """
 
