@@ -277,7 +277,7 @@ class ForeignKey (Constraint):
         return SequenceWrapper(self._new_column, self._wrapped_obj.referenced_columns)
 
     def __str__(self):
-        return '"%s" FOREIGN KEY (%s) REFERENCES "%s:%s"(%s)' % (
+        return '"%s" FOREIGN KEY (%s) --> "%s:%s" (%s)' % (
             self.constraint_name,
             ', '.join(['"%s"' % c.name for c in self.foreign_key_columns]),
             self._wrapped_obj.pk_table.schema.name,
