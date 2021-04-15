@@ -87,7 +87,11 @@ def describe_table(table):
             [col.name, col.type.typename, str(col.nullok), col.default, col.comment] for col in table.columns
         ]
         desc = "### Table \"" + str(table.schema.name) + "." + str(table.name) + "\"\n" + \
-               markdown_table(data, quote)
+               markdown_table(data, quote) + \
+               "#### Keys:\n" + \
+               "\n".join(['  %s' % str(key) for key in table.keys]) + "\n" + \
+               "#### Foreign Keys:\n" + \
+               "\n".join(['  %s' % str(fkey) for fkey in table.foreign_keys])
         return desc
 
     class Description:

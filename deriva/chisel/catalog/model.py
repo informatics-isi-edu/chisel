@@ -242,6 +242,9 @@ class Key (Constraint):
     def columns(self):
         return self.unique_columns
 
+    def __str__(self):
+        return '"%s" UNIQUE CONSTRAINT (%s)' % (self.constraint_name, ', '.join(['"%s"' % c.name for c in self.unique_columns]))
+
 
 class ForeignKey (Constraint):
     """ForeignKey within a table.
@@ -264,3 +267,12 @@ class ForeignKey (Constraint):
     @property
     def referenced_columns(self):
         return SequenceWrapper(self._new_column, self._wrapped_obj.referenced_columns)
+
+    def __str__(self):
+        return '"%s" FOREIGN KEY (%s) REFERENCES "%s":"%s"(%s)' % (
+            self.constraint_name,
+            ', '.join(['"%s"' % c.name for c in self.foreign_key_columns]),
+            self._wrapped_obj.pk_table.schema.name,
+            self._wrapped_obj.pk_table.name,
+            ', '.join(['"%s"' % c.name for c in self.referenced_columns])
+        )

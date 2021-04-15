@@ -71,7 +71,7 @@ class ModelObjectWrapper (object):
         super(ModelObjectWrapper, self).__init__()
         self._wrapped_obj = obj
         # patch this wrapper object with attributes from the wrapped object
-        for attr_name in ['acls', 'acl_bindings', 'annotations', 'clear', 'apply', 'alter', 'prejson', 'names']:
+        for attr_name in ['acls', 'acl_bindings', 'annotations', 'clear', 'apply', 'alter', 'prejson', 'names', 'constraint_name']:
             if hasattr(obj, attr_name):
                 setattr(self, attr_name, getattr(obj, attr_name))
 
