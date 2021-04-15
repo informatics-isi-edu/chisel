@@ -216,7 +216,7 @@ the source table's name to resolve name collisions.
 ```python
 acme.create_table_as(
     'bar',
-    foo.join(catalog.schemas['acme'].tables['baz'])
+    foo.join(model.schemas['acme'].tables['baz'])
 )
 ```
 
@@ -230,13 +230,13 @@ tables _must_ match.
 ```python
 acme.create_table_as(
     'bar',
-    foo.union(catalog.schemas['acme'].tables['baz'])
+    foo.union(model.schemas['acme'].tables['baz'])
 )
 
 # or use the plus operator
 acme.create_table_as(
     'bar',
-    foo + catalog.schemas['acme'].tables['baz']
+    foo + model.schemas['acme'].tables['baz']
 )
 ```
 
@@ -333,7 +333,7 @@ The `align` method on a `Column` instance returns an expression for aligning it
 with a vocabulary or domain table. Columns can be aligned against a "vocabulary" with `name` and `synonyms` or against a simpler "domain" with only a `name` column.
 
 ```python
-terms = catalog.schemas['acme'].tables['Terminology']
+terms = model.schemas['acme'].tables['Terminology']
 acme.create_table_as(
     'bar',
     foo.columns['Col2'].align(terms)
@@ -349,7 +349,7 @@ relation. The relation produced by `to_tags` can therefore be used as an
 associative relation between the source table and the domain or vocabulary table.
 
 ```python
-terms = catalog.schemas['acme'].tables['Terminology']
+terms = model.schemas['acme'].tables['Terminology']
 acme.create_table_as(
     'bar',
     foo.columns['bars'].to_tags(terms)
