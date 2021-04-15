@@ -110,7 +110,7 @@ class Table (ModelObjectWrapper):
         self.schema = parent
         self._new_column = lambda obj: Column(self, obj)
         self._new_key = lambda obj: Key(self, obj)
-        self._new_fkey = lambda obj: ForeignKey(self, obj)
+        self._new_fkey = lambda obj: ForeignKey(parent.model.schemas[obj.table.schema.name].tables[obj.table.name], obj)
 
     @property
     def kind(self):
@@ -217,9 +217,13 @@ class Constraint (ModelObjectWrapper):
         :param constraint: the underlying ermrest_model.{Key|ForeignKey}
         """
         super(Constraint, self).__init__(constraint)
-        self.table = parent
-        self._new_schema = lambda obj: Schema(self, obj)
+        self._new_schema = lambda obj: Schema(parent.schema.model, obj)
+        self._new_table = lambda obj: Table(parent.schema.model.schemas[obj.table.schema.name], obj)
         self._new_column = lambda obj: Column(parent.schema.model.schemas[obj.table.schema.name].tables[obj.table.name], obj)
+
+    @property
+    def table(self):
+        return self._new_table(self._wrapped_obj.table)
 
     @property
     def name(self):
@@ -261,6 +265,10 @@ class ForeignKey (Constraint):
         return self._wrapped_obj.on_delete
 
     @property
+    def pk_table(self):
+        return self._new_table(self._wrapped_obj.pk_table)
+
+    @property
     def foreign_key_columns(self):
         return SequenceWrapper(self._new_column, self._wrapped_obj.foreign_key_columns)
 
@@ -269,7 +277,7 @@ class ForeignKey (Constraint):
         return SequenceWrapper(self._new_column, self._wrapped_obj.referenced_columns)
 
     def __str__(self):
-        return '"%s" FOREIGN KEY (%s) REFERENCES "%s":"%s"(%s)' % (
+        return '"%s" FOREIGN KEY (%s) REFERENCES "%s:%s"(%s)' % (
             self.constraint_name,
             ', '.join(['"%s"' % c.name for c in self.foreign_key_columns]),
             self._wrapped_obj.pk_table.schema.name,

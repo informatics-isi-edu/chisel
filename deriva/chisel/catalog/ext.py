@@ -542,7 +542,8 @@ class Key (model.Key):
         :param constraint: the underlying ermrest_model.{Key|ForeignKey}
         """
         super(Key, self).__init__(parent, constraint)
-        self._new_schema = lambda obj: Schema(self, obj)
+        self._new_schema = lambda obj: Schema(parent.schema.model, obj)
+        self._new_table = lambda obj: Table(parent.schema, obj)
         self._new_column = lambda obj: Column(parent.schema.model.schemas[obj.table.schema.name].tables[obj.table.name], obj)
 
 
@@ -556,5 +557,6 @@ class ForeignKey (model.ForeignKey):
         :param constraint: the underlying ermrest_model.{Key|ForeignKey}
         """
         super(ForeignKey, self).__init__(parent, constraint)
-        self._new_schema = lambda obj: Schema(self, obj)
+        self._new_schema = lambda obj: Schema(obj.model, obj)
+        self._new_table = lambda obj: Table(parent.schema, obj)
         self._new_column = lambda obj: Column(parent.schema.model.schemas[obj.table.schema.name].tables[obj.table.name], obj)

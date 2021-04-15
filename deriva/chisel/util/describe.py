@@ -86,12 +86,17 @@ def describe_table(table):
         ] + [
             [col.name, col.type.typename, str(col.nullok), col.default, col.comment] for col in table.columns
         ]
-        desc = "### Table \"" + str(table.schema.name) + "." + str(table.name) + "\"\n" + \
-               markdown_table(data, quote) + \
+        desc = "### Table \"" + quote(str(table.schema.name)) + ":" + quote(str(table.name)) + "\"\n" + \
+               markdown_table(data, quote) + "\n" + \
                "#### Keys:\n" + \
-               "\n".join(['  %s' % str(key) for key in table.keys]) + "\n" + \
-               "#### Foreign Keys:\n" + \
-               "\n".join(['  %s' % str(fkey) for fkey in table.foreign_keys])
+               "\n".join(['  - %s' % quote(str(key)) for key in table.keys]) + "\n\n" + \
+               "#### Foreign Keys:\n" + (
+                   "\n".join(['  - %s' % quote(str(fkey)) for fkey in table.foreign_keys])
+                   if table.foreign_keys else '  - None') + "\n\n" + \
+               "#### Referenced By:\n" + (
+                   "\n".join(['  - TABLE "%s:%s" CONSTRAINT %s' % (quote(fkey.table.schema.name), quote(fkey.table.name), quote(str(fkey))) for fkey in table.referenced_by])
+                   if table.referenced_by else '  - None')
+
         return desc
 
     class Description:
