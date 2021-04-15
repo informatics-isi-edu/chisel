@@ -265,12 +265,12 @@ class ForeignKey (Constraint):
         return self._wrapped_obj.on_delete
 
     @property
-    def pk_table(self):
-        return self._new_table(self._wrapped_obj.pk_table)
-
-    @property
     def foreign_key_columns(self):
         return SequenceWrapper(self._new_column, self._wrapped_obj.foreign_key_columns)
+
+    @property
+    def pk_table(self):
+        return self._new_table(self._wrapped_obj.pk_table)
 
     @property
     def referenced_columns(self):

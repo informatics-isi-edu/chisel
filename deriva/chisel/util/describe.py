@@ -82,20 +82,52 @@ def describe_table(table):
 
     def _make_markdown_repr(quote=lambda s: s):
         data = [
-            ["Column", "Type", "Nullable", "Default", "Comment"]
+            ["Name", "Type", "Nullable", "Default", "Comment"]
         ] + [
             [col.name, col.type.typename, str(col.nullok), col.default, col.comment] for col in table.columns
         ]
         desc = "### Table \"" + quote(str(table.schema.name)) + ":" + quote(str(table.name)) + "\"\n" + \
-               markdown_table(data, quote) + "\n" + \
-               "#### Keys:\n" + \
-               "\n".join(['  - %s' % quote(str(key)) for key in table.keys]) + "\n\n" + \
-               "#### Foreign Keys:\n" + (
-                   "\n".join(['  - %s' % quote(str(fkey)) for fkey in table.foreign_keys])
-                   if table.foreign_keys else '  - None') + "\n\n" + \
-               "#### Referenced By:\n" + (
-                   "\n".join(['  - TABLE "%s:%s" CONSTRAINT %s' % (quote(fkey.table.schema.name), quote(fkey.table.name), quote(str(fkey))) for fkey in table.referenced_by])
-                   if table.referenced_by else '  - None')
+               "#### Columns\n" + \
+               markdown_table(data, quote) + "\n"
+
+        if table.keys:
+            key_table = [
+                ["Constraint Name", "Unique Columns"]
+            ] + [
+                [key.constraint_name, ", ".join(["%s" % c.name for c in key.unique_columns])] for key in table.keys
+            ]
+            desc += "#### Keys\n" + \
+                    markdown_table(key_table, quote) + "\n"
+
+        if table.foreign_keys:
+            fkey_table = [
+                ["Constraint Name", "Foreign Key Columns", "Table", "Referenced Columns"]
+            ] + [
+                [
+                    fkey.constraint_name,
+                    ", ".join(["%s" % c.name for c in fkey.foreign_key_columns]),
+                    "%s:%s" % (fkey.pk_table.schema.name, fkey.pk_table.name),
+                    ", ".join(["%s" % c.name for c in fkey.referenced_columns])
+                ]
+                for fkey in table.foreign_keys
+            ]
+            desc += "#### Foreign Keys\n" + \
+                    markdown_table(fkey_table, quote) + "\n"
+
+        if table.referenced_by:
+            refby_table = [
+                ["Constraint Name", "Table", "Foreign Key Columns", "Referenced Columns"]
+            ] + [
+                [
+                    fkey.constraint_name,
+                    "%s:%s" % (fkey.table.schema.name, fkey.table.name),
+                    ", ".join(["%s" % c.name for c in fkey.foreign_key_columns]),
+                    ", ".join(["%s" % c.name for c in fkey.referenced_columns])
+                ]
+                for fkey in table.referenced_by
+            ]
+            desc += "#### Referenced By\n" + \
+                    markdown_table(refby_table, quote) + "\n"
 
         return desc
 
