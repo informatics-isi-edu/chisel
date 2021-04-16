@@ -28,7 +28,7 @@ public.create_table_as('bar', foo.columns['bar'].to_vocabulary())
 
 ## Clone and Install
 
-You will need Python **3.7+**, and `git` and `pip` for installation.
+You will need Python **3.8+**, and `git` and `pip` for installation.
 
 ```sh
 $ git clone https://github.com/informatics-isi-edu/chisel.git
