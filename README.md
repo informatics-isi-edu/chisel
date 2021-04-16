@@ -17,7 +17,7 @@ from deriva.core import DerivaServer
 from deriva.chisel import Model
 
 model = Model.from_catalog(
-   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', 'tutorial.derivacloud.org').connect_ermrest('1')
 )
 
 public = model.schemas['public']
@@ -47,7 +47,7 @@ from deriva.core import DerivaServer
 from deriva.chisel import Model
 
 model = Model.from_catalog(
-   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', 'tutorial.derivacloud.org').connect_ermrest('1')
 )
 ```
 **Note**: use the 
@@ -75,7 +75,7 @@ from deriva.chisel import Model, Schema, Table, Column, Key, ForeignKey, builtin
 
 # connect to catalog
 model = Model.from_catalog(
-   DerivaServer('https', 'demo.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', 'tutorial.derivacloud.org').connect_ermrest('1')
 )
 
 # create a schema
