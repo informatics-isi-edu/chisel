@@ -25,11 +25,7 @@ class CatalogStub (object):
 class ModelStub (_erm.Model):
     """Stubbed out subclass of `ermrest_model.Model` for model document subsets.
     """
-
-    def digest_fkeys(self):
-        """Stubbed out method to allow unresolvable foreign keys in an incomplete model document.
-        """
-        return
+    pass  # originally, `digest_fkeys` was stubbed out, but now this is a complete rendering of the model
 
 
 class SchemaStub (object):
@@ -41,6 +37,15 @@ class SchemaStub (object):
         """
         def make_extant_symbol(self, s, t):
             return
+
+        def prejson(self):
+            return {
+                'schemas': {
+                    '.': {
+                        'tables': {}
+                    }
+                }
+            }
 
     def __init__(self, name):
         """Initializes the schema stub.

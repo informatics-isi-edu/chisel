@@ -21,6 +21,7 @@ class Model (object):
         self.acls = self._wrapped_model.acls
         self.annotations = self._wrapped_model.annotations
         self.apply = self._wrapped_model.apply
+        self.prejson = self._wrapped_model.prejson
 
     @classmethod
     def from_catalog(cls, catalog):

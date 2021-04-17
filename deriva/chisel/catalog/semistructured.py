@@ -247,7 +247,7 @@ def csv_reader(filename):
     :param filename: a filename of a tabular data file in CSV format
     :return: a computed relation object
     """
-    return ext.ComputedRelation(stubs.SchemaStub('none'), symbols.TabularDataExtant(filename))
+    return ext.ComputedRelation(stubs.SchemaStub('.'), symbols.TabularDataExtant(filename))
 
 
 def json_reader(input_filename=None, json_content=None, object_payload=None, key_regex='^RID$|^ID$|^id$|^name$|^Name$'):
@@ -266,7 +266,7 @@ def json_reader(input_filename=None, json_content=None, object_payload=None, key
     :return: a computed relation object
     """
     return ext.ComputedRelation(
-        stubs.SchemaStub('none'),
+        stubs.SchemaStub('.'),
         symbols.JSONDataExtant(input_filename, json_content, object_payload, key_regex)
     )
 
@@ -283,4 +283,4 @@ def shred(filename_or_graph, sparql_query):
     if not sparql_query:
         raise ValueError('Parameter "sparql_query" must be a SPARQL query expression string')
 
-    return ext.ComputedRelation(stubs.SchemaStub('none'), symbols.Shred(filename_or_graph, sparql_query))
+    return ext.ComputedRelation(stubs.SchemaStub('.'), symbols.Shred(filename_or_graph, sparql_query))

@@ -362,16 +362,9 @@ class ComputedRelation (Table):
         # invoke the expression planner to generate a physical operator plan
         plan = planner(logical_plan)
 
-        # create a model doc to represent the computed partial model for the table
-        computed_model_doc = {
-            'schemas': {
-                parent.name: {
-                    'tables': {
-                        plan.description['table_name']: plan.description
-                    }
-                }
-            }
-        }
+        # get the whole model doc and graft this computed relation into it
+        computed_model_doc = parent.model.prejson()
+        computed_model_doc['schemas'][parent.name]['tables'][plan.description['table_name']] = plan.description
 
         # instantiate a stubbed out model object
         computed_model = ModelStub(CatalogStub(), computed_model_doc)
