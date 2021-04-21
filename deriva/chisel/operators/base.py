@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Physical operator (abstract) base class definition
 #
 
-class PhysicalOperator (collections.Iterable):
+class PhysicalOperator:
     """Abstract base class for the physical operators.
 
     A physical operator has two primary purposes:
