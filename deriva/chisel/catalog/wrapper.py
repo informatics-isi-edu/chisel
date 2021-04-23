@@ -70,9 +70,10 @@ class ModelObjectWrapper (object):
         """
         super(ModelObjectWrapper, self).__init__()
         self._wrapped_obj = obj
+
         # patch this wrapper object with attributes from the wrapped object
-        for attr_name in ['acls', 'acl_bindings', 'annotations', 'clear', 'apply', 'alter', 'prejson', 'names']:
-            if hasattr(obj, attr_name):
+        for attr_name in ['acls', 'acl_bindings', 'annotations', 'alter', 'apply', 'clear', 'drop', 'prejson', 'names']:
+            if not hasattr(self, attr_name) and hasattr(obj, attr_name):
                 setattr(self, attr_name, getattr(obj, attr_name))
 
     @property
@@ -86,8 +87,3 @@ class ModelObjectWrapper (object):
     @comment.setter
     def comment(self, value):
         self._wrapped_obj.comment = value
-
-    def drop(self):
-        """Remove this model element from the remote database.
-        """
-        self._wrapped_obj.drop()
