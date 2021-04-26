@@ -90,7 +90,7 @@ class Schema (ModelObjectWrapper):
             for table in list(self.tables.values()):
                 table.drop(cascade=True)
 
-        super(Schema, self).drop()
+        self._wrapped_obj.drop()
 
 
 class Table (ModelObjectWrapper):
@@ -177,7 +177,8 @@ class Table (ModelObjectWrapper):
             # drop dependent objects
             for fkey in list(self.referenced_by):
                 fkey.drop()
-        super(Table, self).drop()
+
+        self._wrapped_obj.drop()
 
 
 class Column (ModelObjectWrapper):
