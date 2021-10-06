@@ -9,6 +9,8 @@ from deriva.core import tag as tags
 
 Match = namedtuple('Match', 'anchor, tag, context, container, mapping')
 
+__search_box__ = 'search-box'
+
 
 def prune(model, symbol):
     """Prunes mappings from a model where symbol found in mapping.
@@ -194,6 +196,14 @@ def _find_dependent_sourcekeys(sourcekey, sources, deps=None):
 
     # test if each 'candidate' source is dependent on this 'sourcekey'
     for candidate in sources:
+        # case: source 'search-box', need to check sources in its `or` block, but do not recurse
+        if candidate == __search_box__:
+            for source_def in sources[__search_box__].get('or', []):
+                if _is_dependent_on_sourcekey(sourcekey, source_def):
+                    # add 'search-box' to deps, continue
+                    deps.add(__search_box__)
+                    break
+        # case: all other sources
         if _is_dependent_on_sourcekey(sourcekey, sources[candidate]):
             # add to deps
             deps.add(candidate)
