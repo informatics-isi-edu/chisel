@@ -82,21 +82,30 @@ def find(model, symbol):
                 if tag == tags.visible_columns or tag == tags.visible_foreign_keys:
                     for context in table.annotations[tag]:
                         if context == 'filter':
-                            vizcols = table.annotations[tag][context]['and']
+                            vizcols = table.annotations[tag][context].get('and', [])
                         else:
                             vizcols = table.annotations[tag][context]
 
                         for vizcol in vizcols:  # vizcol is a form of "mapping"
                             # case: constraint form of vizcol
                             if isinstance(vizcol, list) and vizcol == symbol:
-                                    matches.append(Match(table, tag, context, vizcols, vizcol))
+                                matches.append(Match(table, tag, context, vizcols, vizcol))
                             # case: pseudo-column form of vizcol
                             elif isinstance(vizcol, dict) and 'source' in vizcol and _is_symbol_in_source(vizcol['source'], symbol):
-                                    matches.append(Match(table, tag, context, vizcols, vizcol))
+                                matches.append(Match(table, tag, context, vizcols, vizcol))
+                            # case: column form of vizcol
+                            elif isinstance(vizcol, str) and (table.schema.name, table.name, vizcol) == tuple(symbol):
+                                matches.append(Match(table, tag, context, vizcols, vizcol))
 
                 # case: source-definitions
                 elif tag == tags.source_definitions:
-                    # print(table.annotations[tag])
+                    # search 'columns'
+                    cols = table.annotations[tag].get('columns')
+                    if isinstance(cols, list) \
+                            and len(symbol) == 3 \
+                            and symbol[-1] in cols \
+                            and (table.schema.name, table.name) == symbol[0:2]:
+                        matches.append(Match(table, tag, None, cols, symbol[-1]))
 
                     # search 'fkeys'
                     fkeys = table.annotations[tag].get('fkeys')
@@ -114,23 +123,32 @@ def find(model, symbol):
     return matches
 
 
-def _is_symbol_in_source(source, symbol):
+def _is_symbol_in_source(source, symbol):  # todo: (table, source, symbol)
     """Finds symbol in a source mapping.
     """
-    # case: symbol is a column name
-    #  -- start with column in path and test if matches
-    #  -- then determine if the table reference matches (last fkey in/out points to correct table)
+
+    # case: source is a column name
     if isinstance(source, str):
-        # print('column name', source)
+        # todo: (table.schema.name, table.name, source) == symbol
         return False
 
-    # case: symbol is a constraint name
+    # case: source is a path
     if isinstance(source, list):
+        # case: symbol is a constraint
         for pathelem in source:
             if isinstance(pathelem, dict):
                 constraintname = pathelem.get('inbound') or pathelem.get('outbound')
                 if constraintname == symbol:
                     return True
+
+        # todo case: symbol is a column name
+        #  -- start with column in path and test if matches
+        #  -- then determine if the table reference matches (last fkey in/out points to correct table)
+        #  -- isinstance(source[-1], str) and source[-1] == symbol[2]
+        #  -- isinstance(source[-2], dict) -- ie, a constraint
+        #  -- lookup fkey = model.fkeys(*source[-2].get('inbound' or 'outbound')
+        #  -- if 'inbound' and fkey.table == symbol's table
+        #  -- if 'outbound' and fkey.fk_table == symbol's table
 
     return False
 
@@ -175,7 +193,7 @@ def _find_sourcekey(table, sourcekey):
     for tag in (tags.visible_columns, tags.visible_foreign_keys):
         for context in table.annotations.get(tag, {}):
             vizcols = table.annotations[tag][context]
-            for vizcol in vizcols:  # vizcol is a form of "mapping"
+            for vizcol in vizcols:
                 for sourcekey in sourcekeys:
                     if _is_dependent_on_sourcekey(sourcekey, vizcol):
                         matches.append(Match(table, tag, context, vizcols, vizcol))
@@ -226,7 +244,7 @@ def _is_dependent_on_sourcekey(sourcekey, source_def):
     if not isinstance(source_def.get('source'), str) and sourcekey == source_def.get('source', [{}])[0].get('sourcekey'):
         return True
     # case: sourcekey in wait_for
-    elif sourcekey in source_def.get('display', {}).get('wait_for', []):
+    if sourcekey in source_def.get('display', {}).get('wait_for', []):
         return True
     # not dependent
     return False
