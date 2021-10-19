@@ -93,7 +93,7 @@ def find(model, symbol):
                                 matches.append(Match(table, tag, context, vizcols, vizcol))
                             # case: pseudo-column form of vizcol
                             elif isinstance(vizcol, dict) and 'source' in vizcol \
-                                    and _is_symbol_in_source(vizcol['source'], symbol):
+                                    and _is_symbol_in_source(table, vizcol['source'], symbol):
                                 matches.append(Match(table, tag, context, vizcols, vizcol))
                             # case: column form of vizcol
                             elif isinstance(vizcol, str) \
@@ -120,13 +120,13 @@ def find(model, symbol):
                     # search 'sources'
                     sources = table.annotations[tag].get('sources')
                     for sourcekey in sources:
-                        if _is_symbol_in_source(sources[sourcekey].get('source', []), symbol):
+                        if _is_symbol_in_source(table, sources[sourcekey].get('source', []), symbol):
                             matches.append(Match(table, tag, None, sources, sourcekey))
 
     return matches
 
 
-def _is_symbol_in_source(source, symbol):  # todo: (table, source, symbol)
+def _is_symbol_in_source(table, source, symbol):
     """Finds symbol in a source mapping.
     """
 
@@ -146,14 +146,28 @@ def _is_symbol_in_source(source, symbol):  # todo: (table, source, symbol)
                     if constraint_name == symbol:
                         return True
 
-        # todo case: symbol is a column name
-        #  -- start with column in path and test if matches
+        # case: symbol is a column name
+        #  -- start with column in path and test if matches last value of source path
         #  -- then determine if the table reference matches (last fkey in/out points to correct table)
-        #  -- isinstance(source[-1], str) and source[-1] == symbol[2]
+        #  -- isinstance(source[-1], str) and source[-1] == symbol[-1]
         #  -- isinstance(source[-2], dict) -- ie, a constraint
         #  -- lookup fkey = model.fkeys(*source[-2].get('inbound' or 'outbound')
         #  -- if 'inbound' and fkey.table == symbol's table
-        #  -- if 'outbound' and fkey.fk_table == symbol's table
+        #  -- if 'outbound' and fkey.pk_table == symbol's table
+        if len(symbol) == 3 \
+            and len(source) >= 2 \
+            and source[-1] == symbol[-1] \
+            and isinstance(source[-2], dict):
+
+            # case: inbound fkey
+            if 'inbound' in source[-2]:
+                fkey = table.schema.model.fkey(source[-2]['inbound'])
+                return [fkey.table.schema.name, fkey.table.name] == symbol[0:2]
+
+            # case: outbound fkey
+            elif 'outbound' in source[-2]:
+                fkey = table.schema.model.fkey(source[-2]['outbound'])
+                return [fkey.pk_table.schema.name, fkey.pk_table.name] == symbol[0:2]
 
     return False
 

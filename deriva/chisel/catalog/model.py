@@ -22,6 +22,7 @@ class Model (object):
         self.annotations = self._wrapped_model.annotations
         self.apply = self._wrapped_model.apply
         self.prejson = self._wrapped_model.prejson
+        self.fkey = self._wrapped_model.fkey
 
     @classmethod
     def from_catalog(cls, catalog):

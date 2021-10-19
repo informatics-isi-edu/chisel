@@ -76,6 +76,9 @@ class ModelObjectWrapper (object):
             if not hasattr(self, attr_name) and hasattr(obj, attr_name):
                 setattr(self, attr_name, getattr(obj, attr_name))
 
+    def __repr__(self):
+        return super(ModelObjectWrapper, self).__repr__() + f' named "{self.name}"'
+
     @property
     def name(self):
         return self._wrapped_obj.name
