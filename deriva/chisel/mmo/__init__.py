@@ -97,7 +97,7 @@ def find(model, symbol):
                                 matches.append(Match(table, tag, context, vizcols, vizcol))
                             # case: column form of vizcol
                             elif isinstance(vizcol, str) \
-                                    and (table.schema.name, table.name, vizcol) == tuple(symbol):
+                                    and [table.schema.name, table.name, vizcol] == symbol:
                                 matches.append(Match(table, tag, context, vizcols, vizcol))
 
                 # case: source-definitions
@@ -132,8 +132,7 @@ def _is_symbol_in_source(table, source, symbol):
 
     # case: source is a column name
     if isinstance(source, str):
-        # todo: (table.schema.name, table.name, source) == symbol
-        return False
+        return [table.schema.name, table.name, source] == symbol
 
     # case: source is a path, symbol is a constraint
     if isinstance(source, list) and isinstance(symbol, list):
