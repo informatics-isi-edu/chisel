@@ -7,7 +7,7 @@ from collections import namedtuple
 import sys
 from deriva.core import tag as tags
 
-Match = namedtuple('Match', 'anchor, tag, context, container, mapping')
+Match = namedtuple('Match', 'anchor tag context container mapping')
 
 __search_box__ = 'search-box'
 
@@ -88,13 +88,16 @@ def find(model, symbol):
 
                         for vizcol in vizcols:  # vizcol is a form of "mapping"
                             # case: constraint form of vizcol
-                            if isinstance(vizcol, list) and vizcol == symbol:
+                            if isinstance(vizcol, list) \
+                                    and vizcol == symbol:
                                 matches.append(Match(table, tag, context, vizcols, vizcol))
                             # case: pseudo-column form of vizcol
-                            elif isinstance(vizcol, dict) and 'source' in vizcol and _is_symbol_in_source(vizcol['source'], symbol):
+                            elif isinstance(vizcol, dict) and 'source' in vizcol \
+                                    and _is_symbol_in_source(vizcol['source'], symbol):
                                 matches.append(Match(table, tag, context, vizcols, vizcol))
                             # case: column form of vizcol
-                            elif isinstance(vizcol, str) and (table.schema.name, table.name, vizcol) == tuple(symbol):
+                            elif isinstance(vizcol, str) \
+                                    and (table.schema.name, table.name, vizcol) == tuple(symbol):
                                 matches.append(Match(table, tag, context, vizcols, vizcol))
 
                 # case: source-definitions
@@ -103,8 +106,8 @@ def find(model, symbol):
                     cols = table.annotations[tag].get('columns')
                     if isinstance(cols, list) \
                             and len(symbol) == 3 \
-                            and symbol[-1] in cols \
-                            and (table.schema.name, table.name) == symbol[0:2]:
+                            and (table.schema.name, table.name) == symbol[0:2] \
+                            and symbol[-1] in cols:
                         matches.append(Match(table, tag, None, cols, symbol[-1]))
 
                     # search 'fkeys'
@@ -132,14 +135,16 @@ def _is_symbol_in_source(source, symbol):  # todo: (table, source, symbol)
         # todo: (table.schema.name, table.name, source) == symbol
         return False
 
-    # case: source is a path
-    if isinstance(source, list):
+    # case: source is a path, symbol is a constraint
+    if isinstance(source, list) and isinstance(symbol, list):
+
         # case: symbol is a constraint
-        for pathelem in source:
-            if isinstance(pathelem, dict):
-                constraintname = pathelem.get('inbound') or pathelem.get('outbound')
-                if constraintname == symbol:
-                    return True
+        if len(symbol) == 2:
+            for pathelem in source:
+                if isinstance(pathelem, dict):
+                    constraint_name = pathelem.get('inbound') or pathelem.get('outbound')
+                    if constraint_name == symbol:
+                        return True
 
         # todo case: symbol is a column name
         #  -- start with column in path and test if matches
@@ -181,7 +186,7 @@ def _find_sourcekey(table, sourcekey):
     # step 2: find all other references to the set of {sourcekeys} | {sourcekey} found in first step
     sourcekeys.add(sourcekey)
 
-    #      2.a.: find in citations
+    #      2.a.: find sourcekey in citations
     citation = table.annotations.get(tags.citation)
     if citation:
         for sourcekey in sourcekeys:
@@ -189,7 +194,7 @@ def _find_sourcekey(table, sourcekey):
                 matches.append(Match(table, tags.citation, None, None, None))
                 break
 
-    #      2.b.: find in visible-columns or visible-foreign-keys
+    #      2.b.: find sourcekey in visible-columns or visible-foreign-keys
     for tag in (tags.visible_columns, tags.visible_foreign_keys):
         for context in table.annotations.get(tag, {}):
             vizcols = table.annotations[tag][context]
