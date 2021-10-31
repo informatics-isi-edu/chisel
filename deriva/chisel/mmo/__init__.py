@@ -1,8 +1,5 @@
-"""Model management operators package.
-
-Currently this is experimental only.
+"""Model management operators.
 """
-from pprint import pprint
 from collections import namedtuple
 import sys
 from deriva.core import tag as tags
@@ -21,7 +18,7 @@ def prune(model, symbol):
     When this methods prunes a `source-definitions` entry from the model, it will also prune
     `visible-{columns|foreign-keys}` that reference its `sourcekey` directly or as a "path prefix" in a pseudo-column
     definition. It will prune any references found in `wait_for` display attributes. Also, it will recurse over the
-    source definitions repeating the above pruning for each sourcekey dependent on the oringally affected sourcekey.
+    source definitions repeating the above pruning for each sourcekey dependent on the originally affected sourcekey.
     """
     # step 1: find all matches
     for anchor, tag, context, container, mapping in find(model, symbol):
@@ -64,10 +61,10 @@ def find(model, symbol):
     - table [schema_name, table_name, None] where the final None in the column category implies that we are removing
       not a single column but the whole table (and hence all of its columns)
 
-    returns: list containing (anchor, tag, context, container, mapping) tuples
+    returns: list containing Match(anchor, tag, context, container, mapping) tuples
     - anchor: the model object that anchors the mapping
     - tag: the annotation tag where the mapping was found
-    - context: the annotation context where the mapping was found  # tbd: whether this is really needed by the caller
+    - context: the annotation context where the mapping was found  # todo: tbd whether this is really needed by the caller
     - container: the parent container of the mapping  # simplifies pruning of mapping
     - mapping: the mapping in which the symbol was found  # simplifies renaming of symbol in mapping
     """
@@ -82,23 +79,23 @@ def find(model, symbol):
                 if tag == tags.visible_columns or tag == tags.visible_foreign_keys:
                     for context in table.annotations[tag]:
                         if context == 'filter':
-                            vizcols = table.annotations[tag][context].get('and', [])
+                            vizsrcs = table.annotations[tag][context].get('and', [])
                         else:
-                            vizcols = table.annotations[tag][context]
+                            vizsrcs = table.annotations[tag][context]
 
-                        for vizcol in vizcols:  # vizcol is a form of "mapping"
-                            # case: constraint form of vizcol
-                            if isinstance(vizcol, list) \
-                                    and vizcol == symbol:
-                                matches.append(Match(table, tag, context, vizcols, vizcol))
-                            # case: pseudo-column form of vizcol
-                            elif isinstance(vizcol, dict) and 'source' in vizcol \
-                                    and _is_symbol_in_source(table, vizcol['source'], symbol):
-                                matches.append(Match(table, tag, context, vizcols, vizcol))
-                            # case: column form of vizcol
-                            elif isinstance(vizcol, str) \
-                                    and [table.schema.name, table.name, vizcol] == symbol:
-                                matches.append(Match(table, tag, context, vizcols, vizcol))
+                        for vizsrc in vizsrcs:  # vizsrc is a vizcol or vizfkey entry
+                            # case: constraint form of vizsrc
+                            if isinstance(vizsrc, list) \
+                                    and vizsrc == symbol:
+                                matches.append(Match(table, tag, context, vizsrcs, vizsrc))
+                            # case: pseudo-column form of vizsrc
+                            elif isinstance(vizsrc, dict) and 'source' in vizsrc \
+                                    and _is_symbol_in_source(table, vizsrc['source'], symbol):
+                                matches.append(Match(table, tag, context, vizsrcs, vizsrc))
+                            # case: column form of vizsrc
+                            elif isinstance(vizsrc, str) \
+                                    and [table.schema.name, table.name, vizsrc] == symbol:
+                                matches.append(Match(table, tag, context, vizsrcs, vizsrc))
 
                 # case: source-definitions
                 elif tag == tags.source_definitions:
@@ -188,7 +185,7 @@ def _find_sourcekey(table, sourcekey):
     #                                                   source, [0], sourcekey
     #                                                   display, wait_for (markdown_pattern)
 
-    # step 1: find all references to sourcekey in source-definitions (recuresively)
+    # step 1: find all references to sourcekey in source-definitions (recursively)
     sources = table.annotations[tags.source_definitions].get('sources', {})
     sourcekeys = _find_dependent_sourcekeys(sourcekey, sources)
     matches.extend([
