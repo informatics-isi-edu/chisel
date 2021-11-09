@@ -1,8 +1,11 @@
 """Model management operators.
 """
 from collections import namedtuple
+import logging
 import sys
 from deriva.core import tag as tags
+
+logger = logging.getLogger(__name__)
 
 Match = namedtuple('Match', 'anchor tag context container mapping')
 
@@ -20,29 +23,35 @@ def prune(model, symbol):
     definition. It will prune any references found in `wait_for` display attributes. Also, it will recurse over the
     source definitions repeating the above pruning for each sourcekey dependent on the originally affected sourcekey.
     """
+    logger.debug(f'Pruning symbol "{symbol}".')
     # step 1: find all matches
     for anchor, tag, context, container, mapping in find(model, symbol):
         # step 2: remove mapping from model, for each mapping found
         if tag in [tags.visible_columns, tags.visible_foreign_keys]:
             container.remove(mapping)
         elif tag == tags.source_definitions:
-            print(f'Remove from {tag}, sourcekey {mapping} and dependencies')
-            # step 2.a. find all instances of sourcekey and sourcekeys that depend on sourcekey in anchor's annotations
-            for match in _find_sourcekey(anchor, mapping):
-                # step 2.b. remove all found depenencies on sourcekey
-                print(match.tag, match.mapping)
-                if match.tag in [tags.visible_columns, tags.visible_foreign_keys]:
-                    match.container.remove(match.mapping)
-                elif match.tag == tags.citation:
-                    del match.anchor.annotations[match.tag]
-                elif match.tag == tags.source_definitions:
-                    del match.container[match.mapping]
-                else:
-                    print(f'WARNING: unexpected tag {match.tag}', file=sys.stderr)
-            # step 2.c. remove sourcekey
-            del container[mapping]
+            logger.debug(f'Removing "{tag}" mapping "{mapping}" from container "{container}".')
+            if isinstance(container, list):
+                # step 2.a. match found in 'columns' or 'fkyes' lists, remove item and continue
+                container.remove(mapping)
+            else:
+                # step 2.b. match found in 'sources' dictionary, remove then search for dependencies
+                assert isinstance(container, dict), "Expected dictionary typed container"
+                del container[mapping]
+
+                # step 2.c. find all dependencies on sourcekey in anchor's annotations and remove them
+                for match in _find_sourcekey(anchor, mapping):
+                    logger.debug(f'Removing "{mapping}" sourcekey dependency; mapping "{match.mapping}" from "{match.tag}".')
+                    if match.tag in [tags.visible_columns, tags.visible_foreign_keys]:
+                        match.container.remove(match.mapping)
+                    elif match.tag == tags.citation:
+                        del match.anchor.annotations[match.tag]
+                    elif match.tag == tags.source_definitions:
+                        del match.container[match.mapping]
+                    else:
+                        logger.warning(f'Unexpected tag "{match.tag}".')
         else:
-            print(f'Unhandled tag "{tag}"', file=sys.stderr)
+            logger.warning(f'Unhandled tag "{tag}".')
 
 
 def find(model, symbol):
@@ -103,7 +112,7 @@ def find(model, symbol):
                     cols = table.annotations[tag].get('columns')
                     if isinstance(cols, list) \
                             and len(symbol) == 3 \
-                            and (table.schema.name, table.name) == symbol[0:2] \
+                            and [table.schema.name, table.name] == symbol[0:2] \
                             and symbol[-1] in cols:
                         matches.append(Match(table, tag, None, cols, symbol[-1]))
 
