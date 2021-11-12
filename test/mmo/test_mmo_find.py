@@ -2,10 +2,10 @@
 """
 import os
 import logging
-import sys
 import unittest
 from deriva import chisel
-from deriva.core import DerivaServer, get_credential
+from deriva.chisel import mmo
+from deriva.core import DerivaServer, ErmrestCatalog, get_credential
 from deriva.core.ermrest_model import Schema, Table, Column, Key, ForeignKey, tag, builtin_types
 
 logger = logging.getLogger(__name__)
@@ -102,6 +102,19 @@ person_annotations = {
             "name",
             ["org", "person_dept_fkey"],
             {
+                "markdown_name": "Department Name",
+                "source": [
+                    {
+                        "outbound": [
+                            "org",
+                            "person_dept_fkey"
+                        ]
+                    },
+                    "name"
+                ],
+                "entity": False
+            },
+            {
                 "sourcekey": "dept_size",
                 "markdown_name": "Department Size"
             }
@@ -139,6 +152,7 @@ person_annotations = {
         }
     }
 }
+
 
 @unittest.skipUnless(ermrest_hostname, 'ERMrest hostname not defined.')
 class TestMMOFind (unittest.TestCase):
@@ -219,12 +233,14 @@ class TestMMOFind (unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         global catalog
-        if not ermrest_catalog_id and catalog and int(catalog.catalog_id) > 1000:
+        if not ermrest_catalog_id and isinstance(catalog, ErmrestCatalog) and int(catalog.catalog_id) > 10000:
+            # note: ... > 10000 is simply a guard against accidentally pointing at and deleting a production catalog
             catalog.delete_ermrest_catalog(really=True)
         catalog = None
 
     def setUp(self):
         # reset annotations to baseline
+        assert isinstance(catalog, ErmrestCatalog)
         self.model = catalog.getCatalogModel()
         self.model.schemas['org'].tables['dept'].annotations = dept_annotations
         self.model.schemas['org'].tables['person'].annotations = person_annotations
@@ -232,5 +248,45 @@ class TestMMOFind (unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_foo(self):
-        logger.debug('DONE')
+    def test_find_key_in_vizcols(self):
+        matches = mmo.find(self.model, ["org", "dept_RID_key"])
+        self.assertEqual(len(matches), 1)
+
+    def test_find_col_in_vizcols(self):
+        matches = mmo.find(self.model, ["org", "dept", "RCT"])
+        self.assertEqual(len(matches), 1)
+
+    def test_find_col_in_vizcols_pseudocol_simple(self):
+        matches = mmo.find(self.model, ["org", "dept", "RMT"])
+        self.assertEqual(len(matches), 1)
+
+    def test_find_col_in_vizcols_pseudocol(self):
+        matches = mmo.find(self.model, ["org", "dept", "name"])
+        self.assertTrue(any([m.anchor.name == 'person' and m.tag == tag.visible_columns and isinstance(m.mapping, dict) for m in matches]))
+
+    def test_find_col_in_sourcedefs_columns(self):
+        matches = mmo.find(self.model, ["org", "person", "dept"])
+        self.assertTrue(any([m.anchor.name == 'person' and m.tag == tag.source_definitions and m.mapping == 'dept' for m in matches]))
+
+    def test_find_col_in_sourcedefs_sources(self):
+        matches = mmo.find(self.model, ["org", "person", "RID"])
+        self.assertTrue(any([m.tag == tag.source_definitions and m.mapping == 'dept_size' for m in matches]))
+
+    def test_find_fkey_in_vizfkeys(self):
+        fkname = ["org", "person_dept_fkey"]
+        matches = mmo.find(self.model, fkname)
+        self.assertTrue(any([m.tag == tag.visible_foreign_keys and m.mapping == fkname for m in matches]))
+
+    def test_find_fkey_in_vizcols(self):
+        fkname = ["org", "person_dept_fkey"]
+        matches = mmo.find(self.model, fkname)
+        self.assertTrue(any([m.tag == tag.visible_columns and m.mapping == fkname for m in matches]))
+
+    def test_find_fkey_in_sourcedefs_sources(self):
+        matches = mmo.find(self.model, ["org", "person_dept_fkey"])
+        self.assertTrue(any([m.tag == tag.source_definitions and m.mapping == 'personnel' for m in matches]))
+
+    def test_find_fkey_in_sourcedefs_fkeys(self):
+        fkname = ["org", "person_dept_fkey"]
+        matches = mmo.find(self.model, fkname)
+        self.assertTrue(any([m.tag == tag.source_definitions and m.mapping == fkname for m in matches]))
