@@ -241,8 +241,6 @@ class BaseMMOTestCase (unittest.TestCase):
         # reset annotations to baseline
         assert isinstance(catalog, ErmrestCatalog)
         self.model = catalog.getCatalogModel()
-        self.model.schemas['org'].tables['dept'].annotations = dept_annotations
-        self.model.schemas['org'].tables['person'].annotations = person_annotations
 
     def tearDown(self):
         pass
