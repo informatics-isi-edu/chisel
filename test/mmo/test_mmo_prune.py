@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(os.getenv('DERIVA_PY_TEST_LOGLEVEL', default=logging.WARNING))
 
 
-class TestMMOFind (BaseMMOTestCase):
+class TestMMOPrune (BaseMMOTestCase):
 
     def _pre(self, fn):
         """Pre-condition evaluation."""
@@ -117,4 +117,15 @@ class TestMMOFind (BaseMMOTestCase):
 
         self._pre(cond)
         mmo.prune(self.model, fkname)
+        self._post(cond)
+
+    def test_prune_fkey_in_sourcedefs_recurse(self):
+        def cond(assertion):
+            assertion(any([
+                isinstance(vizcol, dict) and vizcol.get("sourcekey") == "dept_size"
+                for vizcol in self.model.schemas['org'].tables['person'].annotations[tag.visible_columns]['detailed']
+            ]))
+
+        self._pre(cond)
+        mmo.prune(self.model, ["org", "person_dept_fkey"])
         self._post(cond)
