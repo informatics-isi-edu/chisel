@@ -2,7 +2,6 @@
 """
 from collections import namedtuple
 import logging
-import sys
 from deriva.core import tag as tags
 
 logger = logging.getLogger(__name__)
@@ -55,7 +54,7 @@ def prune(model, symbol):
 
 
 def find(model, symbol):
-    """Finds mappings within a model where symbol found in mapping.
+    """Finds mappings within a model where the mapping contains a given symbol.
 
     Searches the following annotation tags:
     - source-definitions
@@ -63,20 +62,19 @@ def find(model, symbol):
     - visible-foreign-keys
 
     Presently, there are two forms of symbols:
-    - constrain [schema_name, constraint_name] may be a key or fkey
-    - column [schema_name, table_name, column_name]
-
-    If/when table must be supported, the ambiguity could be addressed as:
-    - table [schema_name, table_name, None] where the final None in the column category implies that we are removing
-      not a single column but the whole table (and hence all of its columns)
+    - constrain: `[schema_name, constraint_name]` may refer to a key or fkey
+    - column: `[schema_name, table_name, column_name]`
 
     returns: list containing Match(anchor, tag, context, container, mapping) tuples
     - anchor: the model object that anchors the mapping
     - tag: the annotation tag where the mapping was found
-    - context: the annotation context where the mapping was found  # todo: tbd whether this is really needed by the caller
-    - container: the parent container of the mapping  # simplifies pruning of mapping
-    - mapping: the mapping in which the symbol was found  # simplifies renaming of symbol in mapping
+    - context: the annotation context where the mapping was found  (todo: tbd whether this is really needed by the caller)
+    - container: the parent container of the mapping
+    - mapping: the mapping in which the symbol was found
     """
+    # If/when table must be supported, the ambiguity could be addressed as:
+    # - table [schema_name, table_name, None] where the final None in the column category implies that we are removing
+    #   not a single column but the whole table (and hence all of its columns)
     matches = []
 
     # At present, mappings only reside in model elements: table and column.
