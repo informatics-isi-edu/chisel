@@ -41,28 +41,23 @@ def replace(model, symbol, replacement):
 
         # case: mapping is a `dict` pseudo-column and `source` is a source path `list`
         elif isinstance(mapping, dict) and isinstance(mapping.get('source'), list):
-
-            if len(symbol) == 3:  # case: column name replacement
-                assert mapping['source'][-1] == symbol[-1], "expected pseudo-column `source`'s last path element to match the column name"
-                mapping['source'][-1] = replacement[-1]
+            _replace_symbol_in_source_path(anchor, mapping['source'], symbol, replacement)
 
         # case: mapping is a `str` sourcekey in a source-defs source `dict`
         elif isinstance(mapping, str) and isinstance(container, dict):
             assert mapping in container, "expected to find sourcekey `mapping` in sources `container`"
             assert isinstance(container[mapping], dict), "expected `container[mapping]` to be a source definition dict"
-            assert isinstance(container[mapping].get('source'), list), "expected `container[mapping][source]` to be a source path `list`"
-            assert len(container[mapping]['source']), "expected `container[mapping][source]` to be non-empty"
-
-            if len(symbol) == 3:  # case: column name replacement
-                assert container[mapping]['source'][-1] == symbol[-1], "expected source defs `source`'s last path element to match the column name"
-                container[mapping]['source'][-1] = replacement[-1]
+            _replace_symbol_in_source_path(anchor, container[mapping]['source'], symbol, replacement)
 
         # case: mapping is a `list` constraint name in a vizcol or vizfkey context _or_ a source-defs fkeys `list`
-        if isinstance(mapping, list) and isinstance(container, list):
+        elif isinstance(mapping, list) and isinstance(container, list):
             assert mapping == symbol, "expected mapping to match the constraint name"
             for idx, val in enumerate(container):
                 if val == mapping:
                     container[idx] = replacement
+
+        else:
+            logger.warning(f'Unhandled case for replace operation')
 
 
 def prune(model, symbol):
@@ -126,7 +121,7 @@ def find(model, symbol):
     - container: the parent container of the mapping
     - mapping: the mapping in which the symbol was found
     """
-    # If/when table must be supported, the ambiguity could be addressed as:
+    # [NOTE] If/when table must be supported, the ambiguity could be addressed as:
     # - table [schema_name, table_name, None] where the final None in the column category implies that we are removing
     #   not a single column but the whole table (and hence all of its columns)
     matches = []
@@ -324,3 +319,24 @@ def _is_dependent_on_sourcekey(sourcekey, source_def):
         return True
     # not dependent
     return False
+
+
+def _replace_symbol_in_source_path(anchor, source, symbol, replacement):
+    """Replaces `symbol` with `replacement` in `source`.
+    """
+    assert isinstance(source, list), 'expected source to be a list'
+    assert source, 'expected source to be non-empty'
+
+    if len(symbol) == 3:  # case: column symbol replacement
+        assert source[-1] == symbol[-1], "expected source path to terminate in symbol column name"
+        source[-1] = replacement[-1]
+
+    if len(symbol) == 2:  # case: constraint name replacement
+        assert _is_symbol_in_source(anchor, source, symbol), "expected to find symbol in mapping source"
+        for i, pathelem in enumerate(source):
+            if not isinstance(pathelem, dict):
+                continue
+            for direction in ('inbound', 'outbound'):
+                if pathelem.get(direction) == symbol:
+                    pathelem[direction] = replacement
+                    continue

@@ -96,15 +96,28 @@ class TestMMOReplace (BaseMMOTestCase):
     def test_replace_fkey_in_sourcedefs_fkeys(self):
         self._do_test_replace_fkey_in_vizsrc(tag.source_definitions)
 
-    # def test_replace_fkey_in_sourcedefs_sources(self):
-    #     fkname = ["org", "person_dept_fkey"]
-    #
-    #     def cond(assertion):
-    #         matches = mmo.find(self.model, fkname)
-    #         assertion(any([m.tag == tag.source_definitions and m.mapping == 'personnel' for m in matches]))
-    #
-    #     self._pre(cond)
-    #     mmo.prune(self.model, fkname)
-    #     self._post(cond)
+    def test_replace_fkey_in_pseudocolumn(self):
+        oldfk = ["org", "person_dept_fkey"]
+        newfk = ["org", "person_dept_fkey1"]
+
+        def cond(before, after):
+            before(any([m.tag == tag.visible_columns and isinstance(m.mapping, dict) for m in mmo.find(self.model, oldfk)]))
+            after(any([m.tag == tag.visible_columns and isinstance(m.mapping, dict) for m in mmo.find(self.model, newfk)]))
+
+        self._pre(cond)
+        mmo.replace(self.model, oldfk, newfk)
+        self._post(cond)
+
+    def test_replace_fkey_in_sourcedefs_sources(self):
+        oldfk = ["org", "person_dept_fkey"]
+        newfk = ["org", "person_dept_fkey1"]
+
+        def cond(before, after):
+            before(any([m.tag == tag.source_definitions and m.mapping == 'personnel' for m in mmo.find(self.model, oldfk)]))
+            after(any([m.tag == tag.source_definitions and m.mapping == 'personnel' for m in mmo.find(self.model, newfk)]))
+
+        self._pre(cond)
+        mmo.replace(self.model, oldfk, newfk)
+        self._post(cond)
 
     # todo: test for search-box
