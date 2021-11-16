@@ -66,38 +66,37 @@ class TestMMOReplace (BaseMMOTestCase):
         mmo.replace(self.model, ["org", "dept", "city"], ["org", "dept", "township"])
         self._post(cond)
 
-    # def test_prune_key_in_vizcols(self):
-    #     def cond(assertion):
-    #         matches = mmo.find(self.model, ["org", "dept_RID_key"])
-    #         assertion(len(matches) == 1)
-    #
-    #     self._pre(cond)
-    #     mmo.prune(self.model, ["org", "dept_RID_key"])
-    #     self._post(cond)
-    #
-    # def test_prune_fkey_in_vizfkeys(self):
-    #     fkname = ["org", "person_dept_fkey"]
-    #
-    #     def cond(assertion):
-    #         matches = mmo.find(self.model, fkname)
-    #         assertion(any([m.tag == tag.visible_foreign_keys and m.mapping == fkname for m in matches]))
-    #
-    #     self._pre(cond)
-    #     mmo.prune(self.model, fkname)
-    #     self._post(cond)
-    #
-    # def test_prune_fkey_in_vizcols(self):
-    #     fkname = ["org", "person_dept_fkey"]
-    #
-    #     def cond(assertion):
-    #         matches = mmo.find(self.model, fkname)
-    #         assertion(any([m.tag == tag.visible_columns and m.mapping == fkname for m in matches]))
-    #
-    #     self._pre(cond)
-    #     mmo.prune(self.model, fkname)
-    #     self._post(cond)
-    #
-    # def test_prune_fkey_in_sourcedefs_sources(self):
+    def test_replace_key_in_vizcols(self):
+        def cond(before, after):
+            before(len(mmo.find(self.model, ["org", "dept_RID_key"])) == 1)
+            after(len(mmo.find(self.model, ["org", "dept_RID_key1"])) == 1)
+
+        self._pre(cond)
+        mmo.replace(self.model, ["org", "dept_RID_key"], ["org", "dept_RID_key1"])
+        self._post(cond)
+
+    def _do_test_replace_fkey_in_vizsrc(self, tagname):
+        oldfk = ["org", "person_dept_fkey"]
+        newfk = ["org", "person_dept_fkey1"]
+
+        def cond(before, after):
+            before(any([m.tag == tagname and m.mapping == oldfk for m in mmo.find(self.model, oldfk)]))
+            after(any([m.tag == tagname and m.mapping == newfk for m in mmo.find(self.model, newfk)]))
+
+        self._pre(cond)
+        mmo.replace(self.model, oldfk, newfk)
+        self._post(cond)
+
+    def test_replace_fkey_in_vizfkeys(self):
+        self._do_test_replace_fkey_in_vizsrc(tag.visible_foreign_keys)
+
+    def test_replace_fkey_in_vizcols(self):
+        self._do_test_replace_fkey_in_vizsrc(tag.visible_columns)
+
+    def test_replace_fkey_in_sourcedefs_fkeys(self):
+        self._do_test_replace_fkey_in_vizsrc(tag.source_definitions)
+
+    # def test_replace_fkey_in_sourcedefs_sources(self):
     #     fkname = ["org", "person_dept_fkey"]
     #
     #     def cond(assertion):
@@ -106,28 +105,6 @@ class TestMMOReplace (BaseMMOTestCase):
     #
     #     self._pre(cond)
     #     mmo.prune(self.model, fkname)
-    #     self._post(cond)
-    #
-    # def test_prune_fkey_in_sourcedefs_fkeys(self):
-    #     fkname = ["org", "person_dept_fkey"]
-    #
-    #     def cond(assertion):
-    #         matches = mmo.find(self.model, fkname)
-    #         assertion(any([m.tag == tag.source_definitions and m.mapping == fkname for m in matches]))
-    #
-    #     self._pre(cond)
-    #     mmo.prune(self.model, fkname)
-    #     self._post(cond)
-    #
-    # def test_prune_fkey_in_sourcedefs_recurse(self):
-    #     def cond(assertion):
-    #         assertion(any([
-    #             isinstance(vizcol, dict) and vizcol.get("sourcekey") == "dept_size"
-    #             for vizcol in self.model.schemas['org'].tables['person'].annotations[tag.visible_columns]['detailed']
-    #         ]))
-    #
-    #     self._pre(cond)
-    #     mmo.prune(self.model, ["org", "person_dept_fkey"])
     #     self._post(cond)
 
     # todo: test for search-box

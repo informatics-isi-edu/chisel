@@ -41,8 +41,10 @@ def replace(model, symbol, replacement):
 
         # case: mapping is a `dict` pseudo-column and `source` is a source path `list`
         elif isinstance(mapping, dict) and isinstance(mapping.get('source'), list):
-            assert mapping['source'][-1] == symbol[-1], "expected pseudo-column `source`'s last path element to match the column name"
-            mapping['source'][-1] = replacement[-1]
+
+            if len(symbol) == 3:  # case: column name replacement
+                assert mapping['source'][-1] == symbol[-1], "expected pseudo-column `source`'s last path element to match the column name"
+                mapping['source'][-1] = replacement[-1]
 
         # case: mapping is a `str` sourcekey in a source-defs source `dict`
         elif isinstance(mapping, str) and isinstance(container, dict):
@@ -50,8 +52,17 @@ def replace(model, symbol, replacement):
             assert isinstance(container[mapping], dict), "expected `container[mapping]` to be a source definition dict"
             assert isinstance(container[mapping].get('source'), list), "expected `container[mapping][source]` to be a source path `list`"
             assert len(container[mapping]['source']), "expected `container[mapping][source]` to be non-empty"
-            assert container[mapping]['source'][-1] == symbol[-1], "expected source defs `source`'s last path element to match the column name"
-            container[mapping]['source'][-1] = replacement[-1]
+
+            if len(symbol) == 3:  # case: column name replacement
+                assert container[mapping]['source'][-1] == symbol[-1], "expected source defs `source`'s last path element to match the column name"
+                container[mapping]['source'][-1] = replacement[-1]
+
+        # case: mapping is a `list` constraint name in a vizcol or vizfkey context _or_ a source-defs fkeys `list`
+        if isinstance(mapping, list) and isinstance(container, list):
+            assert mapping == symbol, "expected mapping to match the constraint name"
+            for idx, val in enumerate(container):
+                if val == mapping:
+                    container[idx] = replacement
 
 
 def prune(model, symbol):
