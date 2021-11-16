@@ -11,6 +11,49 @@ Match = namedtuple('Match', 'anchor tag context container mapping')
 __search_box__ = 'search-box'
 
 
+def replace(model, symbol, replacement):
+    """Replaces `symbol` with `replacement` where symbol is found in mappings.
+
+    See the 'find' function for notes on what are 'symbols' and how symbols are found in the model.
+
+    The `symbol` and its `replacement` must be of the same type (i.e., columns or constraints). For columns, only the
+    column name may differ.
+    """
+    logger.debug(f'Replacing symbol "{symbol}" with "{replacement}".')
+    assert len(symbol) == len(replacement), "symbol and replacement must have same length"
+    assert len(symbol) != 3 or symbol[0:2] == replacement[0:2], "column symbols may only differ in the column name"
+
+    # step 1: find all matches
+    for anchor, tag, context, container, mapping in find(model, symbol):
+        # step 2: replace symbol in each matching mapping found in model
+
+        # case: mapping is a `str` column name in a vizcol context _or_ a source-defs columns `list`
+        if isinstance(mapping, str) and isinstance(container, list):
+            assert mapping == symbol[-1], "expected mapping to match the column name"
+            for idx, val in enumerate(container):
+                if val == mapping:
+                    container[idx] = replacement[-1]
+
+        # case: mapping is a `dict` pseudo-column and `source` is a `str` column name
+        elif isinstance(mapping, dict) and isinstance(mapping.get('source'), str):
+            assert mapping['source'] == symbol[-1], "expected pseudo-column `source` to match the column name"
+            mapping['source'] = replacement[-1]
+
+        # case: mapping is a `dict` pseudo-column and `source` is a source path `list`
+        elif isinstance(mapping, dict) and isinstance(mapping.get('source'), list):
+            assert mapping['source'][-1] == symbol[-1], "expected pseudo-column `source`'s last path element to match the column name"
+            mapping['source'][-1] = replacement[-1]
+
+        # case: mapping is a `str` sourcekey in a source-defs source `dict`
+        elif isinstance(mapping, str) and isinstance(container, dict):
+            assert mapping in container, "expected to find sourcekey `mapping` in sources `container`"
+            assert isinstance(container[mapping], dict), "expected `container[mapping]` to be a source definition dict"
+            assert isinstance(container[mapping].get('source'), list), "expected `container[mapping][source]` to be a source path `list`"
+            assert len(container[mapping]['source']), "expected `container[mapping][source]` to be non-empty"
+            assert container[mapping]['source'][-1] == symbol[-1], "expected source defs `source`'s last path element to match the column name"
+            container[mapping]['source'][-1] = replacement[-1]
+
+
 def prune(model, symbol):
     """Prunes mappings from a model where symbol found in mapping.
 

@@ -129,3 +129,5 @@ class TestMMOPrune (BaseMMOTestCase):
         self._pre(cond)
         mmo.prune(self.model, ["org", "person_dept_fkey"])
         self._post(cond)
+
+    # todo: test for search-box

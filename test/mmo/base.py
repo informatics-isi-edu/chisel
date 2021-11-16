@@ -13,6 +13,8 @@ ermrest_hostname = os.getenv('DERIVA_PY_TEST_HOSTNAME')
 ermrest_catalog_id = os.getenv('DERIVA_PY_TEST_CATALOG')
 catalog = None
 
+# todo: add 'search-box' annotation(s)
+
 # baseline annotation doc for `dept` table
 dept_annotations = {
     "tag:isrd.isi.edu,2016:visible-columns": {
@@ -30,6 +32,11 @@ dept_annotations = {
             },
             "dept_no",
             "name",
+            {
+                "source": "street_address",
+                "markdown_name": "Number and Street Name"
+            },
+            "postal_code",
             {
                 "sourcekey": "head_count",
                 "markdown_name": "Head Count"
@@ -58,7 +65,8 @@ dept_annotations = {
         "columns": [
             "dept_no",
             "name",
-            "RID"
+            "RID",
+            "country"
         ],
         "sources": {
             "personnel": {
@@ -116,7 +124,24 @@ person_annotations = {
             {
                 "sourcekey": "dept_size",
                 "markdown_name": "Department Size"
-            }
+            },
+            {
+                "sourcekey": "dept_city",
+                "markdown_name": "City"
+            },
+            {
+                "markdown_name": "State or Province",
+                "source": [
+                    {
+                        "outbound": [
+                            "org",
+                            "person_dept_fkey"
+                        ]
+                    },
+                    "state"
+                ],
+                "entity": False
+            },
         ]
     },
     "tag:isrd.isi.edu,2019:source-definitions": {
@@ -147,6 +172,19 @@ person_annotations = {
                 ],
                 "entity": False,
                 "aggregate": "cnt_d"
+            },
+            "dept_city":             {
+                "markdown_name": "City",
+                "source": [
+                    {
+                        "outbound": [
+                            "org",
+                            "person_dept_fkey"
+                        ]
+                    },
+                    "city"
+                ],
+                "entity": False
             }
         }
     }
@@ -189,7 +227,12 @@ class BaseMMOTestCase (unittest.TestCase):
                 'dept',
                 column_defs=[
                     Column.define('dept_no', builtin_types.int8),
-                    Column.define('name', builtin_types.text)
+                    Column.define('name', builtin_types.text),
+                    Column.define('street_address', builtin_types.text),
+                    Column.define('city', builtin_types.text),
+                    Column.define('state', builtin_types.text),
+                    Column.define('country', builtin_types.text),
+                    Column.define('postal_code', builtin_types.int8)
                 ],
                 key_defs=[
                     Key.define(['dept_no'])
@@ -217,8 +260,8 @@ class BaseMMOTestCase (unittest.TestCase):
         pbuilder = catalog.getPathBuilder()
 
         pbuilder.org.dept.insert([
-            {'dept_no': 1, 'name': 'Dept A'},
-            {'dept_no': 2, 'name': 'Dept B'}
+            {'dept_no': 1, 'name': 'Dept A', 'street_address': '123 Main St', 'city': 'Anywhere', 'state': 'CA', 'country': 'US', 'postal_code': 98765},
+            {'dept_no': 2, 'name': 'Dept B', 'street_address': '777 Oak Ave', 'city': 'Somewhere', 'state': 'NY', 'country': 'US', 'postal_code': 12345}
         ])
 
         pbuilder.org.person.insert([
