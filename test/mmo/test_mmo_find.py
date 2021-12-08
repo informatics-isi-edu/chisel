@@ -56,4 +56,6 @@ class TestMMOFind (BaseMMOTestCase):
         matches = mmo.find(self.model, fkname)
         self.assertTrue(any([m.tag == tag.source_definitions and m.mapping == fkname for m in matches]))
 
-    # todo: test for search-box
+    def test_find_col_in_search_box(self):
+        matches = mmo.find(self.model, ["org", "person", "last_name"])
+        self.assertTrue(len(matches) == 1)

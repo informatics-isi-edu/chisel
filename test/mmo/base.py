@@ -13,8 +13,6 @@ ermrest_hostname = os.getenv('DERIVA_PY_TEST_HOSTNAME')
 ermrest_catalog_id = os.getenv('DERIVA_PY_TEST_CATALOG')
 catalog = None
 
-# todo: add 'search-box' annotation(s)
-
 # baseline annotation doc for `dept` table
 dept_annotations = {
     "tag:isrd.isi.edu,2016:visible-columns": {
@@ -186,6 +184,13 @@ person_annotations = {
                 ],
                 "entity": False
             }
+        },
+        "search-box": {
+            "or": [
+                {
+                    "source": "last_name"
+                }
+            ]
         }
     }
 }
@@ -247,7 +252,8 @@ class BaseMMOTestCase (unittest.TestCase):
                 'person',
                 column_defs=[
                     Column.define('name', builtin_types.text),
-                    Column.define('dept', builtin_types.int8)
+                    Column.define('dept', builtin_types.int8),
+                    Column.define('last_name', builtin_types.text)
                 ],
                 fkey_defs=[
                     ForeignKey.define(['dept'], 'org', 'dept', ['dept_no'])

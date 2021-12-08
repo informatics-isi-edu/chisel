@@ -161,20 +161,27 @@ def find(model, symbol):
                             and len(symbol) == 3 \
                             and [table.schema.name, table.name] == symbol[0:2] \
                             and symbol[-1] in cols:
-                        matches.append(Match(table, tag, None, cols, symbol[-1]))
+                        matches.append(Match(table, tag, 'columns', cols, symbol[-1]))
 
                     # search 'fkeys'
                     fkeys = table.annotations[tag].get('fkeys')
                     if isinstance(fkeys, list):
                         for fkey in fkeys:
                             if fkey == symbol:
-                                matches.append(Match(table, tag, None, fkeys, fkey))
+                                matches.append(Match(table, tag, 'fkeys', fkeys, fkey))
 
                     # search 'sources'
                     sources = table.annotations[tag].get('sources')
                     for sourcekey in sources:
                         if _is_symbol_in_source(table, sources[sourcekey].get('source', []), symbol):
-                            matches.append(Match(table, tag, None, sources, sourcekey))
+                            matches.append(Match(table, tag, 'sources', sources, sourcekey))
+
+                    # search 'search-box'
+                    search_box = table.annotations[tag].get(__search_box__)
+                    if isinstance(search_box, dict) and isinstance(search_box.get('or'), list):
+                        for search_col in search_box['or']:
+                            if _is_symbol_in_source(table, search_col.get('source'), symbol):
+                                matches.append(Match(table, tag, __search_box__, search_box['or'], search_col))
 
     return matches
 

@@ -120,4 +120,11 @@ class TestMMOReplace (BaseMMOTestCase):
         mmo.replace(self.model, oldfk, newfk)
         self._post(cond)
 
-    # todo: test for search-box
+    def test_replace_col_in_search_box(self):
+        def cond(before, after):
+            before(len(mmo.find(self.model, ["org", "person", "last_name"])) == 1)
+            after(len(mmo.find(self.model, ["org", "person", "surname"])) == 1)
+
+        self._pre(cond)
+        mmo.replace(self.model, ["org", "person", "last_name"], ["org", "person", "surname"])
+        self._post(cond)

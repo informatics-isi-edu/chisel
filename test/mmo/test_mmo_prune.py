@@ -130,4 +130,10 @@ class TestMMOPrune (BaseMMOTestCase):
         mmo.prune(self.model, ["org", "person_dept_fkey"])
         self._post(cond)
 
-    # todo: test for search-box
+    def test_prune_col_in_search_box(self):
+        def cond(assertion):
+            assertion(len(mmo.find(self.model, ["org", "person", "last_name"])) == 1)
+
+        self._pre(cond)
+        mmo.prune(self.model, ["org", "person", "last_name"])
+        self._post(cond)
