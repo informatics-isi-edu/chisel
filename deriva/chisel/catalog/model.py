@@ -6,6 +6,7 @@ from .wrapper import MappingWrapper, SequenceWrapper, ModelObjectWrapper
 
 logger = logging.getLogger(__name__)
 
+
 class Model (object):
     """Catalog model.
     """
@@ -18,11 +19,11 @@ class Model (object):
         self._catalog = catalog
         self._wrapped_model = catalog.getCatalogModel()
         self._new_schema = lambda obj: Schema(self, obj)
+        self._new_fkey = lambda obj: ForeignKey(self.schemas[obj.table.schema.name].tables[obj.table.name], obj)
         self.acls = self._wrapped_model.acls
         self.annotations = self._wrapped_model.annotations
         self.apply = self._wrapped_model.apply
         self.prejson = self._wrapped_model.prejson
-        self.fkey = self._wrapped_model.fkey
 
     @classmethod
     def from_catalog(cls, catalog):
@@ -37,6 +38,16 @@ class Model (object):
     @property
     def schemas(self):
         return MappingWrapper(self._new_schema, self._wrapped_model.schemas)
+
+    def fkey(self, constraint_name_pair):
+        """Return foreign key with given name pair.
+
+        This method wraps the `deriva.core.ermrest_model.Model.fkey` method:
+        > Accepts (schema_name, constraint_name) pairs as found in many
+        > faceting annotations and (schema_obj, constraint_name) pairs
+        > as found in fkey.name fields.
+        """
+        return self._new_fkey(self._wrapped_model.fkey(constraint_name_pair))
 
     def create_schema(self, schema_def):
         """Add a new schema to this model in the remote database based on schema_def.
