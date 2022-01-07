@@ -3,6 +3,7 @@
 import logging
 from deriva.core import ermrest_model as _erm
 from .wrapper import MappingWrapper, SequenceWrapper, ModelObjectWrapper
+from .. import mmo
 
 logger = logging.getLogger(__name__)
 
@@ -297,4 +298,17 @@ class ForeignKey (Constraint):
             self._wrapped_obj.pk_table.schema.name,
             self._wrapped_obj.pk_table.name,
             ', '.join(['"%s"' % c.name for c in self.referenced_columns])
+        )
+
+    def drop(self):
+        """Remove this foreign key from the remote database.
+
+        This method also prunes the model object name from annotations. The
+        changes to annotations are only local unless the `model.apply()` method
+        is called.
+        """
+        self._wrapped_obj.drop()
+        mmo.prune(
+            self.table.schema.model,
+            [self._wrapped_obj.constraint_schema.name, self.constraint_name]
         )
