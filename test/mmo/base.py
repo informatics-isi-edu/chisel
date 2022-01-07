@@ -15,7 +15,7 @@ catalog = None
 
 # baseline annotation doc for `dept` table
 dept_annotations = {
-    "tag:isrd.isi.edu,2016:visible-columns": {
+    tag.visible_columns: {
         "compact": [
             ["org", "dept_RID_key"],
             "dept_no",
@@ -51,7 +51,7 @@ dept_annotations = {
             }
         ]
     },
-    "tag:isrd.isi.edu,2016:visible-foreign-keys": {
+    tag.visible_foreign_keys: {
         "*": [
             [
                 "org",
@@ -59,7 +59,7 @@ dept_annotations = {
             ]
         ]
     },
-    "tag:isrd.isi.edu,2019:source-definitions": {
+    tag.source_definitions: {
         "columns": [
             "dept_no",
             "name",
@@ -97,7 +97,7 @@ dept_annotations = {
 
 # baseline annotation doc for `person` table
 person_annotations = {
-    "tag:isrd.isi.edu,2016:visible-columns": {
+    tag.visible_columns: {
         "compact": [
             ["org", "person_RID_key"],
             "name"
@@ -142,7 +142,7 @@ person_annotations = {
             },
         ]
     },
-    "tag:isrd.isi.edu,2019:source-definitions": {
+    tag.source_definitions: {
         "columns": [
             "RID",
             "name",
@@ -281,15 +281,15 @@ class BaseMMOTestCase (unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         global catalog
-        if not ermrest_catalog_id and isinstance(catalog, ErmrestCatalog) and int(catalog.catalog_id) > 10000:
-            # note: ... > 10000 is simply a guard against accidentally pointing at and deleting a production catalog
+        if not ermrest_catalog_id and isinstance(catalog, ErmrestCatalog) and int(catalog.catalog_id) > 1000:
+            # note: the '... > 1000' clause is intended to safeguard against accidental deletion of production catalogs in the usual (lower) range
             catalog.delete_ermrest_catalog(really=True)
         catalog = None
 
     def setUp(self):
         # reset annotations to baseline
         assert isinstance(catalog, ErmrestCatalog)
-        self.model = catalog.getCatalogModel()
+        self.model = chisel.Model.from_catalog(catalog)
 
     def tearDown(self):
         pass
