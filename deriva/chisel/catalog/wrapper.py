@@ -31,8 +31,8 @@ class MappingWrapper (Mapping):
         self._item_wrapper = item_wrapper
         self._mapping = mapping
 
-    def __getitem__(self, item):
-        return self._item_wrapper(self._mapping[item])
+    def __getitem__(self, key):
+        return self._item_wrapper(self._mapping[key])
 
     def __iter__(self):
         return iter(self._mapping)
@@ -53,8 +53,17 @@ class SequenceWrapper (Sequence):
         self._item_wrapper = item_wrapper
         self._sequence = sequence
 
-    def __getitem__(self, item):
-        return self._item_wrapper(self._sequence[item])
+    def __getitem__(self, key):
+        """Get element by key or by list index or slice."""
+        if isinstance(key, slice):
+            return SequenceWrapper(self._item_wrapper, self._sequence[key])
+        elif isinstance(key, tuple):
+            return self._item_wrapper(self._sequence[tuple(
+                elem._wrapped_obj if isinstance(elem, ModelObjectWrapper) else elem
+                for elem in key
+            )])
+        else:
+            return self._item_wrapper(self._sequence[key])
 
     def __len__(self):
         return len(self._sequence)
