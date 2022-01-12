@@ -34,13 +34,15 @@ class TestMMOxDDLDrop (BaseMMOTestCase):
         fn(self.assertFalse)
 
     def test_drop_key(self):
+        kname = ["test", "dept_dept_no_key"]
+
         def cond(assertion):
-            matches = mmo.find(self.model, ["test", "dept_dept_no_key"])
-            assertion(len(matches) == 1)
+            matches = mmo.find(self.model, kname)
+            assertion(len(matches))
 
         self._pre(cond)
-        t = self.model.schemas["test"].tables["dept"]
-        fk = t.keys[(t.schema, "dept_dept_no_key")]
+        t = self.model.schemas[kname[0]].tables["dept"]
+        fk = t.keys[(t.schema, kname[1])]
         fk.drop(cascade=True)
         self._post(cond)
 
@@ -49,7 +51,7 @@ class TestMMOxDDLDrop (BaseMMOTestCase):
 
         def cond(assertion):
             matches = mmo.find(self.model, fkname)
-            assertion(any([m.tag == tag.visible_foreign_keys and m.mapping == fkname for m in matches]))
+            assertion(len(matches))
 
         self._pre(cond)
         self.model.fkey(fkname).drop()
