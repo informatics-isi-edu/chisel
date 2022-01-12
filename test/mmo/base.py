@@ -17,8 +17,8 @@ catalog = None
 dept_annotations = {
     tag.visible_columns: {
         "compact": [
-            ["org", "dept_RID_key"],
-            ["org", "dept_dept_no_key"],
+            ["test", "dept_RID_key"],
+            ["test", "dept_dept_no_key"],
             "name"
         ],
         "detailed": [
@@ -54,7 +54,7 @@ dept_annotations = {
     tag.visible_foreign_keys: {
         "*": [
             [
-                "org",
+                "test",
                 "person_dept_fkey"
             ]
         ]
@@ -71,7 +71,7 @@ dept_annotations = {
                 "source": [
                     {
                         "inbound": [
-                            "org",
+                            "test",
                             "person_dept_fkey"
                         ]
                     },
@@ -82,7 +82,7 @@ dept_annotations = {
                 "source": [
                     {
                         "inbound": [
-                            "org",
+                            "test",
                             "person_dept_fkey"
                         ]
                     },
@@ -99,19 +99,19 @@ dept_annotations = {
 person_annotations = {
     tag.visible_columns: {
         "compact": [
-            ["org", "person_RID_key"],
+            ["test", "person_RID_key"],
             "name"
         ],
         "detailed": [
             "RID",
             "name",
-            ["org", "person_dept_fkey"],
+            ["test", "person_dept_fkey"],
             {
                 "markdown_name": "Department Name",
                 "source": [
                     {
                         "outbound": [
-                            "org",
+                            "test",
                             "person_dept_fkey"
                         ]
                     },
@@ -132,7 +132,7 @@ person_annotations = {
                 "source": [
                     {
                         "outbound": [
-                            "org",
+                            "test",
                             "person_dept_fkey"
                         ]
                     },
@@ -149,20 +149,20 @@ person_annotations = {
             "dept"
         ],
         "fkeys": [
-            ["org", "person_dept_fkey"]
+            ["test", "person_dept_fkey"]
         ],
         "sources": {
             "dept_size": {
                 "source": [
                     {
                         "outbound": [
-                            "org",
+                            "test",
                             "person_dept_fkey"
                         ]
                     },
                     {
                         "inbound": [
-                            "org",
+                            "test",
                             "person_dept_fkey"
                         ]
                     },
@@ -176,7 +176,7 @@ person_annotations = {
                 "source": [
                     {
                         "outbound": [
-                            "org",
+                            "test",
                             "person_dept_fkey"
                         ]
                     },
@@ -201,6 +201,10 @@ class BaseMMOTestCase (unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        BaseMMOTestCase.setUpCatalog()
+
+    @classmethod
+    def setUpCatalog(cls):
         global catalog
 
         # create catalog
@@ -215,19 +219,19 @@ class BaseMMOTestCase (unittest.TestCase):
         # get the chiseled model
         model = chisel.Model.from_catalog(catalog)
 
-        # drop `org` schema, if exists
+        # drop `test` schema, if exists
         try:
-            model.schemas['org'].drop(cascade=True)
+            model.schemas["test"].drop(cascade=True)
         except Exception as e:
             logger.debug(e)
 
-        # create `org` schema
+        # create `test` schema
         model.create_schema(
-            Schema.define('org')
+            Schema.define("test")
         )
 
         # create `dept` table
-        model.schemas['org'].create_table(
+        model.schemas["test"].create_table(
             Table.define(
                 'dept',
                 column_defs=[
@@ -247,7 +251,7 @@ class BaseMMOTestCase (unittest.TestCase):
         )
 
         # create `person` table
-        model.schemas['org'].create_table(
+        model.schemas["test"].create_table(
             Table.define(
                 'person',
                 column_defs=[
@@ -256,7 +260,7 @@ class BaseMMOTestCase (unittest.TestCase):
                     Column.define('last_name', builtin_types.text)
                 ],
                 fkey_defs=[
-                    ForeignKey.define(['dept'], 'org', 'dept', ['dept_no'])
+                    ForeignKey.define(['dept'], "test", 'dept', ['dept_no'])
                 ],
                 annotations=person_annotations
             )
@@ -265,12 +269,12 @@ class BaseMMOTestCase (unittest.TestCase):
         # populate for good measure (though not necessary for current set of tests)
         pbuilder = catalog.getPathBuilder()
 
-        pbuilder.org.dept.insert([
+        pbuilder.test.dept.insert([
             {'dept_no': 1, 'name': 'Dept A', 'street_address': '123 Main St', 'city': 'Anywhere', 'state': 'CA', 'country': 'US', 'postal_code': 98765},
             {'dept_no': 2, 'name': 'Dept B', 'street_address': '777 Oak Ave', 'city': 'Somewhere', 'state': 'NY', 'country': 'US', 'postal_code': 12345}
         ])
 
-        pbuilder.org.person.insert([
+        pbuilder.test.person.insert([
             {'name': 'John', 'dept': 1},
             {'name': 'Helena', 'dept': 1},
             {'name': 'Ben', 'dept': 1},
@@ -280,6 +284,10 @@ class BaseMMOTestCase (unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        BaseMMOTestCase.tearDownCatalog()
+
+    @classmethod
+    def tearDownCatalog(cls):
         global catalog
         if not ermrest_catalog_id and isinstance(catalog, ErmrestCatalog) and int(catalog.catalog_id) > 1000:
             # note: the '... > 1000' clause is intended to safeguard against accidental deletion of production catalogs in the usual (lower) range

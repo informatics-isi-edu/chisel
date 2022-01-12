@@ -94,8 +94,7 @@ class Schema (ModelObjectWrapper):
     def drop(self, cascade=False):
         """Remove this schema from the remote database.
 
-        :param cascade: automatically drop objects (namely tables) that are contained in the schema. Note that this will
-                        only drop object managed by ERMrest (i.e., tables, keys, and foreign keys).
+        :param cascade: drop dependent objects.
         """
         logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
         if cascade:
@@ -182,8 +181,7 @@ class Table (ModelObjectWrapper):
     def drop(self, cascade=False):
         """Remove this table from the remote database.
 
-        :param cascade: automatically drop objects (namely foreign keys) that depend on this table. Note that this will
-                        only drop object managed by ERMrest (i.e., foreign keys).
+        :param cascade: drop dependent objects.
         """
         logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
         if cascade:
@@ -224,7 +222,7 @@ class Column (ModelObjectWrapper):
     def drop(self, cascade=False):
         """Remove this column from the remote database.
 
-        :param cascade: automatically drop objects that depend on this column.
+        :param cascade: drop dependent objects.
         """
         logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
         if cascade:
@@ -283,8 +281,7 @@ class Key (Constraint):
     def drop(self, cascade=False):
         """Remove this key from the remote database.
 
-        :param cascade: automatically drop objects (namely foreign keys) that depend on this key. Note that this will
-                        only drop objects managed by ERMrest (i.e., foreign keys).
+        :param cascade: drop dependent objects.
         """
         logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
         if cascade:
@@ -296,10 +293,7 @@ class Key (Constraint):
                     fkey.drop()
 
         self._wrapped_obj.drop()
-        mmo.prune(
-            self.table.schema.model,
-            [self._wrapped_obj.constraint_schema.name, self.constraint_name]
-        )
+        mmo.prune(self.table.schema.model, [self._wrapped_obj.constraint_schema.name, self.constraint_name])
 
 
 class ForeignKey (Constraint):
@@ -339,13 +333,6 @@ class ForeignKey (Constraint):
 
     def drop(self):
         """Remove this foreign key from the remote database.
-
-        This method also prunes the model object name from annotations. The
-        changes to annotations are only local unless the `model.apply()` method
-        is called.
         """
         self._wrapped_obj.drop()
-        mmo.prune(
-            self.table.schema.model,
-            [self._wrapped_obj.constraint_schema.name, self.constraint_name]
-        )
+        mmo.prune(self.table.schema.model, [self._wrapped_obj.constraint_schema.name, self.constraint_name])

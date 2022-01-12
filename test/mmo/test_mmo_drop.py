@@ -13,6 +13,18 @@ logger.setLevel(os.getenv('DERIVA_PY_TEST_LOGLEVEL', default=logging.WARNING))
 
 class TestMMOxDDLDrop (BaseMMOTestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        """Don't bother setting up catalog for the suite.
+        """
+        pass
+
+    def setUp(self):
+        """Setup catalog for each unit test.
+        """
+        TestMMOxDDLDrop.setUpCatalog()
+        super().setUp()
+
     def _pre(self, fn):
         """Pre-condition evaluation."""
         fn(self.assertTrue)
@@ -23,17 +35,17 @@ class TestMMOxDDLDrop (BaseMMOTestCase):
 
     def test_drop_key(self):
         def cond(assertion):
-            matches = mmo.find(self.model, ["org", "dept_dept_no_key"])
+            matches = mmo.find(self.model, ["test", "dept_dept_no_key"])
             assertion(len(matches) == 1)
 
         self._pre(cond)
-        t = self.model.schemas['org'].tables['dept']
-        fk = t.keys[(t.schema, 'dept_dept_no_key')]
+        t = self.model.schemas["test"].tables["dept"]
+        fk = t.keys[(t.schema, "dept_dept_no_key")]
         fk.drop(cascade=True)
         self._post(cond)
 
     def test_drop_fkey(self):
-        fkname = ["org", "person_dept_fkey"]
+        fkname = ["test", "person_dept_fkey"]
 
         def cond(assertion):
             matches = mmo.find(self.model, fkname)
@@ -44,7 +56,7 @@ class TestMMOxDDLDrop (BaseMMOTestCase):
         self._post(cond)
 
     def test_drop_col(self):
-        cname = ["org", "person", "last_name"]
+        cname = ["test", "person", "last_name"]
 
         def cond(assertion):
             matches = mmo.find(self.model, cname)
@@ -57,7 +69,7 @@ class TestMMOxDDLDrop (BaseMMOTestCase):
         self._post(cond)
 
     def test_drop_col_cascade(self):
-        cname = ["org", "dept", "dept_no"]
+        cname = ["test", "dept", "dept_no"]
 
         def cond(assertion):
             matches = mmo.find(self.model, cname)
