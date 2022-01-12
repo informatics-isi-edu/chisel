@@ -264,6 +264,27 @@ class Key (Constraint):
     def __str__(self):
         return '"%s" UNIQUE CONSTRAINT (%s)' % (self.constraint_name, ', '.join(['"%s"' % c.name for c in self.unique_columns]))
 
+    def drop(self, cascade=False):
+        """Remove this key from the remote database.
+
+        :param cascade: automatically drop objects (namely foreign keys) that depend on this key. Note that this will
+                        only drop objects managed by ERMrest (i.e., foreign keys).
+        """
+        logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
+        if cascade:
+            # drop dependent objects
+            for fkey in list(self.table.referenced_by):
+                assert self.table == fkey.pk_table, "Expected key.table and foreign_key.pk_table to match"
+                if self.unique_columns == fkey.referenced_columns:
+                    logging.debug('Found dependent object %s' % fkey)
+                    fkey.drop()
+
+        self._wrapped_obj.drop()
+        mmo.prune(
+            self.table.schema.model,
+            [self._wrapped_obj.constraint_schema.name, self.constraint_name]
+        )
+
 
 class ForeignKey (Constraint):
     """ForeignKey within a table.

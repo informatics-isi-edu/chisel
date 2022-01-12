@@ -18,7 +18,7 @@ dept_annotations = {
     tag.visible_columns: {
         "compact": [
             ["org", "dept_RID_key"],
-            "dept_no",
+            ["org", "dept_dept_no_key"],
             "name"
         ],
         "detailed": [

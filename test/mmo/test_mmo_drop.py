@@ -21,6 +21,17 @@ class TestMMOxDDLDrop (BaseMMOTestCase):
         """Post-condition evaluation"""
         fn(self.assertFalse)
 
+    def test_drop_key(self):
+        def cond(assertion):
+            matches = mmo.find(self.model, ["org", "dept_dept_no_key"])
+            assertion(len(matches) == 1)
+
+        self._pre(cond)
+        t = self.model.schemas['org'].tables['dept']
+        fk = t.keys[(t.schema, 'dept_dept_no_key')]
+        fk.drop(cascade=True)
+        self._post(cond)
+
     def test_drop_fkey(self):
         fkname = ["org", "person_dept_fkey"]
 

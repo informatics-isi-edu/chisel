@@ -40,6 +40,9 @@ class MappingWrapper (Mapping):
     def __len__(self):
         return len(self._mapping)
 
+    def __eq__(self, other):
+        return self._mapping == other._mapping if isinstance(other, MappingWrapper) else False
+
 
 class SequenceWrapper (Sequence):
     """Provides wrapped objects from an underlying sequence.
@@ -68,6 +71,9 @@ class SequenceWrapper (Sequence):
     def __len__(self):
         return len(self._sequence)
 
+    def __eq__(self, other):
+        return self._sequence == other._sequence if isinstance(other, SequenceWrapper) else False
+
 
 class ModelObjectWrapper (object):
     """Generic wrapper for an ermrest_model object.
@@ -87,6 +93,9 @@ class ModelObjectWrapper (object):
 
     def __repr__(self):
         return super(ModelObjectWrapper, self).__repr__() + f' named "{self.name}"'
+
+    def __eq__(self, other):
+        return self._wrapped_obj == other._wrapped_obj if isinstance(other, ModelObjectWrapper) else False
 
     @property
     def name(self):
