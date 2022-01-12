@@ -221,6 +221,22 @@ class Column (ModelObjectWrapper):
     def default(self):
         return self._wrapped_obj.default
 
+    def drop(self, cascade=False):
+        """Remove this column from the remote database.
+
+        :param cascade: automatically drop objects that depend on this column.
+        """
+        logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
+        if cascade:
+            # drop dependent objects
+            for key in list(self.table.keys):
+                if self in key.unique_columns:
+                    logging.debug('Found dependent object %s' % key)
+                    key.drop(cascade=cascade)
+
+        self._wrapped_obj.drop()
+        mmo.prune(self.table.schema.model, [self.table.schema.name, self.table.name, self.name])
+
 
 class Constraint (ModelObjectWrapper):
     """Constraint within a table.

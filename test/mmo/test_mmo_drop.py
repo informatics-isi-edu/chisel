@@ -42,3 +42,29 @@ class TestMMOxDDLDrop (BaseMMOTestCase):
         self._pre(cond)
         self.model.fkey(fkname).drop()
         self._post(cond)
+
+    def test_drop_col(self):
+        cname = ["org", "person", "last_name"]
+
+        def cond(assertion):
+            matches = mmo.find(self.model, cname)
+            assertion(len(matches))
+
+        self._pre(cond)
+        t = self.model.schemas[cname[0]].tables[cname[1]]
+        col = t.columns[cname[2]]
+        col.drop()
+        self._post(cond)
+
+    def test_drop_col_cascade(self):
+        cname = ["org", "dept", "dept_no"]
+
+        def cond(assertion):
+            matches = mmo.find(self.model, cname)
+            assertion(len(matches))
+
+        self._pre(cond)
+        t = self.model.schemas[cname[0]].tables[cname[1]]
+        col = t.columns[cname[2]]
+        col.drop(cascade=True)
+        self._post(cond)

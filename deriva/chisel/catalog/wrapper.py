@@ -74,6 +74,11 @@ class SequenceWrapper (Sequence):
     def __eq__(self, other):
         return self._sequence == other._sequence if isinstance(other, SequenceWrapper) else False
 
+    def __contains__(self, item):
+        if isinstance(item, ModelObjectWrapper):
+            item = item._wrapped_obj
+        return item in self._sequence
+
 
 class ModelObjectWrapper (object):
     """Generic wrapper for an ermrest_model object.
