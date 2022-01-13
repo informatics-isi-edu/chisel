@@ -12,15 +12,21 @@ getting the examples and tests.
 
 ### Quick install
 
-Install the library directly from its source code repository. You will 
-_not_ get the `examples` and `tests` with the quick install instructions.
+Install the library from the [PyPI](https://pypi.org/) software repository.
+
+```sh
+$ pip install deriva-chisel
+```
+
+Install the library directly from its source code repository.
 
 ```sh
 $ pip install https://github.com/informatics-isi-edu/chisel.git
 ```
 
 For system-wide installations, use `sudo` and execute the command without the 
-`--user` option.
+`--user` option. You will _not_ get the `examples` and `tests` with the quick 
+install instructions.
 
 ### Clone and install
 

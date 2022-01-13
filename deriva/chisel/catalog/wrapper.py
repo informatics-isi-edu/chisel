@@ -31,14 +31,17 @@ class MappingWrapper (Mapping):
         self._item_wrapper = item_wrapper
         self._mapping = mapping
 
-    def __getitem__(self, item):
-        return self._item_wrapper(self._mapping[item])
+    def __getitem__(self, key):
+        return self._item_wrapper(self._mapping[key])
 
     def __iter__(self):
         return iter(self._mapping)
 
     def __len__(self):
         return len(self._mapping)
+
+    def __eq__(self, other):
+        return self._mapping == other._mapping if isinstance(other, MappingWrapper) else False
 
 
 class SequenceWrapper (Sequence):
@@ -53,11 +56,28 @@ class SequenceWrapper (Sequence):
         self._item_wrapper = item_wrapper
         self._sequence = sequence
 
-    def __getitem__(self, item):
-        return self._item_wrapper(self._sequence[item])
+    def __getitem__(self, key):
+        """Get element by key or by list index or slice."""
+        if isinstance(key, slice):
+            return SequenceWrapper(self._item_wrapper, self._sequence[key])
+        elif isinstance(key, tuple):
+            return self._item_wrapper(self._sequence[tuple(
+                elem._wrapped_obj if isinstance(elem, ModelObjectWrapper) else elem
+                for elem in key
+            )])
+        else:
+            return self._item_wrapper(self._sequence[key])
 
     def __len__(self):
         return len(self._sequence)
+
+    def __eq__(self, other):
+        return self._sequence == other._sequence if isinstance(other, SequenceWrapper) else False
+
+    def __contains__(self, item):
+        if isinstance(item, ModelObjectWrapper):
+            item = item._wrapped_obj
+        return item in self._sequence
 
 
 class ModelObjectWrapper (object):
@@ -75,6 +95,12 @@ class ModelObjectWrapper (object):
         for attr_name in ['acls', 'acl_bindings', 'annotations', 'alter', 'apply', 'clear', 'drop', 'prejson', 'names', 'constraint_name']:
             if not hasattr(self, attr_name) and hasattr(obj, attr_name):
                 setattr(self, attr_name, getattr(obj, attr_name))
+
+    def __repr__(self):
+        return super(ModelObjectWrapper, self).__repr__() + f' named "{self.name}"'
+
+    def __eq__(self, other):
+        return self._wrapped_obj == other._wrapped_obj if isinstance(other, ModelObjectWrapper) else False
 
     @property
     def name(self):

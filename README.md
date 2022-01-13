@@ -1,6 +1,6 @@
 # Welcome to CHiSEL
 
-CHiSEL is a high-level, user-oriented framework for schema evolution.
+CHiSEL is a high-level, user-oriented framework for schema evolution and model management in the [DERIVA](http://docs.derivacloud.org) platform.
 
 Features:
   * Compatible with [DERIVA](http://docs.derivacloud.org)'s [deriva-py catalog model management API](http://docs.derivacloud.org/users-guide/project-tutorial.html#your-first-catalog);
@@ -8,7 +8,10 @@ Features:
   * Several built-in functions to reduce effort of writing complicated expressions;
   * Ability to view the output of expressions before materializing;
   * Schema evolution expressions that update schema annotations too;
-  * Bulk operation execution to increase efficiency.
+  * Bulk operation execution to increase efficiency;
+  * (_NEW_) Model management operations to `find`, `prune`, and `replace` column, key, and foreign key symbols in DERIVA schema annotations;
+  * (_NEW_) Integrated schema modification and model management operations for column, key, and foreign key symbols operations for `alter` (rename) and `drop`;
+  * (_NEW_) Convenient `cascade`ing `drop` operations on schema, table, column, key, and foreign key symbols model element.
 
 A brief example:
 
@@ -26,9 +29,15 @@ foo = public.tables['foo']
 public.create_table_as('bar', foo.columns['bar'].to_vocabulary())
 ```
 
-## Clone and Install
+## Install
 
-You will need Python **3.7+**, and `git` and `pip` for installation.
+You will need Python **3.7+** and `pip` for installation.
+
+```sh
+$ pip install deriva-chisel
+```
+
+To install the latest development branch you will also need `git`.
 
 ```sh
 $ git clone https://github.com/informatics-isi-edu/chisel.git
@@ -68,6 +77,8 @@ The deriva-py `Model` interface implemented by `chisel` follows a pattern:
    their definitions.
 4. **Drop**: `drop` instance methods on model object for dropping them from the 
    catalog model.
+5. **Apply**: `apply` model "annotation" changes performed explicitly or 
+   implicitly by the `alter` and `drop` methods.
 
 ```python
 from deriva.core import DerivaServer
@@ -103,6 +114,9 @@ foo.columns['xyzzy'].alter(name='zzyzx')
 
 # drop column
 foo.columns['baz'].drop()
+
+# apply model "annotation" changes (this only affects "annotation" changes)
+model.apply()
 ```
 
 For more details, see the [deriva-py tutorial](http://docs.derivacloud.org/users-guide/project-tutorial.html#your-first-catalog).

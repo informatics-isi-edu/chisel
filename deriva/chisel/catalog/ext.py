@@ -25,6 +25,7 @@ class Model (model.Model):
         """
         super(Model, self).__init__(catalog)
         self._new_schema = lambda obj: Schema(self, obj)
+        self._new_fkey = lambda obj: ForeignKey(self.schemas[obj.table.schema.name].tables[obj.table.name], obj)
 
     def make_extant_symbol(self, schema_name, table_name):
         """Makes a symbol for representing an extant relation.

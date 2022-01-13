@@ -3,8 +3,10 @@
 import logging
 from deriva.core import ermrest_model as _erm
 from .wrapper import MappingWrapper, SequenceWrapper, ModelObjectWrapper
+from .. import mmo
 
 logger = logging.getLogger(__name__)
+
 
 class Model (object):
     """Catalog model.
@@ -18,6 +20,7 @@ class Model (object):
         self._catalog = catalog
         self._wrapped_model = catalog.getCatalogModel()
         self._new_schema = lambda obj: Schema(self, obj)
+        self._new_fkey = lambda obj: ForeignKey(self.schemas[obj.table.schema.name].tables[obj.table.name], obj)
         self.acls = self._wrapped_model.acls
         self.annotations = self._wrapped_model.annotations
         self.apply = self._wrapped_model.apply
@@ -36,6 +39,16 @@ class Model (object):
     @property
     def schemas(self):
         return MappingWrapper(self._new_schema, self._wrapped_model.schemas)
+
+    def fkey(self, constraint_name_pair):
+        """Return foreign key with given name pair.
+
+        This method wraps the `deriva.core.ermrest_model.Model.fkey` method:
+        > Accepts (schema_name, constraint_name) pairs as found in many
+        > faceting annotations and (schema_obj, constraint_name) pairs
+        > as found in fkey.name fields.
+        """
+        return self._new_fkey(self._wrapped_model.fkey(constraint_name_pair))
 
     def create_schema(self, schema_def):
         """Add a new schema to this model in the remote database based on schema_def.
@@ -81,8 +94,7 @@ class Schema (ModelObjectWrapper):
     def drop(self, cascade=False):
         """Remove this schema from the remote database.
 
-        :param cascade: automatically drop objects (namely tables) that are contained in the schema. Note that this will
-                        only drop object managed by ERMrest (i.e., tables, keys, and foreign keys).
+        :param cascade: drop dependent objects.
         """
         logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
         if cascade:
@@ -169,8 +181,7 @@ class Table (ModelObjectWrapper):
     def drop(self, cascade=False):
         """Remove this table from the remote database.
 
-        :param cascade: automatically drop objects (namely foreign keys) that depend on this table. Note that this will
-                        only drop object managed by ERMrest (i.e., foreign keys).
+        :param cascade: drop dependent objects.
         """
         logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
         if cascade:
@@ -208,6 +219,41 @@ class Column (ModelObjectWrapper):
     def default(self):
         return self._wrapped_obj.default
 
+    def alter(self, **kwargs):
+        # Wraps the underlying object's `alter` method, adds mmo functionality, and copies its documentation
+
+        # ...remember name, if needed later
+        oldname = self.name
+        newname = kwargs.get('name', _erm.nochange)
+
+        # ...do the wrapped alter
+        self._wrapped_obj.alter(**kwargs)
+
+        # ...if name change, do mmo replace
+        if newname != _erm.nochange:
+            basename = [self.table.schema.name, self.table.name]
+            mmo.replace(self.table.schema.model, basename + [oldname], basename + [newname])
+
+        return self
+
+    alter.__doc__ = _erm.Column.alter.__doc__
+
+    def drop(self, cascade=False):
+        """Remove this column from the remote database.
+
+        :param cascade: drop dependent objects.
+        """
+        logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
+        if cascade:
+            # drop dependent objects
+            for key in list(self.table.keys):
+                if self in key.unique_columns:
+                    logging.debug('Found dependent object %s' % key)
+                    key.drop(cascade=True)
+
+        self._wrapped_obj.drop()
+        mmo.prune(self.table.schema.model, [self.table.schema.name, self.table.name, self.name])
+
 
 class Constraint (ModelObjectWrapper):
     """Constraint within a table.
@@ -233,6 +279,23 @@ class Constraint (ModelObjectWrapper):
         constraint_schema, constraint_name = self._wrapped_obj.name
         return self._new_schema(constraint_schema), constraint_name
 
+    def alter(self, **kwargs):
+        # Wraps the underlying object's `alter` method, adds mmo functionality, and copies its documentation
+
+        # ...remember name, if needed later
+        oldname = self.constraint_name
+        newname = kwargs.get('constraint_name', _erm.nochange)
+
+        # ...do the wrapped alter
+        self._wrapped_obj.alter(**kwargs)
+
+        # ...if name change, do mmo replace
+        if newname != _erm.nochange:
+            basename = [self.table.schema.name]
+            mmo.replace(self.table.schema.model, basename + [oldname], basename + [newname])
+
+        return self
+
 
 class Key (Constraint):
     """Key within a table.
@@ -250,6 +313,28 @@ class Key (Constraint):
 
     def __str__(self):
         return '"%s" UNIQUE CONSTRAINT (%s)' % (self.constraint_name, ', '.join(['"%s"' % c.name for c in self.unique_columns]))
+
+    def alter(self, **kwargs):
+        super().alter(**kwargs)
+
+    alter.__doc__ = _erm.Key.alter.__doc__
+
+    def drop(self, cascade=False):
+        """Remove this key from the remote database.
+
+        :param cascade: drop dependent objects.
+        """
+        logging.debug('Dropping %s cascade %s' % (self.name, str(cascade)))
+        if cascade:
+            # drop dependent objects
+            for fkey in list(self.table.referenced_by):
+                assert self.table == fkey.pk_table, "Expected key.table and foreign_key.pk_table to match"
+                if self.unique_columns == fkey.referenced_columns:
+                    logging.debug('Found dependent object %s' % fkey)
+                    fkey.drop()
+
+        self._wrapped_obj.drop()
+        mmo.prune(self.table.schema.model, [self._wrapped_obj.constraint_schema.name, self.constraint_name])
 
 
 class ForeignKey (Constraint):
@@ -286,3 +371,14 @@ class ForeignKey (Constraint):
             self._wrapped_obj.pk_table.name,
             ', '.join(['"%s"' % c.name for c in self.referenced_columns])
         )
+
+    def alter(self, **kwargs):
+        super().alter(**kwargs)
+
+    alter.__doc__ = _erm.ForeignKey.alter.__doc__
+
+    def drop(self):
+        """Remove this foreign key from the remote database.
+        """
+        self._wrapped_obj.drop()
+        mmo.prune(self.table.schema.model, [self._wrapped_obj.constraint_schema.name, self.constraint_name])
