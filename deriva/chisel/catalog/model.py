@@ -219,6 +219,25 @@ class Column (ModelObjectWrapper):
     def default(self):
         return self._wrapped_obj.default
 
+    def alter(self, **kwargs):
+        # Wraps the underlying object's `alter` method, adds mmo functionality, and copies its documentation
+
+        # ...remember name, if needed later
+        oldname = self.name
+        newname = kwargs.get('name', _erm.nochange)
+
+        # ...do the wrapped alter
+        self._wrapped_obj.alter(**kwargs)
+
+        # ...if name change, do mmo replace
+        if newname != _erm.nochange:
+            basename = [self.table.schema.name, self.table.name]
+            mmo.replace(self.table.schema.model, basename + [oldname], basename + [newname])
+
+        return self
+
+    alter.__doc__ = _erm.Column.alter.__doc__
+
     def drop(self, cascade=False):
         """Remove this column from the remote database.
 
@@ -260,6 +279,23 @@ class Constraint (ModelObjectWrapper):
         constraint_schema, constraint_name = self._wrapped_obj.name
         return self._new_schema(constraint_schema), constraint_name
 
+    def alter(self, **kwargs):
+        # Wraps the underlying object's `alter` method, adds mmo functionality, and copies its documentation
+
+        # ...remember name, if needed later
+        oldname = self.constraint_name
+        newname = kwargs.get('constraint_name', _erm.nochange)
+
+        # ...do the wrapped alter
+        self._wrapped_obj.alter(**kwargs)
+
+        # ...if name change, do mmo replace
+        if newname != _erm.nochange:
+            basename = [self.table.schema.name]
+            mmo.replace(self.table.schema.model, basename + [oldname], basename + [newname])
+
+        return self
+
 
 class Key (Constraint):
     """Key within a table.
@@ -277,6 +313,11 @@ class Key (Constraint):
 
     def __str__(self):
         return '"%s" UNIQUE CONSTRAINT (%s)' % (self.constraint_name, ', '.join(['"%s"' % c.name for c in self.unique_columns]))
+
+    def alter(self, **kwargs):
+        super().alter(**kwargs)
+
+    alter.__doc__ = _erm.Key.alter.__doc__
 
     def drop(self, cascade=False):
         """Remove this key from the remote database.
@@ -330,6 +371,11 @@ class ForeignKey (Constraint):
             self._wrapped_obj.pk_table.name,
             ', '.join(['"%s"' % c.name for c in self.referenced_columns])
         )
+
+    def alter(self, **kwargs):
+        super().alter(**kwargs)
+
+    alter.__doc__ = _erm.ForeignKey.alter.__doc__
 
     def drop(self):
         """Remove this foreign key from the remote database.
