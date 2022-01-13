@@ -1,5 +1,5 @@
 #
-# Copyright 2021 University of Southern California
+# Copyright 2021- University of Southern California
 # Distributed under the Apache License, Version 2.0. See LICENSE for more info.
 #
 
@@ -15,14 +15,14 @@ __version__ = re.search(
     io.open('deriva/chisel/__init__.py', encoding='utf_8_sig').read()
     ).group(1)
 
-url = "https://github.com/informatics-isi-edu"
+url = "https://github.com/informatics-isi-edu/chisel/"
 author = 'USC Information Sciences Institute, Informatics Systems Research Division'
 author_email = 'isrd-support@isi.edu'
 
 setup(
     name="deriva-chisel",
     version=__version__,
-    description="CHiSEL: A high-level, user-oriented framework for schema evolution",
+    description="CHiSEL: schema evolution and model management for the DERIVA platform.",
     long_description='For further information, visit the project [homepage](%s).' % url,
     long_description_content_type='text/markdown',
     url=url,
@@ -34,8 +34,7 @@ setup(
     package_data={},
     test_suite='tests',
     install_requires=[
-        'deriva',
-        'graphviz',
+        'deriva>=1.5.0',
         'nltk',
         'pyfpm',
         'pyparsing',

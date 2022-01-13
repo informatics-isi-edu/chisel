@@ -356,6 +356,26 @@ acme.create_table_as(
 )
 ```
 
+## Model Management
+
+The `alter` and `drop` methods above are integrated with model management operations for 
+`prune`ing and `replace`ing the renamed or dropped objects in DERIVA's schema annotations. 
+While the schema evolution `alter` and `drop` are executed immediately the changes to the
+annotations are only local until `apply()` is called explicitly.
+
+```python
+# schema changes
+acme.tables['foo'].drop(cascade=True)
+# ...executed on the server, table 'foo' no longer exists now
+
+# ..."apply" is not needed to affect server state of schema changes
+# ...however, "annotation" changes are only locally modified by the API to allow review before commit
+
+# now, "apply" the annotation changes to the remote database
+# ...this can be called last after numerous schema change operations above
+model.apply()
+```
+
 ## Session Manager
 
 Schema evolution expressions can be performed in a `with` block and materialized
