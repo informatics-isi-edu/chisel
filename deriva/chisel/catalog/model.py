@@ -249,7 +249,7 @@ class Column (ModelObjectWrapper):
             for key in list(self.table.keys):
                 if self in key.unique_columns:
                     logging.debug('Found dependent object %s' % key)
-                    key.drop(cascade=cascade)
+                    key.drop(cascade=True)
 
         self._wrapped_obj.drop()
         mmo.prune(self.table.schema.model, [self.table.schema.name, self.table.name, self.name])
