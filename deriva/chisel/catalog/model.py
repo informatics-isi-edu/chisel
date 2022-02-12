@@ -178,6 +178,27 @@ class Table (ModelObjectWrapper):
         """
         return self._new_fkey(self._wrapped_obj.create_fkey(fkey_def))
 
+    def add_reference(self, table):  # todo: unit test needed
+        """Adds a foriegn key reference to `table`.
+
+        This method requires that `table` has a `RID` primary key. It creates a
+        compatible foreign key column in `self` and creates a foreign key
+        constraint to `table` (`RID`).
+
+        :param table: the table to be referenced by this table
+        :return: a new ForeignKey instance based on the server-supplied
+        representation of the foreign key.
+        """
+
+        fkeydef = ForeignKey.define(
+            [table.name],
+            table.schema.name, table.name, [table.columns['RID'].name],
+            on_update='CASCADE'
+        )
+
+        self.create_column(Column.define(table.name, _erm.builtin_types['text']))
+        return self.create_fkey(fkeydef)
+
     def drop(self, cascade=False):
         """Remove this table from the remote database.
 

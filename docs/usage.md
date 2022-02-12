@@ -104,6 +104,16 @@ Analogous operations exist for creating, dropping, and altering `Key` and `Forei
 instances of a `Table`. They follow the same pattern of `define` and `create_key` or
 `create_fkey`.
 
+### Alter Table -- Add Reference
+
+For a simplified method of adding a foreign key reference, consider using `add_reference`. This method of the `Table` class adds a foreign key reference from `self` to a given `table` object based on DERIVA's standard primary key column `RID`. The resulting foreign key column in `self` will be named `table.name`.
+
+```python
+foo.add_reference(model.schemas['public'].tables['bar'])
+```
+
+The above method will result in a column in table `foo` named `bar` of type `text`, and it will participate in a foreign key that references table `bar` column `RID`.
+
 ## Schema Evolution Expressions
 
 In addition to the schema definition interfaces, chisel supports schema evolution
