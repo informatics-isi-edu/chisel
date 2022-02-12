@@ -73,6 +73,18 @@ of a table instance.
 foo.alter(schema_name='acme')
 ```
 
+### Create an Association
+
+An "associative table" (also known as "association table", "join table", and by other names) is a table that exists for the sole purpose of establishing a many-to-many relationship between tables. Typically, these are "binary" associations that relate just two tables, though greater arity is possible.
+
+For a simplified method of creating a (binary) association between two tables, consider using the `create_association` method of the `Schema` class. The method will create a table consisting of two foreign key references based on DERIVA's standard primary key column `RID`. The resulting association table will be named `table1_table2`.
+
+```python
+a = model.schemas['public'].create_association(foo, bar)
+```
+
+The above method will result in a table named `foo_bar` with columns named `foo` and `bar` of type `text` and foreign keys to tables `foo` and `bar`. It will also have a key `(foo, bar)` and both `foo` and `bar` will be non-nullable. Note that the tables `foo` and `bar` themselves are unchanged.
+
 ### Alter Table -- Add Column
 
 Add a column to an existing table by calling the `define` method of the `Column`

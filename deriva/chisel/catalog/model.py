@@ -91,6 +91,44 @@ class Schema (ModelObjectWrapper):
         """
         return self._new_table(self._wrapped_obj.create_table(table_def))
 
+    def create_association(self, table1, table2):  # todo: need unit tests
+        """Creates an association table that references the given tables.
+
+        This method requires that both tables have a `RID` primary key. It
+        creates a table named `{table1.name}_{table2.name}` with foreign
+        keys to each of the given tables. It also creates a key spanning
+        the columns of the foreign key.
+
+        :param table1: a table to be referenced by this table
+        :param table2: a table to be referenced by this table
+        :return: a new Table instance based on the server-supplied
+        representation of the table.
+        """
+        return self.create_table(
+            Table.define(
+                f'{table1.name}_{table2.name}',
+                column_defs=[
+                    Column.define(table1.name, _erm.builtin_types['text'], nullok=False),
+                    Column.define(table2.name, _erm.builtin_types['text'], nullok=False)
+                ],
+                key_defs=[
+                    Key.define([table1.name, table2.name])
+                ],
+                fkey_defs=[
+                    ForeignKey.define(
+                        [table1.name],
+                        table1.schema.name, table1.name, [table1.columns['RID'].name],
+                        on_update='CASCADE'
+                    ),
+                    ForeignKey.define(
+                        [table2.name],
+                        table2.schema.name, table2.name, [table2.columns['RID'].name],
+                        on_update='CASCADE'
+                    )
+                ]
+            )
+        )
+
     def drop(self, cascade=False):
         """Remove this schema from the remote database.
 
