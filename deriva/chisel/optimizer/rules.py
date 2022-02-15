@@ -209,11 +209,11 @@ physical_transformation_rules = Matcher([
     ),
     (
         'Select(TableExtant(model, sname, tname), formula)',
-        lambda model, sname, tname, formula: _op.ERMrestSelect(model, sname, tname, formula)
+        lambda model, sname, tname, formula: _op.ERMrestProjectSelect(model, sname, tname, None, formula)
     ),
     (
         'TableExtant(model, sname, tname)',
-        lambda model, sname, tname: _op.ERMrestSelect(model, sname, tname)
+        lambda model, sname, tname: _op.ERMrestProjectSelect(model, sname, tname, None)
     ),
     (
         'JSONDataExtant(input_filename, json_content, object_payload, key_regex)',

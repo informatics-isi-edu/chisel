@@ -286,6 +286,8 @@ class Project (PhysicalOperator):
                 key_def['names'] = []
                 key_def['unique_columns'] = [self._cname_to_alias.get(col, [col])[0] for col in unique_columns]
                 key_defs.append(key_def)
+                # todo: track (old_key_name, new_key_name) for swapping in acls and annotations
+                # todo: else... track (old_key_name) for pruning from acls and annotations
 
         # copy all fkey definitions for which all fkey columns exist in this projection
         fkey_defs = []
@@ -298,6 +300,10 @@ class Project (PhysicalOperator):
                     for fkey_col in fkey_def['foreign_key_columns']
                 ]
                 fkey_defs.append(fkey_def)
+                # todo: track (old_fkey_name, new_fkey_name) for swapping in acls and annotations
+                # todo: else... track (old_fkey_name) for pruning from acls and annotations
+
+        # todo: swap/prune (f)keys from annotations and acls documents
 
         # Define the table
         self._description = _em.Table.define(

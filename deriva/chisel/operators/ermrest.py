@@ -41,7 +41,7 @@ def _apply_filters(table, formula):
 class ERMrestProjectSelect (Project):
     """Fused project-scan operator for ERMrest data sources.
     """
-    def __init__(self, model, sname, tname, projection, formula=None):
+    def __init__(self, model, sname, tname, projection, formula=None):  # todo: projection nullable
         """Initialize the operator.
 
         :param model: an ermrest Model object
@@ -71,7 +71,7 @@ class ERMrestProjectSelect (Project):
         return iter(rows)
 
 
-class ERMrestSelect (PhysicalOperator):
+class ERMrestSelect (PhysicalOperator):  # todo: deprecated, should be removed
     """Select operator for ERMrest data sources.
     """
     def __init__(self, model, sname, tname, formula=None):
