@@ -38,18 +38,19 @@ def _apply_filters(table, formula):
     return path
 
 
-class ERMrestProjectSelect (Project):
-    """Fused project-scan operator for ERMrest data sources.
+class ERMrestSelectProject (Project):
+    """Fused select-project operator for ERMrest data sources.
     """
-    def __init__(self, model, sname, tname, projection, formula=None):  # todo: projection nullable
+    def __init__(self, model, sname, tname, projection=None, formula=None):
         """Initialize the operator.
 
         :param model: an ermrest Model object
         :param sname: schema name
         :param tname: table name
-        :param projection: projection list of attributes
+        :param projection: list of attributes to be returned in tuples
+        :param formula: expression for filtering tuples
         """
-        super(ERMrestProjectSelect, self).__init__(Metadata(model.schemas[sname].tables[tname].prejson()), projection)
+        super(ERMrestSelectProject, self).__init__(Metadata(model.schemas[sname].tables[tname].prejson()), projection)
         self._model = model
         self._sname = sname
         self._tname = tname
@@ -65,13 +66,12 @@ class ERMrestProjectSelect (Project):
         ] + [
             table.column_definitions[cname].alias(alias) for alias, cname in self._alias_to_cname.items()
         ]
-        # kwargs = {alias: table.column_definitions[cname] for alias, cname in self._alias_to_cname.items()}
         rows = filtered_path.attributes(*cols)
         logger.debug("Fetching rows from '{}'".format(rows.uri))
         return iter(rows)
 
 
-class ERMrestSelect (PhysicalOperator):  # todo: deprecated, should be removed
+class ERMrestSelect (PhysicalOperator):
     """Select operator for ERMrest data sources.
     """
     def __init__(self, model, sname, tname, formula=None):

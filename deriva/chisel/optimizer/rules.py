@@ -176,12 +176,12 @@ physical_transformation_rules = Matcher([
         'Assign(Project(TableExtant(model, src_sname, src_tname), attributes), dst_sname, dst_tname)'
         '   if (src_sname, src_tname) == (dst_sname, dst_tname)',
         lambda model, src_sname, src_tname, dst_sname, dst_tname, attributes:
-        _op.Alter(_op.ERMrestProjectSelect(model, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
+        _op.Alter(_op.ERMrestSelectProject(model, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
     ),
     (
         'Assign(Rename(TableExtant(model, src_sname, src_tname), attributes), dst_sname, dst_tname)',
         lambda model, src_sname, src_tname, dst_sname, dst_tname, attributes:
-        _op.Alter(_op.ERMrestProjectSelect(model, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
+        _op.Alter(_op.ERMrestSelectProject(model, src_sname, src_tname, attributes), src_sname, src_tname, dst_sname, dst_tname, attributes)
     ),
     (
         'Assign(Nil(), schema, table)',
@@ -201,19 +201,19 @@ physical_transformation_rules = Matcher([
     ),
     (
         'Project(Select(TableExtant(model, sname, tname), formula), attributes)',
-        lambda model, sname, tname, formula, attributes: _op.ERMrestProjectSelect(model, sname, tname, attributes, formula)
+        lambda model, sname, tname, formula, attributes: _op.ERMrestSelectProject(model, sname, tname, attributes, formula)
     ),
     (
         'Project(TableExtant(model, sname, tname), attributes)',
-        lambda model, sname, tname, attributes: _op.ERMrestProjectSelect(model, sname, tname, attributes)
+        lambda model, sname, tname, attributes: _op.ERMrestSelectProject(model, sname, tname, attributes)
     ),
     (
         'Select(TableExtant(model, sname, tname), formula)',
-        lambda model, sname, tname, formula: _op.ERMrestProjectSelect(model, sname, tname, None, formula)
+        lambda model, sname, tname, formula: _op.ERMrestSelectProject(model, sname, tname, formula=formula)
     ),
     (
         'TableExtant(model, sname, tname)',
-        lambda model, sname, tname: _op.ERMrestProjectSelect(model, sname, tname, None)
+        lambda model, sname, tname: _op.ERMrestSelectProject(model, sname, tname)
     ),
     (
         'JSONDataExtant(input_filename, json_content, object_payload, key_regex)',
