@@ -42,6 +42,13 @@ def _rewrite_formula(formula, projection):
                 for comp in formula.comparisons
             ])
         )
+    elif isinstance(formula, Disjunction):
+        return Disjunction(
+            tuple([
+                Comparison(aliases.get(comp.operand1, comp.operand1), comp.operator, comp.operand2)
+                for comp in formula.comparisons
+            ])
+        )
     else:
         return formula
 

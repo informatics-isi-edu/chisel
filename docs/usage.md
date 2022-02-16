@@ -168,11 +168,7 @@ schema annotations, and ACLs per the expression.
 Use the `where` method on a `Table` instance to filter the rows of the source
 relation. In relational theory, this operation is actually called a _select_ or
 _restrict_. Currently, the where-clause may consist of a `COLUMN OP LITERAL` 
-comparison or conjunctions of these simple comparisons.
-
-**Limitation**: currently the only operator (`OP`) supported in chisel comparisons
-is equality (`==`) in order to support equijoins. Check back as this will soon be
-remedied.
+comparison or a conjunction ("and" using the 'bitwise-and' operator `&`) or disjunction ("or" using the 'bitwise-or' operator `|`) of these simple comparisons.
 
 ```python
 # relation with just tuples that satisfy "Col1 == 42"
@@ -232,7 +228,7 @@ a projection list.
 The expression returned by the `join` method on a `Table` instance is equivalent
 to a `CROSS JOIN` (a.k.a., cartesian product) in SQL. Obvoiusly, it is 
 therefore a very expensive operation to perform. The relation produced by a
-Join will include all column from both relations, in some cases qualified with
+Join will include all columns from both relations, in some cases qualified with
 the source table's name to resolve name collisions.
 
 ```python

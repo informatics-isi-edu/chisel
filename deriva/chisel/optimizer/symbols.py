@@ -7,7 +7,7 @@ from collections import namedtuple
 # Internal helper functions
 #
 
-def _conjunction_and_fn(left, right):
+def _and_fn(left, right):
     """A helper function for the bitwise and between conjunctions and/or comparisons.
 
     :param left: a Comparison or Conjunction object
@@ -30,6 +30,31 @@ def _conjunction_and_fn(left, right):
         ))
 
     return Conjunction(comparisons)
+
+
+def _or_fn(left, right):
+    """A helper function for the bitwise-or operator between disjunctions and/or comparisons.
+
+    :param left: a Comparison or Disjunction object
+    :param right: a Comparison or Disjunction object
+    :return: a Disjunction object
+    """
+    assert isinstance(left, Disjunction) or isinstance(left, Comparison)
+    if isinstance(left, Disjunction):
+        comparisons = left.comparisons
+    else:
+        comparisons = (left,)
+
+    if isinstance(right, Disjunction):
+        comparisons += right.comparisons
+    elif isinstance(right, Comparison):
+        comparisons += (right,)
+    else:
+        raise TypeError("'|' not supported between instances of '{left}' and '{right}'".format(
+            left=type(left).__name__, right=type(right).__name__
+        ))
+
+    return Disjunction(comparisons)
 
 
 #
@@ -138,11 +163,20 @@ IntrospectionFunction = namedtuple('IntrospectionFunction', 'fn')
 
 #: conjunction
 Conjunction = namedtuple('Conjunction', 'comparisons')
-Conjunction.__and__ = _conjunction_and_fn
+Conjunction.__and__ = _and_fn
+Conjunction.and_ = _and_fn
+
+#: disjunction
+Disjunction = namedtuple('Disjunction', 'comparisons')
+Disjunction.__or__ = _or_fn
+Disjunction.or_ = _or_fn
 
 #: comparison
 Comparison = namedtuple('Comparison', 'operand1 operator operand2')
-Comparison.__and__ = _conjunction_and_fn
+Comparison.__and__ = _and_fn
+Comparison.and_ = _and_fn
+Comparison.__or__ = _or_fn
+Comparison.or_ = _or_fn
 
 #: similarity operator
 Similar = namedtuple('Similar', 'attribute domain synonyms similarity_fn grouping_fn')

@@ -10,10 +10,11 @@ def _apply_filters(table, formula):
     """Applies filters to a datapath table.
 
     :param table: datapath table object
-    :param formula: a comparison or conjunction of comparisons
+    :param formula: a comparison, conjunction or disjunction of comparisons
     :return: a filtered data path
     """
-    assert not formula or isinstance(formula, symbols.Comparison) or isinstance(formula, symbols.Conjunction)
+    assert not formula or isinstance(formula, symbols.Comparison) or \
+           isinstance(formula, symbols.Conjunction) or isinstance(formula, symbols.Disjunction)
     path = table.path
 
     # turn formula into list of comparisons
@@ -26,16 +27,21 @@ def _apply_filters(table, formula):
 
     # turn comparisons into path filters
     def _to_datapath_comparison(symbolic_comparison: symbols.Comparison):
-        if isinstance(symbolic_comparison, symbols.Conjunction):
-            raise ValueError('Nested conjunctions not supported')
+        assert isinstance(symbolic_comparison, symbols.Comparison)
         column = table.column_definitions[symbolic_comparison.operand1]
         op = getattr(column, symbolic_comparison.operator)
         return op(symbolic_comparison.operand2)
 
     # apply all filters
-    for comparison in comparisons:
-        path.filter(_to_datapath_comparison(comparison))
-    return path
+    expr = _to_datapath_comparison(comparisons[0])
+    if isinstance(formula, symbols.Disjunction):
+        for comparison in comparisons[1:]:
+            expr = expr.or_(_to_datapath_comparison(comparison))
+    else:
+        for comparison in comparisons[1:]:
+            expr = expr.and_(_to_datapath_comparison(comparison))
+
+    return path.filter(expr)
 
 
 class ERMrestSelectProject (Project):

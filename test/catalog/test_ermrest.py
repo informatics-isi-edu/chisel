@@ -186,3 +186,19 @@ class TestERMrestCatalog (BaseTestCase):
         pb = self.model.catalog.getPathBuilder()
         num = len(pb.schemas['public'].tables[tname].entities())
         self.assertEquals(num, 4)
+
+    def test_smo_where_disj(self):
+        assert self.catalog_helper.num_test_rows > 5
+        samples = self.model.schemas['public'].tables[self.catalog_helper.samples]
+        tname = self._samples_subset
+        self.model.schemas['public'].create_table_as(
+            tname,
+            samples.where((samples.columns['id'] == 0) | (samples.columns['id'] == 5))
+        )
+        # validate new table is in ermrest
+        ermrest_schema = self.model.catalog.getCatalogSchema()
+        self.assertIn(tname, ermrest_schema['schemas']['public']['tables'])
+        # validate rows
+        pb = self.model.catalog.getPathBuilder()
+        num = len(pb.schemas['public'].tables[tname].entities())
+        self.assertEquals(num, 2)

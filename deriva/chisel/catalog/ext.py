@@ -298,11 +298,12 @@ class Table (model.Table):
     def where(self, expression):
         """Filters the rows of this table according to the where-clause expression.
 
-        :param expression: where-clause expression (comparison or conjunction of comparisons)
+        :param expression: where-clause expression (instance of Comparison, Conjunction, or Disjunction)
         :return: table instance
         """
-        if not any(isinstance(expression, symbol) for symbol in [symbols.Comparison, symbols.Conjunction]):
-            raise ValueError('Invalid where-clause "expression"')
+        if not (isinstance(expression, symbols.Comparison) or isinstance(expression, symbols.Conjunction) or
+                isinstance(expression, symbols.Disjunction)):
+            raise ValueError('expression of type "%s" not supported' % type(expression).__name__)
 
         return ComputedRelation(self.schema, symbols.Select(self._logical_plan, expression))
 

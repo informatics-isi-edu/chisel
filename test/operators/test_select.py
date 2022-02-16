@@ -45,6 +45,18 @@ class TestSelect (unittest.TestCase):
         self.assertDictEqual(self._child.description, oper.description, "table definition should match source")
         self.assertEqual(1, count(oper), 'incorrect number of rows returned by operator')
 
+    def test_select_disjunction(self):
+        assert self._test_helper.num_test_rows > 2
+        i = int(self._test_helper.num_test_rows / 2)
+        comparisons = [
+            _opt.Comparison(self._test_helper.FIELDS[0], 'lt', i),
+            _opt.Comparison(self._test_helper.FIELDS[0], 'gt', i)
+            ]
+        comparison = _opt.Disjunction(comparisons)
+        oper = _op.Select(self._child, comparison)
+        self.assertDictEqual(self._child.description, oper.description, "table definition should match source")
+        self.assertEqual(self._test_helper.num_test_rows-1, count(oper), 'incorrect number of rows returned by operator')
+
 
 if __name__ == '__main__':
     unittest.main()

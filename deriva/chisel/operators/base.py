@@ -170,13 +170,20 @@ class Select (PhysicalOperator):
         """
         super(Select, self).__init__()
         assert isinstance(child, PhysicalOperator)
+        assert isinstance(formula, symbols.Comparison) or \
+               isinstance(formula, symbols.Conjunction) or isinstance(formula, symbols.Disjunction)
         logger.debug('Select "formula" => %s' % str(formula))
         self._child = child
-        assert isinstance(formula, symbols.Comparison) or isinstance(formula, symbols.Conjunction)
+
         if isinstance(formula, symbols.Comparison):
             self._comparisons = [formula]
         else:
             self._comparisons = formula.comparisons
+
+        if isinstance(formula, symbols.Disjunction):
+            self._connector_fn = any
+        else:
+            self._connector_fn = all
 
     def __iter__(self):
         return filter(self._eval_formula, self._child)
@@ -184,10 +191,9 @@ class Select (PhysicalOperator):
     def _eval_comparison(self, row: dict, comparison: symbols.Comparison):
         """Evaluates a single comparison.
         """
+        assert isinstance(comparison, symbols.Comparison)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug('eval: %s %s %s' % (row[comparison.operand1], comparison.operator, comparison.operand2))
-        if isinstance(comparison, symbols.Conjunction):
-            raise ValueError('Nested conjunctions are not supported')
         return getattr(row[comparison.operand1], '__%s__' % comparison.operator)(comparison.operand2)
 
     def _eval_formula(self, row):
@@ -196,7 +202,7 @@ class Select (PhysicalOperator):
         if not self._comparisons:  # if no comparisons than return tuple by default
             return True
         # otherwise, test that all comparisons match
-        return all([self._eval_comparison(row, comparison) for comparison in self._comparisons])
+        return self._connector_fn([self._eval_comparison(row, comparison) for comparison in self._comparisons])
 
 
 class Project (PhysicalOperator):
