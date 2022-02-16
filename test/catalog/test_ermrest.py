@@ -18,6 +18,7 @@ class TestERMrestCatalog (BaseTestCase):
     _test_renamed_sname = "NEW SCHEMA"
     _test_create_table_tname = "NEW TABLE"
     _test_assoc_table_tname = "{}_{}".format(ERMrestHelper.samples, _test_create_table_tname)
+    _samples_subset = 'samples_subset'
 
     catalog_helper = ERMrestHelper(
         ermrest_hostname, ermrest_catalog_id,
@@ -30,7 +31,8 @@ class TestERMrestCatalog (BaseTestCase):
             _samples_renamed_tname,
             _test_create_table_tname,
             _test_assoc_table_tname,
-            _test_renamed_sname + ':' + ERMrestHelper.samples
+            _test_renamed_sname + ':' + ERMrestHelper.samples,
+            _samples_subset
         ]
     )
 
@@ -153,3 +155,34 @@ class TestERMrestCatalog (BaseTestCase):
         # validate new table is in ermrest
         ermrest_schema = self.model.catalog.getCatalogSchema()
         self.assertIn(cname, ermrest_schema['schemas']['public']['tables'])
+
+    def test_smo_where(self):
+        samples = self.model.schemas['public'].tables[self.catalog_helper.samples]
+        tname = self._samples_subset
+        self.model.schemas['public'].create_table_as(
+            tname,
+            samples.where(samples.columns['id'] > 0)
+        )
+        # validate new table is in ermrest
+        ermrest_schema = self.model.catalog.getCatalogSchema()
+        self.assertIn(tname, ermrest_schema['schemas']['public']['tables'])
+        # validate rows
+        pb = self.model.catalog.getPathBuilder()
+        num = len(pb.schemas['public'].tables[tname].entities())
+        self.assertTrue(num == self.catalog_helper.num_test_rows-1)
+
+    def test_smo_where_conj(self):
+        assert self.catalog_helper.num_test_rows > 5
+        samples = self.model.schemas['public'].tables[self.catalog_helper.samples]
+        tname = self._samples_subset
+        self.model.schemas['public'].create_table_as(
+            tname,
+            samples.where((samples.columns['id'] > 0) & (samples.columns['id'] < 5))
+        )
+        # validate new table is in ermrest
+        ermrest_schema = self.model.catalog.getCatalogSchema()
+        self.assertIn(tname, ermrest_schema['schemas']['public']['tables'])
+        # validate rows
+        pb = self.model.catalog.getPathBuilder()
+        num = len(pb.schemas['public'].tables[tname].entities())
+        self.assertEquals(num, 4)

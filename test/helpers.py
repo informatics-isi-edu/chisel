@@ -43,6 +43,7 @@ class TestHelper:
 
         :param num_test_rows: number of test rows to produce from the dummy rows
         """
+        self.num_test_rows = num_test_rows
         self.test_data = [
             {
                 'id': i,
