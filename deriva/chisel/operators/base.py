@@ -287,10 +287,10 @@ class Project (PhysicalOperator):
         for key_def in table_def['keys']:
             unique_columns = key_def['unique_columns']
             # include key if all unique columns are in the projection
-            if all_projected_attributes & set(unique_columns):
+            if set(unique_columns) <= all_projected_attributes:
                 key_def = key_def.copy()
-                key_def['names'] = []
-                key_def['unique_columns'] = [self._cname_to_alias.get(col, [col])[0] for col in unique_columns]
+                key_def['names'] = []  # todo: define new name (remember old)
+                key_def['unique_columns'] = [self._cname_to_alias.get(cname, [cname])[0] for cname in unique_columns]
                 key_defs.append(key_def)
                 # todo: track (old_key_name, new_key_name) for swapping in acls and annotations
                 # todo: else... track (old_key_name) for pruning from acls and annotations
@@ -298,12 +298,13 @@ class Project (PhysicalOperator):
         # copy all fkey definitions for which all fkey columns exist in this projection
         fkey_defs = []
         for fkey_def in table_def['foreign_keys']:
-            if all_projected_attributes & {fkey_col['column_name'] for fkey_col in fkey_def['foreign_key_columns']}:
+            foreign_key_columns = [fkey_col['column_name'] for fkey_col in fkey_def['foreign_key_columns']]
+            # include fkey if all fkey columns are in the projection
+            if set(foreign_key_columns) <= all_projected_attributes:
                 fkey_def = fkey_def.copy()
-                fkey_def['names'] = []
+                fkey_def['names'] = []  # todo: define new name (remember old)
                 fkey_def['foreign_key_columns'] = [
-                    dict(column_name=self._cname_to_alias.get(fkey_col['column_name'], [fkey_col['column_name']])[0])
-                    for fkey_col in fkey_def['foreign_key_columns']
+                    {'column_name': self._cname_to_alias.get(cname, [cname])[0]} for cname in foreign_key_columns
                 ]
                 fkey_defs.append(fkey_def)
                 # todo: track (old_fkey_name, new_fkey_name) for swapping in acls and annotations
@@ -318,7 +319,7 @@ class Project (PhysicalOperator):
             key_defs=key_defs,
             fkey_defs=fkey_defs,
             comment=table_def.get('comment', ''),
-            acls=table_def.get('acls', {}),  # TODO: Filter these and handle renames
+            acls=table_def.get('acls', {}),
             acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
             annotations=table_def.get('annotations', {}),  # TODO: Filter these and handle renames
             provide_system=False
@@ -490,7 +491,7 @@ class Unnest (PhysicalOperator):
             # key_defs=[], -- key defs are empty because the unnested relation should break unique constraints
             fkey_defs=table_def['foreign_keys'],  # TODO: sanity check that unnest attr is not in a fkey
             comment=table_def.get('comment', ''),
-            acls=table_def.get('acls', {}),  # TODO: Filter these and handle renames
+            acls=table_def.get('acls', {}),
             acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
             annotations=table_def.get('annotations', {}),  # TODO: Filter these and handle renames
             provide_system=False
