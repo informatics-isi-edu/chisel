@@ -6,12 +6,16 @@ from itertools import chain
 import json
 import logging
 from operator import itemgetter
+from pprint import pprint
 import uuid
 from deriva.core import ermrest_model as _em
 from ..optimizer import symbols
 
 logger = logging.getLogger(__name__)
 
+# todo: placeholders for tname
+# __tname_key__ = '__table_name__'
+# __tname_placeholder__ = '{%s}' % __tname_key__
 
 #
 # Physical operator (abstract) base class definition
@@ -113,7 +117,7 @@ class TempVarRef (PhysicalOperator):
 
 
 #
-# Mutation primitive operators: assign, alter, drop
+# Mutation primitive operators: assign, create, alter, drop
 #
 
 class Assign (PhysicalOperator):
@@ -123,6 +127,7 @@ class Assign (PhysicalOperator):
         assert isinstance(child, PhysicalOperator)
         self._child = child
         self._description = child.description.copy()
+        # todo: populate the schema_name and table_name patterns (in all parts of the definitions, key, fkey, etc)
         self._description['schema_name'] = schema_name
         self._description['table_name'] = table_name
 
@@ -214,10 +219,11 @@ class Project (PhysicalOperator):
         assert isinstance(child, PhysicalOperator)
         self._child = child
         self._attributes = set()
-        self._alias_to_cname = dict()
+        self._alias_to_cname = {}
         self._cname_to_alias = collections.defaultdict(list)
         removals = set()
-        additions = list()
+        additions = []
+        fkey_defs = []
 
         # Redefine the description of the child operator based on the projection
         table_def = self.description
@@ -234,14 +240,35 @@ class Project (PhysicalOperator):
                 self._attributes.add(item)
             elif isinstance(item, symbols.IntrospectionFunction):
                 logger.debug("projecting attributes returned by an introspection function: %s", item)
+
+                # todo: don't introspect on a comp rel
+                # if table_def['table_name'] == __tname_placeholder__:
+                #     raise ValueError('Key introspection function cannot be used on a computed relation')
+
+                # introspect attributes, handle special case for 'RID'
                 attrs = item.fn(table_def)
+                pk_cols = attrs.copy()
+                fk_cols = attrs.copy()
                 if 'RID' in attrs:
                     attrs.remove('RID')
                     renamed_rid = table_def['table_name'] + '_RID'
                     self._alias_to_cname[renamed_rid] = 'RID'
                     self._cname_to_alias['RID'].append(renamed_rid)
+                    fk_cols = [renamed_rid if c == 'RID' else c for c in fk_cols]
+                # add to projected attributes
                 self._attributes |= set(attrs)
-                # TODO: could add a fkey to the source relation here, if it is an extant table in the catalog
+                # add fkey to the source relation
+                fkey_defs.append(
+                    _em.ForeignKey.define(
+                        fk_cols,
+                        table_def['schema_name'],  # pk sname
+                        table_def['table_name'],   # pk tname
+                        pk_cols,                   # pk columns
+                        on_update='CASCADE'
+                        # todo: constraint_names=[['{schema_name}', '{table_name}']]
+                    )
+                )
+
             elif isinstance(item, symbols.AttributeAlias):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
@@ -268,7 +295,12 @@ class Project (PhysicalOperator):
                 projected_attrs.add(cname)
             elif cname in self._cname_to_alias:
                 for alias in self._cname_to_alias[cname]:
+                    # copy and rename column def
                     col_def = col_def.copy()
+                    # if projecting a RID as a new column, fix its default and type
+                    if col_def['name'] == 'RID':
+                        col_def['type'] = _em.builtin_types.text.prejson()
+                        col_def['default'] = None
                     col_def['name'] = alias
                     col_defs.append(col_def)
         col_defs.extend(additions)
@@ -296,7 +328,6 @@ class Project (PhysicalOperator):
                 # todo: else... track (old_key_name) for pruning from acls and annotations
 
         # copy all fkey definitions for which all fkey columns exist in this projection
-        fkey_defs = []
         for fkey_def in table_def['foreign_keys']:
             foreign_key_columns = [fkey_col['column_name'] for fkey_col in fkey_def['foreign_key_columns']]
             # include fkey if all fkey columns are in the projection
