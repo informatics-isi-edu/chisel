@@ -29,9 +29,15 @@ foo = public.tables['foo']
 public.create_table_as('bar', foo.columns['bar'].to_vocabulary())
 ```
 
-## Install
+## Requirements
 
 You will need Python **3.7+** and `pip` for installation.
+
+**OPTIONAL**: To use chisel's `graph(...)` method, you will also need to have the graphviz executables installed for your operating system. For information about how to download and install graphviz, see https://graphviz.org/.
+
+## Install
+
+To install from the PyPI repository:
 
 ```sh
 $ pip install deriva-chisel

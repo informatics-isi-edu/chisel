@@ -1,11 +1,6 @@
 """Methods for graphing a catalog model."""
 
-import warnings
-
-try:
-    from graphviz import Digraph
-except ImportError:
-    warnings.warn('You must install "graphviz" to use the "chisel.graph(...)" functions.')
+from graphviz import Digraph
 
 
 def graph(obj, engine='fdp'):

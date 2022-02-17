@@ -35,6 +35,7 @@ setup(
     test_suite='tests',
     install_requires=[
         'deriva>=1.5.0',
+        'graphviz',
         'nltk',
         'pyfpm',
         'pyparsing',
