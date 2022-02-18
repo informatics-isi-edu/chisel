@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 __tname_key__ = '__computed_relation__'
 __tname_placeholder__ = '{%s}' % __tname_key__
 
+def _make_constraint_name(tname, *cnames, suffix=''):
+    """Returns a constraint name from the given components."""
+    constraint_name = f'{tname}_' + '_'.join(cnames)
+    return constraint_name[:63 - len(suffix)] + f'_{suffix}'  # max supported length
+
 #
 # Physical operator (abstract) base class definition
 #
@@ -127,9 +132,13 @@ class Assign (PhysicalOperator):
         assert isinstance(child, PhysicalOperator)
         self._child = child
         self._description = child.description.copy()
-        # todo: populate the schema_name and table_name patterns (in all parts of the definitions, key, fkey, etc)
         self._description['schema_name'] = schema_name
         self._description['table_name'] = table_name
+        # finalize f/key names
+        for cdef in self._description['keys']:
+            self._assign_constraint_name(schema_name, table_name, cdef)
+        for cdef in self._description['foreign_keys']:
+            self._assign_constraint_name(schema_name, table_name, cdef)
 
     def __iter__(self):
         return iter(self._child)
@@ -137,6 +146,13 @@ class Assign (PhysicalOperator):
     @property
     def child(self):
         return self._child
+
+    def _assign_constraint_name(self, schema_name, table_name, constraint_def):
+        if constraint_def['names']:
+            computed_name = constraint_def['names'][0]
+            final_name = [schema_name, computed_name[1].replace(__tname_placeholder__, table_name)]
+            constraint_def['names'] = [final_name]
+            # todo: fix annotations/acls
 
 
 class Create (Assign):
@@ -223,6 +239,10 @@ class Project (PhysicalOperator):
         self._cname_to_alias = collections.defaultdict(list)
         removals = set()
         additions = []
+        key_renamed = {}
+        key_dropped = []
+        fkey_renamed = {}
+        fkey_dropped = []
         fkey_defs = []
 
         # Redefine the description of the child operator based on the projection
@@ -240,11 +260,9 @@ class Project (PhysicalOperator):
                 self._attributes.add(item)
             elif isinstance(item, symbols.IntrospectionFunction):
                 logger.debug("projecting attributes returned by an introspection function: %s", item)
-
-                # todo: don't introspect on a comp rel
-                # if table_def['table_name'] == __tname_placeholder__:
-                #     raise ValueError('Key introspection function cannot be used on a computed relation')
-
+                # don't introspect on a comp rel
+                if table_def['table_name'] == __tname_placeholder__:
+                    raise ValueError('This operation is not supported on a computed relation')
                 # introspect attributes, handle special case for 'RID'
                 attrs = item.fn(table_def)
                 pk_cols = attrs.copy()
@@ -264,11 +282,10 @@ class Project (PhysicalOperator):
                         table_def['schema_name'],  # pk sname
                         table_def['table_name'],   # pk tname
                         pk_cols,                   # pk columns
-                        on_update='CASCADE'
-                        # todo: constraint_names=[['{schema_name}', '{constraint_name}']]
+                        on_update='CASCADE',
+                        constraint_names=[[table_def['schema_name'], _make_constraint_name(__tname_placeholder__, *fk_cols, suffix='fkey')]]
                     )
                 )
-
             elif isinstance(item, symbols.AttributeAlias):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
@@ -307,9 +324,6 @@ class Project (PhysicalOperator):
 
         # Updated projection of attributes
         self._attributes = projected_attrs
-
-        # TODO: create defaults for newly added columns
-
         # set of all projected attributes, including those that will be renamed
         # will be used in the next steps to determine which keys and fkeys can be preserved
         all_projected_attributes = self._attributes | self._cname_to_alias.keys()
@@ -321,11 +335,17 @@ class Project (PhysicalOperator):
             # include key if all unique columns are in the projection
             if set(unique_columns) <= all_projected_attributes:
                 key_def = key_def.copy()
-                key_def['names'] = []  # todo: define new name (remember old)
                 key_def['unique_columns'] = [self._cname_to_alias.get(cname, [cname])[0] for cname in unique_columns]
+                # generate new name, remember old name(s)
+                old_names = key_def['names']
+                new_name = [table_def['schema_name'], _make_constraint_name(__tname_placeholder__, *key_def['unique_columns'], suffix='key')]
+                key_def['names'] = [new_name]
                 key_defs.append(key_def)
-                # todo: track (old_key_name, new_key_name) for swapping in acls and annotations
-                # todo: else... track (old_key_name) for pruning from acls and annotations
+                # record key new-old name, for renaming in annotations
+                key_renamed[tuple(new_name)] = old_names
+            else:
+                # record key name, for pruning from annotations
+                key_dropped.append(key_def['names'])
 
         # copy all fkey definitions for which all fkey columns exist in this projection
         for fkey_def in table_def['foreign_keys']:
@@ -333,13 +353,27 @@ class Project (PhysicalOperator):
             # include fkey if all fkey columns are in the projection
             if set(foreign_key_columns) <= all_projected_attributes:
                 fkey_def = fkey_def.copy()
-                fkey_def['names'] = []  # todo: define new name (remember old)
+                revised_fkcols = [self._cname_to_alias.get(cname, [cname])[0] for cname in foreign_key_columns]
                 fkey_def['foreign_key_columns'] = [
-                    {'column_name': self._cname_to_alias.get(cname, [cname])[0]} for cname in foreign_key_columns
+                    {'column_name': cname} for cname in revised_fkcols
                 ]
+                # generate new name, remember old name(s)
+                old_names = fkey_def['names']
+                new_name = [table_def['schema_name'], _make_constraint_name(__tname_placeholder__, *revised_fkcols, suffix='fkey')]
+                fkey_def['names'] = [new_name]
                 fkey_defs.append(fkey_def)
-                # todo: track (old_fkey_name, new_fkey_name) for swapping in acls and annotations
-                # todo: else... track (old_fkey_name) for pruning from acls and annotations
+                # record fkey new-old name, for renaming in annotations
+                fkey_renamed[tuple(new_name)] = old_names
+            else:
+                # record fkey name, for pruning from annotations
+                fkey_dropped.append(fkey_def['names'])
+
+        # print('KEY ADDED', key_def)
+        # print('RENAMED', key_renamed)
+        # print('DROPPED', key_dropped)
+        # print('FKEY ADDED', fkey_defs)
+        # print('RENAMED', fkey_renamed)
+        # print('DROPPED', fkey_dropped)
 
         # todo: swap/prune (f)keys from annotations and acls documents
 
@@ -363,7 +397,7 @@ class Project (PhysicalOperator):
             values = getter(row)
             values = values if isinstance(values, tuple) else (values,)
             assert len(original_attributes) == len(values)
-            row = dict(zip(original_attributes, values))  # TODO: .update(defaults) -- for newly added columns
+            row = dict(zip(original_attributes, values))
             yield self._rename_row_attributes(row, self._alias_to_cname)
 
 
