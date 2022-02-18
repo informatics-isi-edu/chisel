@@ -245,6 +245,22 @@ class Table (model.Table):
         self._new_fkey = lambda obj: ForeignKey(self, obj)
         self._logical_plan = logical_plan or self.schema.model.make_extant_symbol(self.schema.name, self.name)
 
+
+    def _columns_to_symbols(self, *columns):
+        """Validates and returns cleaned up column list.
+        """
+        def _column_to_symbol(column):
+            if isinstance(column, Column):
+                return column.name
+            elif isinstance(column, str):
+                return column
+            elif any(isinstance(column, t) for t in (symbols.AttributeAlias, symbols.AttributeDrop, symbols.AttributeAdd)):
+                return column
+            else:
+                raise ValueError("Unsupported type '%s' in column list" % type(column).__name__)
+
+        return tuple([_column_to_symbol(c) for c in columns])
+
     def clone(self):
         """Clone this table.
 
@@ -255,21 +271,11 @@ class Table (model.Table):
     def select(self, *columns):
         """Selects a subset of columns.
 
-        :param columns: positional argument list of Column objects or string column names.
+        :param columns: positional argument list of columns or column names.
         :return: computed relation
         """
         if columns:
-            projection = []
-
-            # validation: projection may be column, column name, alias, addition or removal
-            for column in columns:
-                if isinstance(column, Column):
-                    projection.append(column.name)
-                elif isinstance(column, str) or isinstance(column, symbols.AttributeAlias)\
-                        or isinstance(column, symbols.AttributeDrop) or isinstance(column, symbols.AttributeAdd):
-                    projection.append(column)
-                else:
-                    raise ValueError("Unsupported projection type '{}'".format(type(column).__name__))
+            projection = self._columns_to_symbols(*columns)
 
             # validation: if any mutation (add/drop), all must be mutations (can't mix with other projections)
             for mutation in (symbols.AttributeAdd, symbols.AttributeDrop):
@@ -277,12 +283,12 @@ class Table (model.Table):
                 if any(mutations):
                     if not all(mutations):
                         raise ValueError("Attribute add/drop cannot be mixed with other attribute projections")
-                    projection = [symbols.AllAttributes()] + projection
+                    projection = (symbols.AllAttributes()) + projection
 
         else:
-            projection = [c.name for c in self.columns]
+            projection = tuple([c.name for c in self.columns])
 
-        return ComputedRelation(self.schema, symbols.Project(self._logical_plan, tuple(projection)))
+        return ComputedRelation(self.schema, symbols.Project(self._logical_plan, projection))
 
     def join(self, right):
         """Joins with right-hand relation.
@@ -323,31 +329,28 @@ class Table (model.Table):
     def reify_sub(self, *columns):
         """Forms a new 'child' relation from a subset of columns within this relation.
 
-        :param columns: positional arguments of type Column
+        :param columns: positional arguments of columns or column names
         :return: computed relation
         """
-        if not all(isinstance(col, Column) for col in columns):
-            raise ValueError("All parameters must be instances of Column")
-
-        return ComputedRelation(self.schema, symbols.ReifySub(self._logical_plan, tuple([col.name for col in columns])))
+        return ComputedRelation(self.schema, symbols.ReifySub(self._logical_plan, self._columns_to_symbols(*columns)))
 
     def reify(self, key_columns, nonkey_columns):
         """Forms a new relation from the set of key and non-key columns out of this relation.
 
         The 'key_columns' do not have to be key columns or even hold unique values in the source relation. This
-        operation will apply a unique constraint on 'key_columns' in the newly computed relation. The sets of
+        operation will apply a unique constraint on 'key_columns' in the newly computed relation. The collections of
         'key_columns' and 'nonkey_columns' must be disjoint.
 
-        :param key_columns: a set of Column objects from the source relation
-        :param nonkey_columns: a set of Column objects from the source relation
+        :param key_columns: a collection of columns or column names
+        :param nonkey_columns: a collection of columns or column names
         :return: computed relation
         """
-        if not all(isinstance(col, Column) for col in key_columns | nonkey_columns):
-            raise ValueError("All column parameters must be instances of Column")
+        key_columns = self._columns_to_symbols(*key_columns)
+        nonkey_columns = self._columns_to_symbols(*nonkey_columns)
         if set(key_columns) & set(nonkey_columns):
             raise ValueError('"key_columns" and "nonkey_columns" must be disjoint sets')
 
-        return ComputedRelation(self.schema, symbols.Reify(self._logical_plan, tuple([col.name for col in key_columns]), tuple([col.name for col in nonkey_columns])))
+        return ComputedRelation(self.schema, symbols.Reify(self._logical_plan, key_columns, nonkey_columns))
 
 
 class ComputedRelation (Table):
@@ -402,9 +405,6 @@ class Column (model.Column):
         :param column: the underlying ermrest_model.Column
         """
         super(Column, self).__init__(parent, column)
-
-    def __hash__(self):
-        return super(Column, self).__hash__()
 
     def eq(self, other):
         return symbols.Comparison(operand1=self.name, operator='eq', operand2=other)

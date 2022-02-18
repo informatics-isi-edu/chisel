@@ -177,26 +177,28 @@ acme.create_table_as(
     foo.where(foo.columns['Col1'] == 42)
 )
 
-# conjunction of above and 'Col2 == hello'
+# conjunction of above and "Col2 == hello"
 acme.create_table_as(
     'bar',
     foo.where((foo.columns['Col1'] == 42) & (foo.columns['Col1'] == 'hello'))
 )
 ```
-**NOTE**: if you are new to Python, be aware that `&` and `|` are actually bit-wise
-operators, but have been overloaded as logical operators here.
+**NOTE**: if you are new to Python, be aware that `&` and `|` are actually bitwise
+operators, but have been overloaded as logical operators here. Be careful, not to 
+mistake these for python keywords for logical operators `and` and `or`.
 
 ### Select
 
-Use the `select` method on a `Table` instance to filter the columns of the 
-source relation. In relational theory, this operation is actually called 
-a _projection_.
+Use the `select` method on a `Table` instance to subset the columns of the 
+source relation. The arguments may be column names (`str`), column objects
+(`Column` objects), and aliases or negations on columns. If no columns are given, 
+then all columns are selected.
 
 ```python
 # relation with just 2 columns from the source relation
 acme.create_table_as(
     'bar',
-    foo.select(foo.columns['Col1'], foo.columns['Col2'])
+    foo.select('Col1', foo.columns['Col2'])
 )
 
 # relation with 2 columns but renamed
@@ -220,7 +222,7 @@ acme.create_table_as(
     foo.select()
 )
 ```
-**NOTE**: the `~` is a bit-wise operator but overloaded here to drop a column from
+**NOTE**: the `~` is a bitwise operator but overloaded here to drop a column from
 a projection list.
 
 ### Join
@@ -316,17 +318,15 @@ acme.create_table_as(
 ### Reify
 
 The `reify` method on a `Table` instance will return an expression for reifying
-a concept embedded in the source table. The first set of columns of the `reify`
-method are used as the `key` of the new table, and the second set of columns 
-used as the non-key columns of the new table.
+a concept embedded in the source table. The first collection of columns of the 
+`reify` method are used as the `key` of the new table, and the second collection 
+of columns used as the non-key columns of the new table. The `key` columns do not 
+need to be a key in the parent relation.
 
 ```python
 acme.create_table_as(
     'bar',
-    foo.reify(
-        {foo.columns['Col1']},  # set of key columns
-        {foo.columns['Col2'], foo.columns['Col8']}  # non-key columns
-    )
+    foo.reify(['Col1'], ['Col2', 'Col8'])
 )
 ```
 
@@ -341,7 +341,7 @@ definition.
 ```python
 acme.create_table_as(
     'bar',
-    foo.reify_sub(foo.columns['Col1'])
+    foo.reify_sub('Col1', 'Col2')
 )
 ```
 
