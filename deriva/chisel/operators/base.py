@@ -13,9 +13,9 @@ from ..optimizer import symbols
 
 logger = logging.getLogger(__name__)
 
-# todo: placeholders for tname
-# __tname_key__ = '__table_name__'
-# __tname_placeholder__ = '{%s}' % __tname_key__
+# placeholders for tname
+__tname_key__ = '__computed_relation__'
+__tname_placeholder__ = '{%s}' % __tname_key__
 
 #
 # Physical operator (abstract) base class definition
@@ -265,7 +265,7 @@ class Project (PhysicalOperator):
                         table_def['table_name'],   # pk tname
                         pk_cols,                   # pk columns
                         on_update='CASCADE'
-                        # todo: constraint_names=[['{schema_name}', '{table_name}']]
+                        # todo: constraint_names=[['{schema_name}', '{constraint_name}']]
                     )
                 )
 
@@ -345,7 +345,7 @@ class Project (PhysicalOperator):
 
         # Define the table
         self._description = _em.Table.define(
-            table_def['table_name'],
+            __tname_placeholder__,
             column_defs=col_defs,
             key_defs=key_defs,
             fkey_defs=fkey_defs,
@@ -422,6 +422,7 @@ class Union (PhysicalOperator):
     def __iter__(self):
         return chain(self._child, self._other)
 
+
 #
 # Nest and unnest operators
 #
@@ -452,7 +453,7 @@ class NestedLoopsSimilarityAggregation (PhysicalOperator):
             ) for col in self.description['column_definitions'] if col['name'] in self._nesting
         ]
         self._description = _em.Table.define(
-            child.description['table_name'] + ':' + uuid.uuid1().hex,
+            child.description['table_name'] + ':' + uuid.uuid1().hex,  # todo: placeholder?
             column_defs=col_defs,
             provide_system=False
         )
@@ -517,7 +518,7 @@ class Unnest (PhysicalOperator):
         # update the table definition  -- TODO: may be able to improve this
         table_def = child.description
         self._description = _em.Table.define(
-            uuid.uuid1().hex,  # computed relation name for this projection
+            uuid.uuid1().hex,  # computed relation name for this projection  # todo: placeholder?
             column_defs=table_def['column_definitions'],
             # key_defs=[], -- key defs are empty because the unnested relation should break unique constraints
             fkey_defs=table_def['foreign_keys'],  # TODO: sanity check that unnest attr is not in a fkey
@@ -578,7 +579,7 @@ class CrossJoin (PhysicalOperator):
 
         # define table representing cross-join
         self._description = _em.Table.define(
-            left_def['table_name'] + "_" + right_def['table_name'],
+            left_def['table_name'] + "_" + right_def['table_name'],  # todo: placeholder
             column_defs=col_defs,
             # TODO: keys: keys from left side of join - tbd
             # TODO: joined acls

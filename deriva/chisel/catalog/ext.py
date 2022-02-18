@@ -2,9 +2,9 @@
 """
 import itertools
 import logging
-from pprint import pformat
+from pprint import pformat, pprint
 from . import model
-from .stubs import CatalogStub, ModelStub
+from .stubs import CatalogStub
 from ..optimizer import symbols, planner, logical_planner, physical_planner, consolidate
 from ..operators import Assign
 from .. import util
@@ -369,11 +369,11 @@ class ComputedRelation (Table):
         computed_model_doc['schemas'][parent.name]['tables'][plan.description['table_name']] = plan.description
 
         # instantiate a stubbed out model object
-        computed_model = ModelStub(CatalogStub(), computed_model_doc)
+        computed_model = Model(CatalogStub(model_doc=computed_model_doc))
 
         # instantiate this object's super class (i.e., Table object)
         super(ComputedRelation, self).__init__(
-            parent,
+            computed_model.schemas[parent.name],
             computed_model.schemas[parent.name].tables[plan.description['table_name']],
             logical_plan=logical_plan
         )

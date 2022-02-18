@@ -7,6 +7,13 @@ class CatalogStub (object):
     """Stubbed out catalog to simulate ErmrestCatalog interfaces used by catalog model objects.
     """
 
+    def __init__(self, model_doc=None):
+        """Initialize catalog stub.
+
+        :param model_doc: ERMrest model document (optional)
+        """
+        self._model_doc = model_doc
+
     __not_implemented_message__ = 'The model object does not support this method.'
 
     def get(self, path, headers=DEFAULT_HEADERS, raise_not_modified=False, stream=False):
@@ -21,11 +28,8 @@ class CatalogStub (object):
     def delete(self, path, headers=DEFAULT_HEADERS, guard_response=None):
         raise Exception(CatalogStub.__not_implemented_message__)
 
-
-class ModelStub (_erm.Model):
-    """Stubbed out subclass of `ermrest_model.Model` for model document subsets.
-    """
-    pass  # originally, `digest_fkeys` was stubbed out, but now this is a complete rendering of the model
+    def getCatalogModel(self):
+        return _erm.Model(self, self._model_doc)
 
 
 class SchemaStub (object):
