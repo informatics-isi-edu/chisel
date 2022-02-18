@@ -334,23 +334,22 @@ class Table (model.Table):
         """
         return ComputedRelation(self.schema, symbols.ReifySub(self._logical_plan, self._columns_to_symbols(*columns)))
 
-    def reify(self, key_columns, nonkey_columns):
-        """Forms a new relation from the set of key and non-key columns out of this relation.
+    def reify(self, unique_columns, *columns):
+        """Forms a new relation from the specified columns.
 
-        The 'key_columns' do not have to be key columns or even hold unique values in the source relation. This
-        operation will apply a unique constraint on 'key_columns' in the newly computed relation. The collections of
-        'key_columns' and 'nonkey_columns' must be disjoint.
+        The `unique_columns` will be used as the columns of the computed relation's key. They need not be unique in the
+        source relation. The remaining `*columns` will form the rest of the columns of the computed relation.
 
-        :param key_columns: a collection of columns or column names
-        :param nonkey_columns: a collection of columns or column names
+        :param unique_columns: a collection of columns or column names
+        :param *columns: positional arguments of columns or column names
         :return: computed relation
         """
-        key_columns = self._columns_to_symbols(*key_columns)
-        nonkey_columns = self._columns_to_symbols(*nonkey_columns)
-        if set(key_columns) & set(nonkey_columns):
+        unique_columns = self._columns_to_symbols(*unique_columns)
+        nonkey_columns = self._columns_to_symbols(*columns)
+        if set(unique_columns) & set(nonkey_columns):
             raise ValueError('"key_columns" and "nonkey_columns" must be disjoint sets')
 
-        return ComputedRelation(self.schema, symbols.Reify(self._logical_plan, key_columns, nonkey_columns))
+        return ComputedRelation(self.schema, symbols.Reify(self._logical_plan, unique_columns, nonkey_columns))
 
 
 class ComputedRelation (Table):

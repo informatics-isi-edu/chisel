@@ -18,14 +18,14 @@ with model.begin(dry_run=__dry_run__) as session:
     session.create_table_as(
         'isa', 'enhancer_assembly',
         enhancer.reify(
-            {   # new key column(s) in new relation
+            # new key column(s) in new relation
+            [
                 enhancer.columns['id']
-            },
-            {   # new non-key columns in new relation
-                enhancer.columns['original_species_assembly'],
-                enhancer.columns['original_species_chromosome'],
-                enhancer.columns['original_species_start'],
-                enhancer.columns['original_species_end']
-            }
+            ],
+            # new non-key columns in new relation
+            enhancer.columns['original_species_assembly'],
+            enhancer.columns['original_species_chromosome'],
+            enhancer.columns['original_species_start'],
+            enhancer.columns['original_species_end']
         )
     )

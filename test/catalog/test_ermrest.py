@@ -19,6 +19,7 @@ class TestERMrestCatalog (BaseTestCase):
     _test_create_table_tname = "NEW TABLE"
     _test_assoc_table_tname = "{}_{}".format(ERMrestHelper.samples, _test_create_table_tname)
     _samples_subset = 'samples_subset'
+    _species_reify = 'species_reify'
 
     catalog_helper = ERMrestHelper(
         ermrest_hostname, ermrest_catalog_id,
@@ -32,7 +33,8 @@ class TestERMrestCatalog (BaseTestCase):
             _test_create_table_tname,
             _test_assoc_table_tname,
             _test_renamed_sname + ':' + ERMrestHelper.samples,
-            _samples_subset
+            _samples_subset,
+            _species_reify
         ]
     )
 
@@ -202,3 +204,18 @@ class TestERMrestCatalog (BaseTestCase):
         pb = self.model.catalog.getPathBuilder()
         num = len(pb.schemas['public'].tables[tname].entities())
         self.assertEquals(num, 2)
+
+    def test_smo_reify(self):
+        samples = self.model.schemas['public'].tables[self.catalog_helper.samples]
+        tname = self._species_reify
+        self.model.schemas['public'].create_table_as(
+            tname,
+            samples.reify(['species'], 'list_of_anatomical_structures')
+        )
+        # validate new table is in ermrest
+        ermrest_schema = self.model.catalog.getCatalogSchema()
+        self.assertIn(tname, ermrest_schema['schemas']['public']['tables'])
+        # validate rows
+        pb = self.model.catalog.getPathBuilder()
+        num = len(pb.schemas['public'].tables[tname].entities())
+        self.assertGreater(num, 0)

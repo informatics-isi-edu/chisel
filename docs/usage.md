@@ -318,15 +318,16 @@ acme.create_table_as(
 ### Reify
 
 The `reify` method on a `Table` instance will return an expression for reifying
-a concept embedded in the source table. The first collection of columns of the 
-`reify` method are used as the `key` of the new table, and the second collection 
-of columns used as the non-key columns of the new table. The `key` columns do not 
-need to be a key in the parent relation.
+a concept embedded in the source table. The first argument (`unique_columns`) must
+be a collection of columns (or column names) to be used as the key of the new 
+relation. They need not be unique in the source relation. The remaining arguments 
+must be columns (or column names) that will form the non-key columns of the new 
+relation.
 
 ```python
 acme.create_table_as(
     'bar',
-    foo.reify(['Col1'], ['Col2', 'Col8'])
+    foo.reify(['Col1'], 'Col2', 'Col8')
 )
 ```
 
