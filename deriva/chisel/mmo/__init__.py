@@ -346,4 +346,4 @@ def _replace_symbol_in_source_path(anchor, source, symbol, replacement):
             for direction in ('inbound', 'outbound'):
                 if pathelem.get(direction) == symbol:
                     pathelem[direction] = replacement
-                    continue
+                    break
