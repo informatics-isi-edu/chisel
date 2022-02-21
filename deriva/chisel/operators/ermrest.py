@@ -1,5 +1,6 @@
 """Physical operators specific to ERMrest data sources.
 """
+from copy import deepcopy
 import logging
 from .base import symbols, PhysicalOperator, Metadata, Project
 
@@ -56,7 +57,10 @@ class ERMrestSelectProject (Project):
         :param projection: list of attributes to be returned in tuples
         :param formula: expression for filtering tuples
         """
-        super(ERMrestSelectProject, self).__init__(Metadata(model.schemas[sname].tables[tname].prejson()), projection)
+        super(ERMrestSelectProject, self).__init__(
+            Metadata(deepcopy(model.schemas[sname].tables[tname].prejson())),
+            projection
+        )
         self._model = model
         self._sname = sname
         self._tname = tname
@@ -89,7 +93,7 @@ class ERMrestSelect (PhysicalOperator):
         :param formula: where-clause formula
         """
         super(ERMrestSelect, self).__init__()
-        self._description = model.schemas[sname].tables[tname].prejson()
+        self._description = deepcopy(model.schemas[sname].tables[tname].prejson())
         self._model = model
         self._sname = sname
         self._tname = tname

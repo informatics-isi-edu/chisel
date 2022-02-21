@@ -1,5 +1,6 @@
 """Physical operators specific to semi-structured (CSV, JSON) data sources.
 """
+from copy import deepcopy
 import csv
 from datetime import datetime
 import json
@@ -76,7 +77,7 @@ class TabularFileScan (PhysicalOperator):
         self._key_regex = key_regex if key_regex else _default_key_regex  # make sure key_regex has a default value
 
         if filename in TabularFileScan._schema_cache:
-            self._description = TabularFileScan._schema_cache[filename]
+            self._description = deepcopy(TabularFileScan._schema_cache[filename])
         else:
             # shallow introspection of relation schema based on field names
             self._description = self._shallow_introspection()

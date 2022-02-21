@@ -1,5 +1,6 @@
 """Physical operators specific to graphical data sources."""
 
+from copy import deepcopy
 import logging
 import rdflib as _rdflib
 from pyparsing import Word, CaselessKeyword, alphanums, OneOrMore, Literal, SkipTo
@@ -37,7 +38,7 @@ class Shred (PhysicalOperator):
         introspect = kwargs.get('introspect', 'shallow')
         cache_key = (repr(graph), expression, introspect)
         if cache_key in Shred._schema_cache:
-            self._description = Shred._schema_cache[cache_key]
+            self._description = deepcopy(Shred._schema_cache[cache_key])
         else:
             if introspect == 'shallow':
                 self._description = self._shallow_introspection(graph, expression)
