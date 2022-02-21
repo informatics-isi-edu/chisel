@@ -2,6 +2,7 @@
 
 import abc
 import collections
+from copy import deepcopy
 from itertools import chain
 import json
 import logging
@@ -10,17 +11,20 @@ from pprint import pprint
 import uuid
 from deriva.core import ermrest_model as _em
 from ..optimizer import symbols
+from ..catalog.stubs import ModelStub
+from .. import mmo
 
 logger = logging.getLogger(__name__)
 
-# placeholders for tname
-__tname_key__ = '__computed_relation__'
-__tname_placeholder__ = '{%s}' % __tname_key__
+# placeholders for table name
+__tname_placeholder__ = '{__table_name__}'
+__sname_placeholder__ = '{__schema_name__}'
 
 def _make_constraint_name(tname, *cnames, suffix=''):
     """Returns a constraint name from the given components."""
     constraint_name = f'{tname}_' + '_'.join(cnames)
     return constraint_name[:63 - len(suffix)] + f'_{suffix}'  # max supported length
+
 
 #
 # Physical operator (abstract) base class definition
@@ -131,14 +135,14 @@ class Assign (PhysicalOperator):
         super(Assign, self).__init__()
         assert isinstance(child, PhysicalOperator)
         self._child = child
-        self._description = child.description.copy()
+        self._description = deepcopy(child.description)
         self._description['schema_name'] = schema_name
         self._description['table_name'] = table_name
         # finalize f/key names
-        for cdef in self._description['keys']:
-            self._assign_constraint_name(schema_name, table_name, cdef)
-        for cdef in self._description['foreign_keys']:
-            self._assign_constraint_name(schema_name, table_name, cdef)
+        model_stub = ModelStub.for_table(self._description)
+        for constraint_type in ['keys', 'foreign_keys']:
+            for cdef in self._description[constraint_type]:
+                self._finalize_constraint_name(schema_name, table_name, cdef, model_stub)
 
     def __iter__(self):
         return iter(self._child)
@@ -147,12 +151,14 @@ class Assign (PhysicalOperator):
     def child(self):
         return self._child
 
-    def _assign_constraint_name(self, schema_name, table_name, constraint_def):
+    def _finalize_constraint_name(self, schema_name, table_name, constraint_def, model):
+        """Finalizes constraint name in definition and in model annotations."""
         if constraint_def['names']:
             computed_name = constraint_def['names'][0]
             final_name = [schema_name, computed_name[1].replace(__tname_placeholder__, table_name)]
             constraint_def['names'] = [final_name]
-            # todo: fix annotations/acls
+            mmo.replace(model, computed_name, final_name)
+            # todo: finalize acl bindings
 
 
 class Create (Assign):
@@ -237,20 +243,21 @@ class Project (PhysicalOperator):
         self._attributes = set()
         self._alias_to_cname = {}
         self._cname_to_alias = collections.defaultdict(list)
-        removals = set()
-        additions = []
-        key_renamed = {}
-        key_dropped = []
-        fkey_renamed = {}
-        fkey_dropped = []
-        fkey_defs = []
 
         # Redefine the description of the child operator based on the projection
         table_def = self.description
         logger.debug("projecting from child relation: %s", table_def)
+        schema_name = table_def.get('schema_name', __sname_placeholder__)
+        removals = set()
+        additions = []
+        renamed_constraints = {}
+        dropped_constraints = []
+        dropped_columns = []
+        fkey_defs = []
 
-        # Attributes may contain an introspection function. If so, call it on the table model object, and combine its
-        # results with the rest of the given attributes list.
+        #
+        # Projection of column names: organize into complete set, alias, dropped, added, etc.
+        #
         for item in projection:
             if isinstance(item, symbols.AllAttributes):
                 logger.debug("projecting all attributes")
@@ -259,6 +266,8 @@ class Project (PhysicalOperator):
                 logger.debug("projecting attribute by name: %s", item)
                 self._attributes.add(item)
             elif isinstance(item, symbols.IntrospectionFunction):
+                # Attributes may contain an introspection function. If so, call it on the table model object, and
+                # combine its results with the rest of the given attributes list.
                 logger.debug("projecting attributes returned by an introspection function: %s", item)
                 # don't introspect on a comp rel
                 if table_def['table_name'] == __tname_placeholder__:
@@ -279,11 +288,11 @@ class Project (PhysicalOperator):
                 fkey_defs.append(
                     _em.ForeignKey.define(
                         fk_cols,
-                        table_def['schema_name'],  # pk sname
+                        schema_name,  # pk sname
                         table_def['table_name'],   # pk tname
                         pk_cols,                   # pk columns
                         on_update='CASCADE',
-                        constraint_names=[[table_def['schema_name'], _make_constraint_name(__tname_placeholder__, *fk_cols, suffix='fkey')]]
+                        constraint_names=[[schema_name, _make_constraint_name(__tname_placeholder__, *fk_cols, suffix='fkey')]]
                     )
                 )
             elif isinstance(item, symbols.AttributeAlias):
@@ -302,7 +311,9 @@ class Project (PhysicalOperator):
         logger.debug("alias to cnames: %s", self._alias_to_cname)
         logger.debug("cname to aliases: %s", self._cname_to_alias)
 
-        # Create a new table definition based on the appropriate projection of columns and their types.
+        #
+        # Column definitions based on projected attributes
+        #
         projected_attrs = set()
         col_defs = []
         for col_def in table_def['column_definitions']:
@@ -320,6 +331,8 @@ class Project (PhysicalOperator):
                         col_def['default'] = None
                     col_def['name'] = alias
                     col_defs.append(col_def)
+            else:
+                dropped_columns.append(cname)
         col_defs.extend(additions)
 
         # Updated projection of attributes
@@ -328,7 +341,9 @@ class Project (PhysicalOperator):
         # will be used in the next steps to determine which keys and fkeys can be preserved
         all_projected_attributes = self._attributes | self._cname_to_alias.keys()
 
-        # copy all key definitions for which all key columns exist in this projection
+        #
+        # Key projection: key definitions for which all key columns exist in this projection
+        #
         key_defs = []
         for key_def in table_def['keys']:
             unique_columns = key_def['unique_columns']
@@ -338,16 +353,18 @@ class Project (PhysicalOperator):
                 key_def['unique_columns'] = [self._cname_to_alias.get(cname, [cname])[0] for cname in unique_columns]
                 # generate new name, remember old name(s)
                 old_names = key_def['names']
-                new_name = [table_def['schema_name'], _make_constraint_name(__tname_placeholder__, *key_def['unique_columns'], suffix='key')]
+                new_name = [schema_name, _make_constraint_name(__tname_placeholder__, *key_def['unique_columns'], suffix='key')]
                 key_def['names'] = [new_name]
                 key_defs.append(key_def)
                 # record key new-old name, for renaming in annotations
-                key_renamed[tuple(new_name)] = old_names
+                renamed_constraints[tuple(new_name)] = old_names
             else:
                 # record key name, for pruning from annotations
-                key_dropped.append(key_def['names'])
+                dropped_constraints.append(key_def['names'])
 
-        # copy all fkey definitions for which all fkey columns exist in this projection
+        #
+        # Foreign Key projection: fkey definitions for which all fkey columns exist in this projection
+        #
         for fkey_def in table_def['foreign_keys']:
             foreign_key_columns = [fkey_col['column_name'] for fkey_col in fkey_def['foreign_key_columns']]
             # include fkey if all fkey columns are in the projection
@@ -359,25 +376,49 @@ class Project (PhysicalOperator):
                 ]
                 # generate new name, remember old name(s)
                 old_names = fkey_def['names']
-                new_name = [table_def['schema_name'], _make_constraint_name(__tname_placeholder__, *revised_fkcols, suffix='fkey')]
+                new_name = [schema_name, _make_constraint_name(__tname_placeholder__, *revised_fkcols, suffix='fkey')]
                 fkey_def['names'] = [new_name]
                 fkey_defs.append(fkey_def)
                 # record fkey new-old name, for renaming in annotations
-                fkey_renamed[tuple(new_name)] = old_names
+                renamed_constraints[tuple(new_name)] = old_names
             else:
                 # record fkey name, for pruning from annotations
-                fkey_dropped.append(fkey_def['names'])
+                dropped_constraints.append(fkey_def['names'])
 
-        # print('KEY ADDED', key_def)
-        # print('RENAMED', key_renamed)
-        # print('DROPPED', key_dropped)
-        # print('FKEY ADDED', fkey_defs)
-        # print('RENAMED', fkey_renamed)
-        # print('DROPPED', fkey_dropped)
+        #
+        # Annotation projection: replace or prune constraints (keys/fkeys) and columns from annotations
+        #
+        annotations = deepcopy(table_def.get('annotations', {}))
+        model_stub = ModelStub.for_table({
+            'schema_name': schema_name,
+            'table_name': __tname_placeholder__,
+            'foreign_keys': fkey_defs,
+            'annotations': annotations
+        })
 
-        # todo: swap/prune (f)keys from annotations and acls documents
+        # ...replace constraint names in model
+        for new_name in renamed_constraints:
+            for old_name in renamed_constraints[new_name]:
+                mmo.replace(model_stub, old_name, list(new_name))
 
+        # ...prune constraint names in model
+        for old_names in dropped_constraints:
+            for old_name in old_names:
+                mmo.prune(model_stub, old_name)
+
+        # ...prune columns in model
+        for dropped_cname in dropped_columns:
+            mmo.prune(model_stub, [schema_name, __tname_placeholder__, dropped_cname])
+
+        # ...replace columns in model
+        for alias in self._alias_to_cname:
+            new_name = [schema_name, __tname_placeholder__, alias]
+            old_name = [schema_name, __tname_placeholder__, self._alias_to_cname[alias]]
+            mmo.replace(model_stub, old_name, new_name)
+
+        #
         # Define the table
+        #
         self._description = _em.Table.define(
             __tname_placeholder__,
             column_defs=col_defs,
@@ -385,8 +426,8 @@ class Project (PhysicalOperator):
             fkey_defs=fkey_defs,
             comment=table_def.get('comment', ''),
             acls=table_def.get('acls', {}),
-            acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
-            annotations=table_def.get('annotations', {}),  # TODO: Filter these and handle renames
+            acl_bindings=table_def.get('acl_bindings', {}),  # TODO: projection of acl bindings
+            annotations=annotations,
             provide_system=False
         )
 
@@ -474,6 +515,10 @@ class NestedLoopsSimilarityAggregation (PhysicalOperator):
         self._nesting = nesting
         self._similarity_fn = similarity_fn
         self._grouping_fn = grouping_fn
+
+        # todo: turn this into a projection of the 'grouping' columns, then add in the nesting
+        #       any constraints or annotations that once depended on the nested columns will
+        #       anyways be invalid after the nesting.
         col_defs = [
             col for col in child.description['column_definitions'] if col['name'] in self._grouping
         ] + [
@@ -550,6 +595,12 @@ class Unnest (PhysicalOperator):
         self._attribute = attribute
 
         # update the table definition  -- TODO: may be able to improve this
+        #  -- all keys are invalid
+        #  -- fkeys that do not contain 'attribute' may remain
+        #  -- prune dropped fkeys from annotations
+        # do this by:
+        #   project all columns _except_ 'attribute'
+        #     add 'attribute' back into column definitions (possibly as a base type, if it was an array type)
         table_def = child.description
         self._description = _em.Table.define(
             uuid.uuid1().hex,  # computed relation name for this projection  # todo: placeholder?
@@ -595,6 +646,11 @@ class CrossJoin (PhysicalOperator):
             right_col_def['name'] for right_col_def in right_def['column_definitions']
         }
         logger.debug('conflicting column name(s) in crossjoin: %s', conflicts)
+
+        # todo: compile conflicting names in 'right' table
+        #       project left, and project right _with_ renames for conflicts
+        #       drop all keys
+        #       merge table definitions
 
         # detemine column defs and renamed columns mappings for the cross-join
         col_defs = []
