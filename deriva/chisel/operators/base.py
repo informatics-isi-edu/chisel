@@ -502,26 +502,21 @@ class Union (PhysicalOperator):
 # Nest and unnest operators
 #
 
-class NestedLoopsSimilarityAggregation (PhysicalOperator):
-    """Nested loops similarity aggregation operator implementation."""
+class NestedLoopsSimilarityAggregation (Project):
+    """Nested loops similarity aggregation operator implementation.
+    """
     def __init__(self, child, grouping, nesting, similarity_fn, grouping_fn):
-        super(NestedLoopsSimilarityAggregation, self).__init__()
-        # TODO: support 1+ grouping keys
-        assert len(grouping) == 1, 'must specify one grouping attribute'
-        assert len(nesting) <= 1, 'only 1 nesting attribute allowed'
-        assert isinstance(child, PhysicalOperator)
+        """Initializes the relation as a projection of 'grouping' with 'nesting' appended afterwards.
+        """
+        assert len(grouping) == 1, 'must specify one and only one grouping attribute'
+        assert len(nesting) <= 1, 'only one nesting attribute allowed'
+        super(NestedLoopsSimilarityAggregation, self).__init__(child, grouping)
         self._child = child
         self._grouping = grouping
         self._nesting = nesting
         self._similarity_fn = similarity_fn
         self._grouping_fn = grouping_fn
-
-        # todo: turn this into a projection of the 'grouping' columns, then add in the nesting
-        #       any constraints or annotations that once depended on the nested columns will
-        #       anyways be invalid after the nesting.
-        col_defs = [
-            col for col in child.description['column_definitions'] if col['name'] in self._grouping
-        ] + [
+        self._description['column_definitions'] += [
             _em.Column.define(
                 col['name'],
                 _em.builtin_types[col['type']['typename'] + '[]'],
@@ -529,13 +524,8 @@ class NestedLoopsSimilarityAggregation (PhysicalOperator):
                 acls=col['acls'] if 'acls' in col else {},
                 acl_bindings=col['acl_bindings'] if 'acl_bindings' in col else {},
                 annotations=col['annotations'] if 'annotations' in col else {}
-            ) for col in self.description['column_definitions'] if col['name'] in self._nesting
+            ) for col in child.description['column_definitions'] if col['name'] in self._nesting
         ]
-        self._description = _em.Table.define(
-            child.description['table_name'] + ':' + uuid.uuid1().hex,  # todo: placeholder?
-            column_defs=col_defs,
-            provide_system=False
-        )
 
     def __iter__(self):
         # TODO: revisit the complexity of this algorithm... O(N) + O(N^2) + O(M)

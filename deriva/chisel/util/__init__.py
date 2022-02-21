@@ -73,10 +73,14 @@ def edit_distance_fn(tuple1, tuple2, **kwargs):
     tuple2 = tuple2 if isinstance(tuple2, tuple) else tuple([tuple2])
     assert (len(tuple1) == len(tuple2)), "tuples must be of same length"
 
+    def to_str(v):
+        return v if isinstance(v, str) or v is None else str(v)
+
     # compute tuple distances
     distances = []
     for i, value1 in enumerate(tuple1):
         value2 = tuple2[i]
+        value1, value2 = to_str(value1), to_str(value2)
         if value1 is value2 is None or value1 == value2 == '':
             # if both values are None or '', they are considered exact matches
             distances.append(0.0)

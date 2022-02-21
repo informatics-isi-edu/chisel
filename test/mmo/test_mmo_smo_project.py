@@ -101,7 +101,7 @@ class TestMMOxSMOProject (BaseMMOTestCase):
 
     def test_project_prune_key(self):
         src_key_name = ['test', 'person_RID_key']
-        new_key_name = ['test', 'foo_RID_key']
+        new_key_name = ['test', f'{self.unittest_tname}_RID_key']
 
         # verify found in source model
         matches = mmo.find(self.model, src_key_name)
@@ -118,7 +118,7 @@ class TestMMOxSMOProject (BaseMMOTestCase):
 
     def test_project_prune_fkey(self):
         src_key_name = ['test', 'person_dept_fkey']
-        new_key_name = ['test', 'foo_dept_fkey']
+        new_key_name = ['test', f'{self.unittest_tname}_dept_fkey']
 
         # verify found in source model
         matches = mmo.find(self.model, src_key_name)
@@ -135,7 +135,7 @@ class TestMMOxSMOProject (BaseMMOTestCase):
 
     def test_project_replace_key(self):
         src_key_name = ['test', 'person_RID_key']
-        new_key_name = ['test', 'foo_RID_key']
+        new_key_name = ['test', f'{self.unittest_tname}_RID_key']
 
         # verify found in source model
         matches = mmo.find(self.model, src_key_name)
@@ -153,7 +153,7 @@ class TestMMOxSMOProject (BaseMMOTestCase):
 
     def test_project_replace_fkey(self):
         src_key_name = ['test', 'person_dept_fkey']
-        new_key_name = ['test', 'foo_dept_fkey']
+        new_key_name = ['test', f'{self.unittest_tname}_dept_fkey']
 
         # verify found in source model
         matches = mmo.find(self.model, src_key_name)
@@ -172,7 +172,7 @@ class TestMMOxSMOProject (BaseMMOTestCase):
     def test_project_rename_and_replace_key(self):
         old_cname, new_cname = 'RID', 'record_id'
         src_key_name = ['test', f'person_{old_cname}_key']
-        new_key_name = ['test', f'foo_{new_cname}_key']
+        new_key_name = ['test', f'{self.unittest_tname}_{new_cname}_key']
 
         # verify found in source model
         matches = mmo.find(self.model, src_key_name)
@@ -192,11 +192,11 @@ class TestMMOxSMOProject (BaseMMOTestCase):
 
     def test_project_rename_and_replace_fkey(self):
         old_cname, new_cname = 'dept', 'department'
-        src_key_name = ['test', f'person_{old_cname}_fkey']
-        new_key_name = ['test', f'foo_{new_cname}_fkey']
+        src_fkey_name = ['test', f'person_{old_cname}_fkey']
+        new_fkey_name = ['test', f'{self.unittest_tname}_{new_cname}_fkey']
 
         # verify found in source model
-        matches = mmo.find(self.model, src_key_name)
+        matches = mmo.find(self.model, src_fkey_name)
         self.assertTrue(len(matches) > 0)
 
         # projecting the 'dept' should also carry forward and rename the fkey name in the mappings
@@ -207,6 +207,44 @@ class TestMMOxSMOProject (BaseMMOTestCase):
             )
         )
 
-        matches = mmo.find(self.model, new_key_name)
+        matches = mmo.find(self.model, new_fkey_name)
+        self.assertTrue(len(matches) > 0)
+        self.assertTrue(all([m.anchor == temp for m in matches]))
+
+    def test_domainify(self):
+        old_cname, new_cname = 'dept', 'name'
+        src_fkey_name = ['test', f'person_{old_cname}_fkey']
+        new_fkey_name = ['test', f'{self.unittest_tname}_{new_cname}_fkey']
+
+        # verify found in source model
+        matches = mmo.find(self.model, src_fkey_name)
+        self.assertTrue(len(matches) > 0)
+
+        # domainifying 'dept' will rename it to 'name' but should preserve it as a foreign key
+        temp = self.model.schemas['test'].create_table_as(
+            self.unittest_tname,
+            self.model.schemas['test'].tables['person'].columns[old_cname].to_domain()
+        )
+
+        matches = mmo.find(self.model, new_fkey_name)
+        self.assertTrue(len(matches) > 0)
+        self.assertTrue(all([m.anchor == temp for m in matches]))
+
+    def test_canonicalize(self):
+        old_cname, new_cname = 'dept', 'name'
+        src_fkey_name = ['test', f'person_{old_cname}_fkey']
+        new_fkey_name = ['test', f'{self.unittest_tname}_{new_cname}_fkey']
+
+        # verify found in source model
+        matches = mmo.find(self.model, src_fkey_name)
+        self.assertTrue(len(matches) > 0)
+
+        # canonicalizing 'dept' will rename it to 'name' but should preserve it as a foreign key
+        temp = self.model.schemas['test'].create_table_as(
+            self.unittest_tname,
+            self.model.schemas['test'].tables['person'].columns[old_cname].to_domain()
+        )
+
+        matches = mmo.find(self.model, new_fkey_name)
         self.assertTrue(len(matches) > 0)
         self.assertTrue(all([m.anchor == temp for m in matches]))
