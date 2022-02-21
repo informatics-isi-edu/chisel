@@ -187,7 +187,7 @@ class TestERMrestCatalog (BaseTestCase):
         # validate rows
         pb = self.model.catalog.getPathBuilder()
         num = len(pb.schemas['public'].tables[tname].entities())
-        self.assertEquals(num, 4)
+        self.assertEqual(num, 4)
 
     def test_smo_where_disj(self):
         assert self.catalog_helper.num_test_rows > 5
@@ -203,7 +203,7 @@ class TestERMrestCatalog (BaseTestCase):
         # validate rows
         pb = self.model.catalog.getPathBuilder()
         num = len(pb.schemas['public'].tables[tname].entities())
-        self.assertEquals(num, 2)
+        self.assertEqual(num, 2)
 
     def test_smo_reify(self):
         samples = self.model.schemas['public'].tables[self.catalog_helper.samples]

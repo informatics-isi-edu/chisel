@@ -327,3 +327,24 @@ class TestMMOxSMOProject (BaseMMOTestCase):
         matches = mmo.find(self.model, new_key_name)
         self.assertTrue(len(matches) == 0)
         self.assertTrue(all([m.anchor == temp for m in matches]))
+
+    def test_join(self):
+        # dept RID column and key should be found in model
+        matches = mmo.find(self.model, ['test', 'dept_RID_key'])
+        self.assertTrue(len(matches) > 0)
+        matches = mmo.find(self.model, ['test', 'dept', 'RID'])
+        self.assertTrue(len(matches) > 0)
+
+        # join will invalidate all key columns from the original relations and rename conflicting columns
+        temp = self.model.schemas['test'].create_table_as(
+            self.unittest_tname,
+            self.model.schemas['test'].tables['dept'].join(self.model.schemas['test'].tables['person'])
+        )
+
+        # now, left_RID should be found in model, but the key should not since keys are not preserved in a join
+        matches = mmo.find(self.model, ['test', f'{self.unittest_tname}_left_RID_key'])
+        self.assertTrue(len(matches) == 0)
+        matches = mmo.find(self.model, ['test', self.unittest_tname, 'left_RID'])
+        self.assertTrue(len(matches) > 0)
+        self.assertTrue(all([m.anchor == temp for m in matches]))
+

@@ -187,7 +187,7 @@ class Drop (Assign):
 
 
 class Select (PhysicalOperator):
-    """Base Select operator.
+    """Select operator.
     """
     def __init__(self, child, formula):
         """Initializes the Select operator.
@@ -243,9 +243,9 @@ class Project (PhysicalOperator):
         :param with_keys: project valid keys (default True)
         """
         super(Project, self).__init__()
-        projection = projection or [symbols.AllAttributes()]
-        assert hasattr(projection, '__iter__'), "Projection is not an iterable collection"
         assert isinstance(child, PhysicalOperator)
+        projection = projection or [symbols.AllAttributes()]
+        assert hasattr(projection, '__iter__') and not isinstance(projection, str), '"projection" must be an iterable collection'
         self._child = child
         self._attributes = set()
         self._alias_to_cname = {}
@@ -451,6 +451,8 @@ class Project (PhysicalOperator):
 
 
 class Rename (Project):
+    """Rename operator.
+    """
     def __init__(self, child, renames):
         assert isinstance(child, PhysicalOperator)
         assert child.description
@@ -495,7 +497,8 @@ class HashDistinct (Project):
 
 
 class Union (PhysicalOperator):
-    """Basic select operator."""
+    """Union operator.
+    """
     def __init__(self, child, other):
         super(Union, self).__init__()
         assert isinstance(child, PhysicalOperator)
@@ -518,7 +521,7 @@ class Union (PhysicalOperator):
 #
 
 class NestedLoopsSimilarityAggregation (Project):
-    """Nested loops similarity aggregation operator implementation.
+    """Nested loops similarity aggregation operator.
     """
     def __init__(self, child, grouping, nesting, similarity_fn, grouping_fn):
         """Initializes the relation as a projection of 'grouping' with 'nesting' appended afterwards.
@@ -619,57 +622,59 @@ class Unnest (Project):
 # Cross join and Similarity join operators
 #
 
-class CrossJoin (PhysicalOperator):
-    """Cross-Join operator implementation."""
+
+class CrossJoin (Project):
+    """Cross-Join operator.
+    """
     def __init__(self, left, right):
-        super(CrossJoin, self).__init__()
-        assert isinstance(left, PhysicalOperator) and isinstance(right, PhysicalOperator)
+        """Instantiates the CrossJoin by projecting the left columns w/out keys and merging the right definition.
+        """
+        assert isinstance(left, PhysicalOperator) and isinstance(right, PhysicalOperator), 'child relations must be physical operator instances'
         self._left = left
         self._right = right
-
-        syscols = {'RID', 'RCB', 'RMB', 'RCT', 'RMT'}
-        left_def = left.description
-        right_def = right.description
-
-        # determine conflicting column names in the cross-join
-        conflicts = {
-            left_col_def['name'] for left_col_def in left_def['column_definitions']
-        } & {
-            right_col_def['name'] for right_col_def in right_def['column_definitions']
-        }
-        logger.debug('conflicting column name(s) in crossjoin: %s', conflicts)
-
-        # todo: compile conflicting names in 'right' table
-        #       project left, and project right _with_ renames for conflicts
-        #       drop all keys
-        #       merge table definitions
-
-        # detemine column defs and renamed columns mappings for the cross-join
-        col_defs = []
         self._left_renames, self._right_renames = dict(), dict()
-        for table_def, renames in [(left_def, self._left_renames), (right_def, self._right_renames)]:
-            for col_def in table_def['column_definitions']:
-                col_def = col_def.copy()
-                if col_def['name'] in conflicts:
-                    old_name = col_def['name']
-                    new_name = col_def['name'] = table_def['table_name'] + ':' + col_def['name'] # TODO: bug, this doesn't prevent conflicts when same column name exists in both tables
-                    renames[new_name] = old_name
-                col_defs.append(col_def)
-        logger.debug('columns in crossjoin: %s', col_defs)
-        logger.debug('left renames: %s', self._left_renames)
-        logger.debug('right renames: %s', self._right_renames)
 
-        # define table representing cross-join
-        self._description = _em.Table.define(
-            left_def['table_name'] + "_" + right_def['table_name'],  # todo: placeholder
-            column_defs=col_defs,
-            # TODO: keys: keys from left side of join - tbd
-            # TODO: joined acls
-            # TODO: joined acl_bindings
-            # TODO: joined fkeys
-            # TODO: joined annotations
-            provide_system=False
-        )
+        #
+        # Project 'left' relation. Include all columns as is, except for RID renamed as 'left_RID'. Without keys.
+        #
+        left_projection = []
+        for col_def in left.description['column_definitions']:
+            cname = col_def['name']
+            if cname == 'RID':
+                alias = f'left_{cname}'
+                left_projection.append(symbols.AttributeAlias(cname, alias))
+                self._left_renames[alias] = cname
+            else:
+                left_projection.append(cname)
+
+        super(CrossJoin, self).__init__(left, left_projection, with_keys=False)
+
+        #
+        # Project 'right' relation by renaming any conflicting columns "right_<original column name>"
+        # ...yes, this has its limitations, but users can work around by renaming beforehand, when needed
+        #
+        existing_columns = {cdef['name'] for cdef in self.description['column_definitions']} | {'RID'}
+        right_projection = []
+        for col_def in right.description['column_definitions']:
+            cname = col_def['name']
+            if cname in existing_columns:
+                alias = f'right_{cname}'
+                right_projection.append(symbols.AttributeAlias(cname, alias))
+                self._right_renames[alias] = cname
+            else:
+                right_projection.append(cname)
+
+        right = Project(right, right_projection, with_keys=False)
+
+        #
+        # Merge the revised 'right' relation into the current definition based on the 'left' relatoin
+        #
+
+        # ...merge column definitions
+        self._description['column_definitions'] += right.description['column_definitions']
+
+        # ...merge fkey definitions
+        self._description['foreign_keys'] += right.description['foreign_keys']
 
     def __iter__(self):
         for left_row in self._left:
@@ -681,7 +686,8 @@ class CrossJoin (PhysicalOperator):
 
 
 class NestedLoopsSimilarityJoin (CrossJoin):
-    """Nested loops similarity join operator."""
+    """Nested loops similarity join operator.
+    """
     def __init__(self, left, right, condition):
         super(NestedLoopsSimilarityJoin, self).__init__(left, right)
         self._condition = condition
