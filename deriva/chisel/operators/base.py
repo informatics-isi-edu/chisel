@@ -492,7 +492,12 @@ class Union (PhysicalOperator):
         super(Union, self).__init__()
         assert isinstance(child, PhysicalOperator)
         assert isinstance(other, PhysicalOperator)
-        # TODO: validate that 'other' has same columns as 'child'
+        other_columns = {c['name']: c for c in other.description['column_definitions']}
+        if any([
+            c['name'] not in other_columns or c != other_columns[c['name']]
+            for c in child.description['column_definitions']
+        ]):
+            raise ValueError('Column definitions between tables in a union operation must match')
         self._child = child
         self._other = other
 
