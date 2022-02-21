@@ -99,7 +99,7 @@ class TestMMOxSMOProject (BaseMMOTestCase):
         matches = mmo.find(self.model, ['test', self.unittest_tname, new_cname])
         self.assertTrue(len(matches) > 0)
 
-    def test_project_prune_key(self):
+    def test_reify_prune_key(self):
         src_key_name = ['test', 'person_RID_key']
         new_key_name = ['test', f'{self.unittest_tname}_RID_key']
 
@@ -107,7 +107,7 @@ class TestMMOxSMOProject (BaseMMOTestCase):
         matches = mmo.find(self.model, src_key_name)
         self.assertTrue(len(matches) > 0)
 
-        # reify will turn the key into a foreign key and rename the column, so the key name mapping should be pruned
+        # reify will project a subset of columns and form a new key, so the original key name mapping should be pruned
         temp = self.model.schemas['test'].create_table_as(
             self.unittest_tname,
             self.model.schemas['test'].tables['person'].reify(['name'], 'last_name')
@@ -348,3 +348,13 @@ class TestMMOxSMOProject (BaseMMOTestCase):
         self.assertTrue(len(matches) > 0)
         self.assertTrue(all([m.anchor == temp for m in matches]))
 
+    def test_icmo_add_key(self):
+        cname = 'name'
+        key_name = ['test', f'{self.unittest_tname}_{cname}_key']
+
+        # reify will form a new key from the first set of column names
+        temp = self.model.schemas['test'].create_table_as(
+            self.unittest_tname,
+            self.model.schemas['test'].tables['person'].reify([cname], 'last_name')
+        )
+        self.assertTrue(any([key_name in key.names for key in temp.keys]))

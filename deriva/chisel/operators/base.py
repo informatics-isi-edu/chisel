@@ -476,13 +476,16 @@ class Rename (Project):
         super(Rename, self).__init__(child, projection)
 
 
-class HashDistinct (Project):
+class HashDistinct (PhysicalOperator):
     """Distinct operator using in-memory hash data structure.
     """
     def __init__(self, child, attributes):
-        """Initializes the operator as a projection of 'attributes'.
+        """Initializes the operator.
+
+        :param child: child expression
+        :param attributes: subset of attributes in child to enforce set semantics on
         """
-        super(HashDistinct, self).__init__(child, attributes)
+        super(HashDistinct, self).__init__()
         self._child = child
         self._distinct_on = attributes
 
@@ -730,3 +733,30 @@ class NestedLoopsSimilarityJoin (CrossJoin):
                 row.update(
                     self._rename_row_attributes(best_match_row, self._right_renames, always_copy=True))
                 yield row
+
+#
+# Integrity constraint modification operators: add-key, add-foreign-key, ...
+#
+
+class AddKey (PhysicalOperator):
+    """Add Key constraint operator.
+    """
+    def __init__(self, child, unique_columns):
+        """Initializes the AddKey operator.
+
+        :param child: input expression
+        :param unique_columns: collection for the unique columns of the key
+        """
+        super(AddKey, self).__init__()
+        assert isinstance(child, PhysicalOperator)
+        unique_columns = list(unique_columns) if isinstance(unique_columns, tuple) else unique_columns
+        assert isinstance(unique_columns, list) and isinstance(next(iter(unique_columns)), str), '"unique_columns" must be a list of column names'
+        logger.debug('unique_columns: %s' % str(unique_columns))
+        self._child = child
+        self._description = deepcopy(child.description)
+        self._description['keys'].append(
+            _em.Key.define(unique_columns)
+        )
+
+    def __iter__(self):
+        return iter(self._child)

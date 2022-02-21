@@ -143,6 +143,13 @@ Canonicalize = namedtuple('Canonicalize', 'child attribute similarity_fn groupin
 Tagify = namedtuple('Tagify', 'domain child attribute unnest_fn similarity_fn grouping_fn')
 
 #
+# Integrity constraint modification operators (ICMOs)
+#
+
+#: add key constraint
+AddKey = namedtuple('AddKey', 'child unique_columns')
+
+#
 # Terms, operands, and parameters
 #
 

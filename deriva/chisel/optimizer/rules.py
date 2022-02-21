@@ -107,7 +107,7 @@ logical_optimization_rules = Matcher([
 logical_composition_rules = Matcher([
     (
         'Reify(child, keys, attributes)',
-        lambda child, keys, attributes: Distinct(Project(child, keys + attributes), keys + attributes)
+        lambda child, keys, attributes: AddKey(Distinct(Project(child, keys + attributes), keys), keys)
     ),
     (
         'ReifySub(_, tuple())',
@@ -269,5 +269,9 @@ physical_transformation_rules = Matcher([
     (
         'Union(child:PhysicalOperator, right:PhysicalOperator)',
         lambda child, right: _op.Union(child, right)
+    ),
+    (
+        'AddKey(child:PhysicalOperator, unique_columns)',
+        lambda child, unique_columns: _op.AddKey(child, unique_columns)
     )
 ])
