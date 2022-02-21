@@ -230,6 +230,25 @@ class TestMMOxSMOProject (BaseMMOTestCase):
         self.assertTrue(len(matches) > 0)
         self.assertTrue(all([m.anchor == temp for m in matches]))
 
+    def test_domainify_distinct(self):
+        old_cname, new_cname = 'dept', 'name'
+        src_fkey_name = ['test', f'person_{old_cname}_fkey']
+        new_fkey_name = ['test', f'{self.unittest_tname}_{new_cname}_fkey']
+
+        # verify found in source model
+        matches = mmo.find(self.model, src_fkey_name)
+        self.assertTrue(len(matches) > 0)
+
+        # domainifying 'dept' will rename it to 'name' but should preserve it as a foreign key
+        temp = self.model.schemas['test'].create_table_as(
+            self.unittest_tname,
+            self.model.schemas['test'].tables['person'].columns[old_cname].to_domain(similarity_fn=None)
+        )
+
+        matches = mmo.find(self.model, new_fkey_name)
+        self.assertTrue(len(matches) > 0)
+        self.assertTrue(all([m.anchor == temp for m in matches]))
+
     def test_canonicalize(self):
         old_cname, new_cname = 'dept', 'name'
         src_fkey_name = ['test', f'person_{old_cname}_fkey']

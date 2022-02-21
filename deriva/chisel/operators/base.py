@@ -466,11 +466,13 @@ class Rename (Project):
         super(Rename, self).__init__(child, projection)
 
 
-class HashDistinct (PhysicalOperator):
-    """Distinct operator using in-memory hash data structure."""
+class HashDistinct (Project):
+    """Distinct operator using in-memory hash data structure.
+    """
     def __init__(self, child, attributes):
-        super(HashDistinct, self).__init__()
-        assert isinstance(child, PhysicalOperator)
+        """Initializes the operator as a projection of 'attributes'.
+        """
+        super(HashDistinct, self).__init__(child, attributes)
         self._child = child
         self._distinct_on = attributes
 
