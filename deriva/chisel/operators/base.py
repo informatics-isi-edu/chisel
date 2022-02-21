@@ -233,8 +233,15 @@ class Select (PhysicalOperator):
 
 
 class Project (PhysicalOperator):
-    """Basic projection operator."""
-    def __init__(self, child, projection):
+    """Project operator.
+    """
+    def __init__(self, child, projection, **kwargs):
+        """Instantiates the project operator from a child operation and a projection list of attributes.
+
+        :param child: child operation
+        :param projection: iterable collection of attributes or attribute-related symbols
+        :param with_keys: project valid keys (default True)
+        """
         super(Project, self).__init__()
         projection = projection or [symbols.AllAttributes()]
         assert hasattr(projection, '__iter__'), "Projection is not an iterable collection"
@@ -243,6 +250,7 @@ class Project (PhysicalOperator):
         self._attributes = set()
         self._alias_to_cname = {}
         self._cname_to_alias = collections.defaultdict(list)
+        with_keys = kwargs.get('with_keys', True)
 
         # Redefine the description of the child operator based on the projection
         table_def = self.description
@@ -348,7 +356,7 @@ class Project (PhysicalOperator):
         for key_def in table_def['keys']:
             unique_columns = key_def['unique_columns']
             # include key if all unique columns are in the projection
-            if set(unique_columns) <= all_projected_attributes:
+            if with_keys and set(unique_columns) <= all_projected_attributes:
                 key_def = key_def.copy()
                 key_def['unique_columns'] = [self._cname_to_alias.get(cname, [cname])[0] for cname in unique_columns]
                 # generate new name, remember old name(s)
@@ -576,40 +584,27 @@ class NestedLoopsSimilarityAggregation (Project):
                 yield v
 
 
-class Unnest (PhysicalOperator):
-    """Unnest operator that allows user-defined function for custom unnesting."""
+class Unnest (Project):
+    """Unnest operator that allows user-defined function for custom unnesting.
+    """
     def __init__(self, child, unnest_fn, attribute):
-        """
-        Creates an Unnest operator.
+        """ Instantiates the operator as a projection of all but 'attribute' then adds 'attribute' back in.
+
         :param child: the child operator
         :param unnest_fn: unnesting function that takes a value and yields zero or more values
         :param attribute: name of the attribute to be used as input to the unnest_fn function
         """
-        super(Unnest, self).__init__()
+        super(Unnest, self).__init__(child, (symbols.AllAttributes(), symbols.AttributeDrop(attribute)), with_keys=False)
         assert isinstance(child, PhysicalOperator)
         self._child = child
         self._unnest_fn = unnest_fn
         self._attribute = attribute
 
-        # update the table definition  -- TODO: may be able to improve this
-        #  -- all keys are invalid
-        #  -- fkeys that do not contain 'attribute' may remain
-        #  -- prune dropped fkeys from annotations
-        # do this by:
-        #   project all columns _except_ 'attribute'
-        #     add 'attribute' back into column definitions (possibly as a base type, if it was an array type)
-        table_def = child.description
-        self._description = _em.Table.define(
-            uuid.uuid1().hex,  # computed relation name for this projection  # todo: placeholder?
-            column_defs=table_def['column_definitions'],
-            # key_defs=[], -- key defs are empty because the unnested relation should break unique constraints
-            fkey_defs=table_def['foreign_keys'],  # TODO: sanity check that unnest attr is not in a fkey
-            comment=table_def.get('comment', ''),
-            acls=table_def.get('acls', {}),
-            acl_bindings=table_def.get('acl_bindings', {}),  # TODO: Filter these and handle renames
-            annotations=table_def.get('annotations', {}),  # TODO: Filter these and handle renames
-            provide_system=False
-        )
+        # add 'attribute' back into column definitions
+        for col_def in child._description['column_definitions']:
+            if col_def['name'] == attribute:
+                self._description['column_definitions'].append(deepcopy(col_def))
+                break
 
     def __iter__(self):
         for row in self._child:
