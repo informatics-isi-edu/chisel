@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import re
-import uuid
 from deriva.core import ermrest_model as _em
 from .base import PhysicalOperator
 
@@ -39,11 +38,11 @@ class JSONScan (PhysicalOperator):
             table_name = os.path.basename(input_filename)
         elif json_content:
             self._data = json.loads(json_content)
-            table_name = 'JSON_CONTENT_' + uuid.uuid1().hex
+            table_name = 'JSON_DOCUMENT'
         else:
             assert object_payload, "object payload expected"
             self._data = object_payload
-            table_name = 'OBJECT_PAYLOAD_' + uuid.uuid1().hex
+            table_name = 'PYTHON_OBJECT'
 
         if not isinstance(self._data, list) and len(self._data) and isinstance(self._data[0], dict):
             raise ValueError('Input source must be a non-empty array of objects')

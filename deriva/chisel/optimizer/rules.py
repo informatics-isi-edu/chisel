@@ -107,7 +107,14 @@ logical_optimization_rules = Matcher([
 logical_composition_rules = Matcher([
     (
         'Reify(child, keys, attributes)',
-        lambda child, keys, attributes: AddKey(Distinct(Project(child, keys + attributes), keys), keys)
+        lambda child, keys, attributes:
+        AddKey(
+            Distinct(
+                Project(child, keys + attributes),
+                keys
+            ),
+            keys
+        )
     ),
     (
         'ReifySub(_, tuple())',
@@ -115,7 +122,11 @@ logical_composition_rules = Matcher([
     ),
     (
         'ReifySub(child, attributes)',
-        lambda child, attributes: Project(child, (IntrospectionFunction(util.introspect_key_fn),) + attributes)
+        lambda child, attributes:
+        AddForeignKey(
+            Project(child, (IntrospectionFunction(util.introspect_key_fn),) + attributes),
+            child, (IntrospectionFunction(util.introspect_key_fn),), None
+        )
     ),
     (
         'Atomize(_, _, "")',
@@ -220,7 +231,7 @@ physical_transformation_rules = Matcher([
     ),
     (
         'TableExtant(model, sname, tname)',
-        lambda model, sname, tname: _op.ERMrestSelectProject(model, sname, tname)
+        lambda model, sname, tname: _op.ERMrestSelect(model, sname, tname)
     ),
     (
         'JSONDataExtant(input_filename, json_content, object_payload, key_regex)',
@@ -273,5 +284,10 @@ physical_transformation_rules = Matcher([
     (
         'AddKey(child:PhysicalOperator, unique_columns)',
         lambda child, unique_columns: _op.AddKey(child, unique_columns)
+    ),
+    (
+        'AddForeignKey(left:PhysicalOperator, right, referenced_columns, foreign_key_columns)',
+        lambda left, right, referenced_columns, foreign_key_columns:
+        _op.AddForeignKey(left, right, referenced_columns, foreign_key_columns)
     )
 ])

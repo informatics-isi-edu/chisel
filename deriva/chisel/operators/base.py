@@ -8,7 +8,7 @@ import json
 import logging
 from operator import itemgetter
 from pprint import pprint
-import uuid
+import warnings
 from deriva.core import ermrest_model as _em
 from ..optimizer import symbols
 from ..catalog.stubs import ModelStub
@@ -276,33 +276,16 @@ class Project (PhysicalOperator):
             elif isinstance(item, symbols.IntrospectionFunction):
                 # Attributes may contain an introspection function. If so, call it on the table model object, and
                 # combine its results with the rest of the given attributes list.
-                logger.debug("projecting attributes returned by an introspection function: %s", item)
-                # don't introspect on a comp rel
-                if table_def['table_name'] == __tname_placeholder__:
-                    raise ValueError('This operation is not supported on a computed relation')
+                logger.debug("projecting attributes returned by introspection function: %s", item)
                 # introspect attributes, handle special case for 'RID'
                 attrs = item.fn(table_def)
-                pk_cols = attrs.copy()
-                fk_cols = attrs.copy()
                 if 'RID' in attrs:
                     attrs.remove('RID')
                     renamed_rid = table_def['table_name'] + '_RID'
                     self._alias_to_cname[renamed_rid] = 'RID'
                     self._cname_to_alias['RID'].append(renamed_rid)
-                    fk_cols = [renamed_rid if c == 'RID' else c for c in fk_cols]
                 # add to projected attributes
                 self._attributes |= set(attrs)
-                # add fkey to the source relation
-                fkey_defs.append(
-                    _em.ForeignKey.define(
-                        fk_cols,
-                        schema_name,  # pk sname
-                        table_def['table_name'],   # pk tname
-                        pk_cols,                   # pk columns
-                        on_update='CASCADE',
-                        constraint_names=[[schema_name, _make_constraint_name(__tname_placeholder__, *fk_cols, suffix='fkey')]]
-                    )
-                )
             elif isinstance(item, symbols.AttributeAlias):
                 logger.debug("projecting an aliased attribute: %s", item)
                 self._alias_to_cname[item.alias] = item.name
@@ -735,10 +718,17 @@ class NestedLoopsSimilarityJoin (CrossJoin):
                 yield row
 
 #
-# Integrity constraint modification operators: add-key, add-foreign-key, ...
+# Integrity constraint modification operators: add key, add foreign key, ...
 #
 
-class AddKey (PhysicalOperator):
+class IntegrityConstraintModificationOperator (PhysicalOperator):
+    """Base class for integrity constraint modification operator (ICMO).
+    """
+    def __iter__(self):
+        return iter(self._child)
+
+
+class AddKey (IntegrityConstraintModificationOperator):
     """Add Key constraint operator.
     """
     def __init__(self, child, unique_columns):
@@ -758,5 +748,56 @@ class AddKey (PhysicalOperator):
             _em.Key.define(unique_columns)
         )
 
-    def __iter__(self):
-        return iter(self._child)
+
+class AddForeignKey (IntegrityConstraintModificationOperator):
+    """Add Foreign Key constraint operator.
+    """
+    def __init__(self, left, right, referenced_columns, foreign_key_columns=None):
+        """Initializes the AddForeignKey operator.
+
+        If not 'foreign_key_columns' given, then the 'child' relation should have a set of columns matching
+        referenced_columns.
+
+        :param left: input expression for the refering relation
+        :param right: input expression for the primary key table
+        :param referenced_columns: collection of the referenced primary key column names, or the introspection function
+        :param foreign_key_columns: collection of the foreign key column names (optional)
+        """
+        super(AddForeignKey, self).__init__()
+        assert isinstance(left, PhysicalOperator)
+        referenced_columns = list(referenced_columns) if isinstance(referenced_columns, tuple) else referenced_columns
+        assert isinstance(referenced_columns, list), '"referenced_columns" must be a list'
+        assert referenced_columns, '"referenced_columns" contain at least one column name or function'
+        logger.debug('referenced_columns: %s' % referenced_columns)
+        self._child = left
+        self._description = deepcopy(left.description)
+
+        # pk table may be a table object or a physical operator
+        pk_table_def = right.prejson() if hasattr(right, 'prejson') else right.description
+        if pk_table_def['table_name'] == __tname_placeholder__:
+            warnings.warn('Introspecting a key on a computed relation is not recommended')
+
+        # introspect referenced columns, if needed
+        if isinstance(referenced_columns[0], symbols.IntrospectionFunction):
+            key_introspection_fn = referenced_columns[0].fn
+            referenced_columns = key_introspection_fn(pk_table_def)
+
+        logger.debug('pk columns: %s' % referenced_columns)
+
+        # define foreign key columns based on referenced pk columns, if needed
+        if not foreign_key_columns:
+            foreign_key_columns = [cname if cname != 'RID' else pk_table_def['table_name']+'_RID' for cname in referenced_columns]
+
+        logger.debug('fk columns: %s' % foreign_key_columns)
+
+        # define and append fkey
+        self._description['foreign_keys'].append(
+            _em.ForeignKey.define(
+                foreign_key_columns,
+                pk_table_def['schema_name'],
+                pk_table_def['table_name'],
+                referenced_columns,
+                on_update='CASCADE',
+                constraint_names=[[self._description.get('schema_name', ''), _make_constraint_name(__tname_placeholder__, *foreign_key_columns, suffix='fkey')]]
+            )
+        )

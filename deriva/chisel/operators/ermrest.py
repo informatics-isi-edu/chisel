@@ -61,6 +61,7 @@ class ERMrestSelectProject (Project):
             Metadata(deepcopy(model.schemas[sname].tables[tname].prejson())),
             projection
         )
+        self._description['schema_name'] = sname
         self._model = model
         self._sname = sname
         self._tname = tname
@@ -94,6 +95,7 @@ class ERMrestSelect (PhysicalOperator):
         """
         super(ERMrestSelect, self).__init__()
         self._description = deepcopy(model.schemas[sname].tables[tname].prejson())
+        self._description['schema_name'] = sname
         self._model = model
         self._sname = sname
         self._tname = tname
