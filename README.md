@@ -16,11 +16,12 @@ Features:
 A brief example:
 
 ```python
-from deriva.core import DerivaServer
+from deriva.core import DerivaServer, get_credential
 from deriva.chisel import Model
 
+hostname = 'tutorial.derivacloud.org'
 model = Model.from_catalog(
-   DerivaServer('https', 'tutorial.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', hostname, get_credential(hostname)).connect_ermrest('1')
 )
 
 public = model.schemas['public']
@@ -58,11 +59,12 @@ For more details, see the [Installation](./docs/install.md) guide.
 Connect to a DERIVA catalog and create the `Model` management interface.
 
 ```python
-from deriva.core import DerivaServer
+from deriva.core import DerivaServer, get_credential
 from deriva.chisel import Model
 
+hostname = 'tutorial.derivacloud.org'
 model = Model.from_catalog(
-   DerivaServer('https', 'tutorial.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', hostname, get_credential(hostname)).connect_ermrest('1')
 )
 ```
 **Note**: use the 
@@ -87,12 +89,13 @@ The deriva-py `Model` interface implemented by `chisel` follows a pattern:
    implicitly by the `alter` and `drop` methods.
 
 ```python
-from deriva.core import DerivaServer
+from deriva.core import DerivaServer, get_credential
 from deriva.chisel import Model, Schema, Table, Column, Key, ForeignKey, builtin_types
 
 # connect to catalog
+hostname = 'tutorial.derivacloud.org'
 model = Model.from_catalog(
-   DerivaServer('https', 'tutorial.derivacloud.org').connect_ermrest('1')
+   DerivaServer('https', hostname, get_credential(hostname)).connect_ermrest('1')
 )
 
 # create a schema
