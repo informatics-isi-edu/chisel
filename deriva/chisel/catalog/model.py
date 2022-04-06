@@ -81,15 +81,41 @@ class Schema (ModelObjectWrapper):
     def tables(self):
         return MappingWrapper(self._new_table, self._wrapped_obj.tables)
 
-    def create_table(self, table_def):
+    def create_table(self, table_def, add_visible_columns=False):
         """Add a new table to this schema in the remote database based on table_def.
 
            Returns a new Table instance based on the server-supplied
            representation of the newly created table.
 
            The returned Table is also added to self.tables.
+
+           Param 'add_visible_columns' enables an experimental feature that adds
+           a visible-columns '*' context to the annotations of the table based
+           on a heuristic of adding all key names, fkey names, and columns not in
+           a key or fkey.
         """
-        return self._new_table(self._wrapped_obj.create_table(table_def))
+        table = self._new_table(self._wrapped_obj.create_table(table_def))
+        if add_visible_columns:
+            constrained_columns = []
+            vizcols_default = []
+            # add keys to visible list
+            for key in table.keys:
+                vizcols_default.append([key.name[0].name, key.name[1]])
+                for column in key.unique_columns:
+                    constrained_columns.append(column.name)
+            # add fkeys to visible list
+            for fkey in table.foreign_keys:
+                vizcols_default.append([fkey.name[0].name, fkey.name[1]])
+                for column in fkey.foreign_key_columns:
+                    constrained_columns.append(column.name)
+            # add (remaining) columns to visible list
+            for column in table.columns:
+                if column.name not in constrained_columns:
+                    vizcols_default.append(column.name)
+            # populate default vizcols
+            table.annotations[_erm.tag.visible_columns] = {'*': vizcols_default}
+            table.apply()
+        return table
 
     def create_association(self, table1, table2):  # todo: need unit tests
         """Creates an association table that references the given tables.
@@ -187,14 +213,23 @@ class Table (ModelObjectWrapper):
     def referenced_by(self):
         return SequenceWrapper(self._new_fkey, self._wrapped_obj.referenced_by)
 
-    def create_column(self, column_def):
+    def create_column(self, column_def, update_visible_columns=False):
         """Add a new column to this table in the remote database based on column_def.
 
            Returns a new Column instance based on the server-supplied
            representation of the new column, and adds it to
            self.column_definitions too.
+
+           Param 'update_visible_columns' enables an experimental feature to update
+           the default (*) visible columns with the newly added column.
         """
-        return self._new_column(self._wrapped_obj.create_column(column_def))
+        column = self._new_column(self._wrapped_obj.create_column(column_def))
+        if update_visible_columns:
+            vizcols = self.annotations.get(_erm.tag.visible_columns, {}).get('*', [])
+            if vizcols:
+                vizcols.append(column.name)
+                self.apply()
+        return column
 
     def create_key(self, key_def):
         """Add a new key to this table in the remote database based on key_def.
