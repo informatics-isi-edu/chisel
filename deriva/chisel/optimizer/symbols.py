@@ -150,7 +150,7 @@ Tagify = namedtuple('Tagify', 'domain child attribute unnest_fn similarity_fn gr
 AddKey = namedtuple('AddKey', 'child unique_columns')
 
 #: add foreign key constraint
-AddForeignKey = namedtuple('AddKey', 'left right referenced_columns foreign_key_columns')
+AddForeignKey = namedtuple('AddForeignKey', 'left right referenced_columns foreign_key_columns')
 
 #
 # Terms, operands, and parameters
