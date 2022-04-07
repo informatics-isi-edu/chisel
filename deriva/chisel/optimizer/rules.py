@@ -129,6 +129,17 @@ logical_composition_rules = Matcher([
         )
     ),
     (
+        'Associate(child, attributes)',
+        lambda child, attributes:
+        AddKey(
+            DropKey(
+                ReifySub(child, attributes),
+                AllConstraints
+            ),
+            AllAttributes
+        )
+    ),
+    (
         'Atomize(_, _, "")',
         lambda: Nil()
     ),
@@ -286,8 +297,16 @@ physical_transformation_rules = Matcher([
         lambda child, unique_columns: _op.AddKey(child, unique_columns)
     ),
     (
+        'DropKey(child:PhysicalOperator, constraint_name)',
+        lambda child, constraint_name: _op.DropConstraint(child, constraint_name, _op.DropConstraint.KEYS)
+    ),
+    (
         'AddForeignKey(left:PhysicalOperator, right, referenced_columns, foreign_key_columns)',
         lambda left, right, referenced_columns, foreign_key_columns:
         _op.AddForeignKey(left, right, referenced_columns, foreign_key_columns)
+    ),
+    (
+        'DropForeignKey(child:PhysicalOperator, constraint_name)',
+        lambda child, constraint_name: _op.DropConstraint(child, constraint_name, _op.DropConstraint.FOREIGN_KEYS)
     )
 ])

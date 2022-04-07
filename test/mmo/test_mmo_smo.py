@@ -338,3 +338,17 @@ class TestMMOxSMOProject (BaseMMOTestCase):
             self.model.schemas['test'].tables['person'].reify([cname], 'last_name')
         )
         self.assertTrue(any([key_name in key.names for key in temp.keys]))
+
+    def test_associate(self):
+        person = self.model.schemas['test'].tables['person']
+
+        # join will invalidate all key columns from the original relations and rename conflicting columns
+        temp = self.model.schemas['test'].create_table_as(
+            self.unittest_tname,
+            person.associate(person.columns['dept'])
+        )
+
+        # minimal test, should be improved
+        _ = self.model.catalog.getPathBuilder()
+        path = _.schemas['test'].tables[self.unittest_tname]
+        self.assertGreater(len(list(path.entities())), 0, 'expected non-empty results')

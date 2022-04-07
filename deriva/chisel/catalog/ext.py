@@ -345,6 +345,14 @@ class Table (model.Table):
         """
         return ComputedRelation(self.schema, symbols.ReifySub(self._logical_plan, self._columns_to_symbols(*columns)))
 
+    def associate(self, *fk_columns):
+        """Forms a new 'child' relation from a subset of foreign key columns within this relation.
+
+        :param fk_columns: positional arguments of columns or column names belonging to a foreign key
+        :return: computed relation
+        """
+        return ComputedRelation(self.schema, symbols.Associate(self._logical_plan, self._columns_to_symbols(*fk_columns)))
+
     def reify(self, unique_columns, *columns):
         """Forms a new relation from the specified columns.
 
