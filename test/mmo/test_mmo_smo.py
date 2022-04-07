@@ -288,26 +288,6 @@ class TestMMOxSMOProject (BaseMMOTestCase):
         self.assertTrue(len(matches) > 0)
         self.assertTrue(all([m.anchor == temp for m in matches]))
 
-    def test_union(self):
-        src_key_name = ['test', 'person_dept_fkey']
-        new_key_name = ['test', f'{self.unittest_tname}_dept_fkey']
-
-        # verify found in source model
-        matches = mmo.find(self.model, src_key_name)
-        self.assertTrue(len(matches) > 0)
-
-        # projecting the 'RID' should also carry forward and rename the key name in the mappings
-        temp = self.model.schemas['test'].create_table_as(
-            self.unittest_tname,
-            self.model.schemas['test'].tables['person'].select('name', 'dept').union(
-                self.model.schemas['test'].tables['person'].select('name', 'dept')
-            )
-        )
-
-        matches = mmo.find(self.model, new_key_name)
-        self.assertTrue(len(matches) > 0)
-        self.assertTrue(all([m.anchor == temp for m in matches]))
-
     def test_atomize(self):
         # though the operation will rename the column and therefore the key, the new key will get dropped and pruned
         # from the model due to the unnest involved in the atomize operation
