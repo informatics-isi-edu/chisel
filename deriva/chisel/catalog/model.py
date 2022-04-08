@@ -114,6 +114,9 @@ class Schema (ModelObjectWrapper):
                     vizcols_default.append(column.name)
             # populate default vizcols
             table.annotations[_erm.tag.visible_columns] = {'*': vizcols_default}
+            # populate default vizfkeys
+            table.annotations[_erm.tag.visible_foreign_keys] = {'*': []}
+            # apply annotation changes
             table.apply()
         return table
 

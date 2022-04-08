@@ -239,8 +239,8 @@ class Schema (model.Schema):
         association table from an existing foreign key relationship. The
         `columns` must be a complete set of foreign key columns from 'table'.
 
-        Finally, it extends the visible-columns[*] of the pk tables with the
-        foreign key name from the new association.
+        Finally, it extends the visible-foreign-keys[*] of the pk tables with
+        the foreign key name from the new association.
 
         :param table_name: table name
         :param table: a table instance
@@ -252,7 +252,7 @@ class Schema (model.Schema):
         )
         # graft the foreign keys in the newly associated table's visible columns
         for fkey in assoc.foreign_keys:
-            vizcols = fkey.pk_table.annotations.get(_erm.tag.visible_columns, {}).get('*')
+            vizcols = fkey.pk_table.annotations.get(_erm.tag.visible_foreign_keys, {}).get('*')
             if isinstance(vizcols, list):
                 fkey_name = [fkey.table.schema.name, fkey.constraint_name]
                 vizcols.append(fkey_name)
