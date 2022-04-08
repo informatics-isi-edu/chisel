@@ -175,16 +175,19 @@ logical_composition_rules = Matcher([
     (
         'Align(domain, child, attribute, similarity_fn, grouping_fn)',
         lambda domain, child, attribute, similarity_fn, grouping_fn:
-        Rename(
-            Project(
-                SimilarityJoin(
-                    child,
-                    Project(domain, ('name', 'synonyms')),
-                    Similar(attribute, 'name', 'synonyms', similarity_fn, grouping_fn),
+        AddForeignKey(
+            Rename(
+                Project(
+                    SimilarityJoin(
+                        child,
+                        Project(domain, ('name', 'synonyms')),
+                        Similar(attribute, 'name', 'synonyms', similarity_fn, grouping_fn),
+                    ),
+                    (AllAttributes(), AttributeDrop(attribute), AttributeDrop('synonyms'))
                 ),
-                (AllAttributes(), AttributeDrop(attribute), AttributeDrop('synonyms'))
+                (AttributeAlias(name='name', alias=attribute),)
             ),
-            (AttributeAlias(name='name', alias=attribute),)
+            domain, ('name',), (attribute,)
         )
     ),
     (
