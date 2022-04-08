@@ -12,6 +12,7 @@ Features:
   * (_NEW_) Model management operations to `find`, `prune`, and `replace` column, key, and foreign key symbols in DERIVA schema annotations;
   * (_NEW_) Integrated schema modification and model management operations for column, key, and foreign key symbols operations for `alter` (rename) and `drop`;
   * (_NEW_) Convenient `cascade`ing `drop` operations on schema, table, column, key, and foreign key symbols model element.
+  * (_NEW_) Associate operation the converts a 1:N relationship into an M:N association table (a.k.a., join table).
 
 A brief example:
 
