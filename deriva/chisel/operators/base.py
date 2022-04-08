@@ -842,6 +842,7 @@ class AddForeignKey (IntegrityConstraintModificationOperator):
         logger.debug('fk columns: %s' % foreign_key_columns)
 
         # define and append fkey
+        fkey_name = [self._description.get('schema_name', ''), _make_constraint_name(__tname_placeholder__, *foreign_key_columns, suffix='fkey')]
         self._description['foreign_keys'].append(
             _em.ForeignKey.define(
                 foreign_key_columns,
@@ -849,6 +850,11 @@ class AddForeignKey (IntegrityConstraintModificationOperator):
                 pk_table_def['table_name'],
                 referenced_columns,
                 on_update='CASCADE',
-                constraint_names=[[self._description.get('schema_name', ''), _make_constraint_name(__tname_placeholder__, *foreign_key_columns, suffix='fkey')]]
+                constraint_names=[fkey_name]
             )
         )
+
+        # add fkey to default visible-columns
+        vizcols = self._description.get('annotations', {}).get(_em.tag.visible_columns, {}).get('*')
+        if isinstance(vizcols, list):
+            vizcols.append(fkey_name)
