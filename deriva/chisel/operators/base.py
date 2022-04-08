@@ -143,6 +143,9 @@ class Assign (PhysicalOperator):
         for constraint_type in ['keys', 'foreign_keys']:
             for cdef in self._description[constraint_type]:
                 self._finalize_constraint_name(schema_name, table_name, cdef, model_stub)
+        # clear visible-fkeys, if any, as they cannot be valid for a newly defined table
+        if 'annotations' in self._description and _em.tag.visible_foreign_keys in self._description['annotations']:
+            self._description['annotations'][_em.tag.visible_foreign_keys] = {'*': []}
 
     def __iter__(self):
         return iter(self._child)
