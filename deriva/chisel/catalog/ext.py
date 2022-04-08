@@ -232,6 +232,33 @@ class Schema (model.Schema):
 
         return None if dry_run else self.tables[table_name]
 
+    def create_association_from(self, table_name, table, *columns):
+        """Creates an association table based on an existing foreign key relationship. (*experimental*)
+
+        This method uses the `Table.associate(...)` operation to create an
+        association table from an existing foreign key relationship. The
+        `columns` must be a complete set of foreign key columns from 'table'.
+
+        Finally, it extends the visible-columns[*] of the pk tables with the
+        foreign key name from the new association.
+
+        :param table_name: table name
+        :param table: a table instance
+        :param columns: column instance(s)
+        """
+        assoc = self.create_table_as(
+            table_name,
+            table.associate(*columns)
+        )
+        # graft the foreign keys in the newly associated table's visible columns
+        for fkey in assoc.foreign_keys:
+            vizcols = fkey.pk_table.annotations.get(_erm.tag.visible_columns, {}).get('*')
+            if isinstance(vizcols, list):
+                fkey_name = [fkey.table.schema.name, fkey.constraint_name]
+                vizcols.append(fkey_name)
+        self.model.apply()
+        return assoc
+
 
 class Table (model.Table):
     """Table within a schema.

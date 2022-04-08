@@ -789,6 +789,7 @@ class DropConstraint (IntegrityConstraintModificationOperator):
             self._description[constraint_type] = [
                 c for c in self._description.get(constraint_type, []) if not DropConstraint._has_name(c, constraint_name)
             ]
+        # todo: foreach dropped constraint, prune name from the model
 
     @classmethod
     def _has_name(cls, constraint, constraint_name):
