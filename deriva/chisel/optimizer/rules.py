@@ -161,12 +161,15 @@ logical_composition_rules = Matcher([
     (
         'Canonicalize(child, attribute, similarity_fn, grouping_fn)',
         lambda child, attribute, similarity_fn, grouping_fn:
-        Nest(
-            Rename(
-                Project(child, (attribute, attribute)),
-                (AttributeAlias(name=attribute, alias='name'), AttributeAlias(name=attribute, alias='synonyms'))
+        AddKey(
+            Nest(
+                Rename(
+                    Project(child, (attribute, attribute)),
+                    (AttributeAlias(name=attribute, alias='name'), AttributeAlias(name=attribute, alias='synonyms'))
+                ),
+                ('name',), ('synonyms',), similarity_fn, grouping_fn
             ),
-            ('name',), ('synonyms',), similarity_fn, grouping_fn
+            ('name',)
         )
     ),
     (

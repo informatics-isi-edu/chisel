@@ -756,11 +756,17 @@ class AddKey (IntegrityConstraintModificationOperator):
         logger.debug('unique_columns: %s' % str(unique_columns))
         self._child = child
         self._description = deepcopy(child.description)
+        # add key definition to table description
+        key_name = [self._description.get('schema_name', __sname_placeholder__), _make_constraint_name(__tname_placeholder__, *unique_columns, suffix='key')]
         self._description['keys'].append(
-            _em.Key.define(unique_columns, constraint_names=[
-                [self._description.get('schema_name', ''), _make_constraint_name(__tname_placeholder__, *unique_columns, suffix='key')]
-            ])
+            _em.Key.define(unique_columns, constraint_names=[key_name])
         )
+        # replace unique columns with key name in the default visible-columns
+        vizcols = self._description.get('annotations', {}).get(_em.tag.visible_columns, {}).get('*')
+        if isinstance(vizcols, list):
+            vizcols = [item for item in vizcols if item not in unique_columns]
+            vizcols.append(key_name)
+            self._description['annotations'][_em.tag.visible_columns]['*'] = vizcols
 
 
 class DropConstraint (IntegrityConstraintModificationOperator):
@@ -845,7 +851,7 @@ class AddForeignKey (IntegrityConstraintModificationOperator):
         logger.debug('fk columns: %s' % foreign_key_columns)
 
         # define and append fkey
-        fkey_name = [self._description.get('schema_name', ''), _make_constraint_name(__tname_placeholder__, *foreign_key_columns, suffix='fkey')]
+        fkey_name = [self._description.get('schema_name', __sname_placeholder__), _make_constraint_name(__tname_placeholder__, *foreign_key_columns, suffix='fkey')]
         self._description['foreign_keys'].append(
             _em.ForeignKey.define(
                 foreign_key_columns,
