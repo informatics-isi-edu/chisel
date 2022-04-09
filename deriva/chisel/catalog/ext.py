@@ -18,6 +18,7 @@ class Model (model.Model):
     """
 
     provide_system = True
+    update_default_vizfkeys_on_commit = False  # experimental feature
 
     def __init__(self, catalog):
         """Initializes the model.
@@ -192,6 +193,16 @@ class Model (model.Model):
                 except IndexError:
                     pass  # indicates that the expression resulted in 0 tuples, not an error in itself
 
+                # update default vizfkeys of referred pk tables (*experimental*)
+                if self.update_default_vizfkeys_on_commit:
+                    table = self.schemas[schema_name].tables[table_name]
+                    for fkey in table.foreign_keys:
+                        vizfkeys = fkey.pk_table.annotations.get(_erm.tag.visible_foreign_keys, {}).get('*')
+                        if isinstance(vizfkeys, list):
+                            fkey_name = [fkey.table.schema.name, fkey.constraint_name]
+                            if fkey_name not in vizfkeys:
+                                vizfkeys.append(fkey_name)
+
             else:
                 raise ValueError('Computed relation evaluated to "%s" object cannot be materialized' % type(physical_plan).__name__)
 
@@ -231,33 +242,6 @@ class Schema (model.Schema):
         ], dry_run=dry_run)
 
         return None if dry_run else self.tables[table_name]
-
-    def create_association_from(self, table_name, table, *columns):
-        """Creates an association table based on an existing foreign key relationship. (*experimental*)
-
-        This method uses the `Table.associate(...)` operation to create an
-        association table from an existing foreign key relationship. The
-        `columns` must be a complete set of foreign key columns from 'table'.
-
-        Finally, it extends the visible-foreign-keys[*] of the pk tables with
-        the foreign key name from the new association.
-
-        :param table_name: table name
-        :param table: a table instance
-        :param columns: column instance(s)
-        """
-        assoc = self.create_table_as(
-            table_name,
-            table.associate(*columns)
-        )
-        # graft the foreign keys in the newly associated table's visible columns
-        for fkey in assoc.foreign_keys:
-            vizcols = fkey.pk_table.annotations.get(_erm.tag.visible_foreign_keys, {}).get('*')
-            if isinstance(vizcols, list):
-                fkey_name = [fkey.table.schema.name, fkey.constraint_name]
-                vizcols.append(fkey_name)
-        self.model.apply()
-        return assoc
 
 
 class Table (model.Table):
