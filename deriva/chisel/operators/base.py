@@ -143,6 +143,9 @@ class Assign (PhysicalOperator):
         for constraint_type in ['keys', 'foreign_keys']:
             for cdef in self._description[constraint_type]:
                 self._finalize_constraint_name(schema_name, table_name, cdef, model_stub)
+        # clear visible-fkeys, if any, as they cannot be valid for a newly defined table
+        if 'annotations' in self._description and _em.tag.visible_foreign_keys in self._description['annotations']:
+            self._description['annotations'][_em.tag.visible_foreign_keys] = {'*': []}
 
     def __iter__(self):
         return iter(self._child)
@@ -717,6 +720,7 @@ class NestedLoopsSimilarityJoin (CrossJoin):
                     self._rename_row_attributes(best_match_row, self._right_renames, always_copy=True))
                 yield row
 
+
 #
 # Integrity constraint modification operators: add key, add foreign key, ...
 #
@@ -724,6 +728,10 @@ class NestedLoopsSimilarityJoin (CrossJoin):
 class IntegrityConstraintModificationOperator (PhysicalOperator):
     """Base class for integrity constraint modification operator (ICMO).
     """
+    def __init__(self, child):
+        super(IntegrityConstraintModificationOperator, self).__init__()
+        self._child = child
+
     def __iter__(self):
         return iter(self._child)
 
@@ -737,16 +745,68 @@ class AddKey (IntegrityConstraintModificationOperator):
         :param child: input expression
         :param unique_columns: collection for the unique columns of the key
         """
-        super(AddKey, self).__init__()
+        super(AddKey, self).__init__(child)
         assert isinstance(child, PhysicalOperator)
-        unique_columns = list(unique_columns) if isinstance(unique_columns, tuple) else unique_columns
+        if unique_columns == symbols.AllAttributes:
+            # convert to all column names
+            unique_columns = [cdoc['name'] for cdoc in child.description.get('column_definitions', [])]
+        else:
+            unique_columns = list(unique_columns) if isinstance(unique_columns, tuple) else unique_columns
         assert isinstance(unique_columns, list) and isinstance(next(iter(unique_columns)), str), '"unique_columns" must be a list of column names'
         logger.debug('unique_columns: %s' % str(unique_columns))
         self._child = child
         self._description = deepcopy(child.description)
+        # add key definition to table description
+        key_name = [self._description.get('schema_name', __sname_placeholder__), _make_constraint_name(__tname_placeholder__, *unique_columns, suffix='key')]
         self._description['keys'].append(
-            _em.Key.define(unique_columns)
+            _em.Key.define(unique_columns, constraint_names=[key_name])
         )
+        # replace unique columns with key name in the default visible-columns
+        vizcols = self._description.get('annotations', {}).get(_em.tag.visible_columns, {}).get('*')
+        if isinstance(vizcols, list):
+            vizcols = [item for item in vizcols if item not in unique_columns]
+            vizcols.append(key_name)
+            self._description['annotations'][_em.tag.visible_columns]['*'] = vizcols
+
+
+class DropConstraint (IntegrityConstraintModificationOperator):
+    """DropConstraint constraint operator.
+    """
+
+    KEYS = 'keys'
+    FOREIGN_KEYS = 'foreign_keys'
+
+    def __init__(self, child, constraint_name, constraint_type):
+        """Initializes the DropConstraint operator.
+
+        If no constraint name is given, all constraints of this type will be removed.
+
+        :param child: input expression
+        :param constraint_name: unqualified constraint name (or AllConstraints)
+        :param constraint_type: type of constraint (use constants to specify)
+        """
+        super(DropConstraint, self).__init__(child)
+        assert isinstance(child, PhysicalOperator)
+        logger.debug('dropping constraint name: %s' % constraint_name)
+        self._description = deepcopy(child.description)
+        if constraint_name == symbols.AllConstraints:
+            # clear all constraints of this type
+            self._description[constraint_type] = []
+        else:
+            # include all but the named constraint(s)
+            assert isinstance(constraint_name, str)
+            self._description[constraint_type] = [
+                c for c in self._description.get(constraint_type, []) if not DropConstraint._has_name(c, constraint_name)
+            ]
+        # todo: foreach dropped constraint, prune name from the model
+
+    @classmethod
+    def _has_name(cls, constraint, constraint_name):
+        names = constraint.get('names', [])
+        for name in names:
+            if len(name) == 2 and name[1] == constraint_name:
+                return True
+        return False
 
 
 class AddForeignKey (IntegrityConstraintModificationOperator):
@@ -758,12 +818,12 @@ class AddForeignKey (IntegrityConstraintModificationOperator):
         If not 'foreign_key_columns' given, then the 'child' relation should have a set of columns matching
         referenced_columns.
 
-        :param left: input expression for the refering relation
+        :param left: input expression for the referring relation
         :param right: input expression for the primary key table
         :param referenced_columns: collection of the referenced primary key column names, or the introspection function
         :param foreign_key_columns: collection of the foreign key column names (optional)
         """
-        super(AddForeignKey, self).__init__()
+        super(AddForeignKey, self).__init__(left)
         assert isinstance(left, PhysicalOperator)
         referenced_columns = list(referenced_columns) if isinstance(referenced_columns, tuple) else referenced_columns
         assert isinstance(referenced_columns, list), '"referenced_columns" must be a list'
@@ -791,6 +851,7 @@ class AddForeignKey (IntegrityConstraintModificationOperator):
         logger.debug('fk columns: %s' % foreign_key_columns)
 
         # define and append fkey
+        fkey_name = [self._description.get('schema_name', __sname_placeholder__), _make_constraint_name(__tname_placeholder__, *foreign_key_columns, suffix='fkey')]
         self._description['foreign_keys'].append(
             _em.ForeignKey.define(
                 foreign_key_columns,
@@ -798,6 +859,11 @@ class AddForeignKey (IntegrityConstraintModificationOperator):
                 pk_table_def['table_name'],
                 referenced_columns,
                 on_update='CASCADE',
-                constraint_names=[[self._description.get('schema_name', ''), _make_constraint_name(__tname_placeholder__, *foreign_key_columns, suffix='fkey')]]
+                constraint_names=[fkey_name]
             )
         )
+
+        # add fkey to default visible-columns
+        vizcols = self._description.get('annotations', {}).get(_em.tag.visible_columns, {}).get('*')
+        if isinstance(vizcols, list):
+            vizcols.append(fkey_name)

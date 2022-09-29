@@ -129,6 +129,17 @@ logical_composition_rules = Matcher([
         )
     ),
     (
+        'Associate(child, attributes)',
+        lambda child, attributes:
+        AddKey(
+            DropKey(
+                ReifySub(child, attributes),
+                AllConstraints
+            ),
+            AllAttributes
+        )
+    ),
+    (
         'Atomize(_, _, "")',
         lambda: Nil()
     ),
@@ -150,27 +161,33 @@ logical_composition_rules = Matcher([
     (
         'Canonicalize(child, attribute, similarity_fn, grouping_fn)',
         lambda child, attribute, similarity_fn, grouping_fn:
-        Nest(
-            Rename(
-                Project(child, (attribute, attribute)),
-                (AttributeAlias(name=attribute, alias='name'), AttributeAlias(name=attribute, alias='synonyms'))
+        AddKey(
+            Nest(
+                Rename(
+                    Project(child, (attribute, attribute)),
+                    (AttributeAlias(name=attribute, alias='name'), AttributeAlias(name=attribute, alias='synonyms'))
+                ),
+                ('name',), ('synonyms',), similarity_fn, grouping_fn
             ),
-            ('name',), ('synonyms',), similarity_fn, grouping_fn
+            ('name',)
         )
     ),
     (
         'Align(domain, child, attribute, similarity_fn, grouping_fn)',
         lambda domain, child, attribute, similarity_fn, grouping_fn:
-        Rename(
-            Project(
-                SimilarityJoin(
-                    child,
-                    Project(domain, ('name', 'synonyms')),
-                    Similar(attribute, 'name', 'synonyms', similarity_fn, grouping_fn),
+        AddForeignKey(
+            Rename(
+                Project(
+                    SimilarityJoin(
+                        child,
+                        Project(domain, ('name', 'synonyms')),
+                        Similar(attribute, 'name', 'synonyms', similarity_fn, grouping_fn),
+                    ),
+                    (AllAttributes(), AttributeDrop(attribute), AttributeDrop('synonyms'))
                 ),
-                (AllAttributes(), AttributeDrop(attribute), AttributeDrop('synonyms'))
+                (AttributeAlias(name='name', alias=attribute),)
             ),
-            (AttributeAlias(name='name', alias=attribute),)
+            domain, ('name',), (attribute,)
         )
     ),
     (
@@ -286,8 +303,16 @@ physical_transformation_rules = Matcher([
         lambda child, unique_columns: _op.AddKey(child, unique_columns)
     ),
     (
+        'DropKey(child:PhysicalOperator, constraint_name)',
+        lambda child, constraint_name: _op.DropConstraint(child, constraint_name, _op.DropConstraint.KEYS)
+    ),
+    (
         'AddForeignKey(left:PhysicalOperator, right, referenced_columns, foreign_key_columns)',
         lambda left, right, referenced_columns, foreign_key_columns:
         _op.AddForeignKey(left, right, referenced_columns, foreign_key_columns)
+    ),
+    (
+        'DropForeignKey(child:PhysicalOperator, constraint_name)',
+        lambda child, constraint_name: _op.DropConstraint(child, constraint_name, _op.DropConstraint.FOREIGN_KEYS)
     )
 ])

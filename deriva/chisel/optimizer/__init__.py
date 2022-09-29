@@ -43,7 +43,7 @@ def _execute_rules(rules, plan):
     while True:
         temp = plan
         plan = _execute_rules_single_pass(rules, temp)
-        if temp == plan:
+        if str(temp) == str(plan):
             # stop when a fixed point is reached
             break
     return plan

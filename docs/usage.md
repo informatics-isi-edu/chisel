@@ -375,6 +375,20 @@ acme.create_table_as(
 )
 ```
 
+### Associate
+
+The `associate` method on a `Table` instance returns an expression for converting a 1:N foreign key reference into a M:N association table (a.k.a., join table).
+
+```python
+foo = model.schemas['acme'].tables['foo']
+acme.create_table_as(
+    'foo_bar',
+    foo.associate(foo.columns['bar'])
+)
+```
+
+The above example assumes that `bar` is a table and `foo.bar` is a column that is used in a foreign key reference to from `foo` to `bar`.
+
 ## Model Management
 
 The `alter` and `drop` methods above are integrated with model management operations for 

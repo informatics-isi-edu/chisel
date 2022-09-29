@@ -121,6 +121,9 @@ Unnest = namedtuple('Unnest', 'child unnest_fn attribute')
 # Composite operator definitions
 #
 
+#: associate operator takes 'attributes' belonging to an existing foreign key and converts into an (M:N) association
+Associate = namedtuple('Associate', 'child attributes')
+
 #: align operator aligns the values of a target column with a given dictionary
 Align = namedtuple('Align', 'domain child attribute similarity_fn grouping_fn')
 
@@ -149,12 +152,21 @@ Tagify = namedtuple('Tagify', 'domain child attribute unnest_fn similarity_fn gr
 #: add key constraint
 AddKey = namedtuple('AddKey', 'child unique_columns')
 
+#: drop key consraint
+DropKey = namedtuple('DropKey', 'child constraint_name')
+
 #: add foreign key constraint
-AddForeignKey = namedtuple('AddKey', 'left right referenced_columns foreign_key_columns')
+AddForeignKey = namedtuple('AddForeignKey', 'left right referenced_columns foreign_key_columns')
+
+#: drop foreign key consraint
+DropForeignKey = namedtuple('DropForeignKey', 'child constraint_name')
 
 #
 # Terms, operands, and parameters
 #
+
+#: all constraints marker
+AllConstraints = namedtuple('AllConstraints', '')
 
 #: all attributes marker
 AllAttributes = namedtuple('AllAttributes', '')

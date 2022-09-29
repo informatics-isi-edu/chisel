@@ -3,6 +3,7 @@
 import itertools
 import logging
 from pprint import pformat, pprint
+from deriva.core import ermrest_model as _erm
 from . import model
 from .stubs import CatalogStub
 from ..optimizer import symbols, planner, logical_planner, physical_planner, consolidate
@@ -17,6 +18,7 @@ class Model (model.Model):
     """
 
     provide_system = True
+    update_default_vizfkeys_on_commit = False  # experimental feature
 
     def __init__(self, catalog):
         """Initializes the model.
@@ -186,7 +188,20 @@ class Model (model.Model):
                 nondefaults = {'RID', 'RCB', 'RCT'} & planned_column_names  # write syscol values if defined in plan
 
                 # ...stream tuples from the physical operator to the remote catalog
-                new_table.insert(physical_plan, nondefaults=nondefaults)
+                try:
+                    new_table.insert(physical_plan, nondefaults=nondefaults)
+                except IndexError:
+                    pass  # indicates that the expression resulted in 0 tuples, not an error in itself
+
+                # update default vizfkeys of referred pk tables (*experimental*)
+                if self.update_default_vizfkeys_on_commit:
+                    table = self.schemas[schema_name].tables[table_name]
+                    for fkey in table.foreign_keys:
+                        vizfkeys = fkey.pk_table.annotations.get(_erm.tag.visible_foreign_keys, {}).get('*')
+                        if isinstance(vizfkeys, list):
+                            fkey_name = [fkey.table.schema.name, fkey.constraint_name]
+                            if fkey_name not in vizfkeys:
+                                vizfkeys.append(fkey_name)
 
             else:
                 raise ValueError('Computed relation evaluated to "%s" object cannot be materialized' % type(physical_plan).__name__)
@@ -245,7 +260,6 @@ class Table (model.Table):
         self._new_fkey = lambda obj: ForeignKey(self, obj)
         self._logical_plan = logical_plan or self.schema.model.make_extant_symbol(self.schema.name, self.name)
 
-
     def _columns_to_symbols(self, *columns):
         """Validates and returns cleaned up column list.
         """
@@ -260,6 +274,14 @@ class Table (model.Table):
                 raise ValueError("Unsupported type '%s' in column list" % type(column).__name__)
 
         return tuple([_column_to_symbol(c) for c in columns])
+
+    def alter(self, **kwargs):
+        # Wraps the underlying object's `alter` method, updates logical plan (just in case) and copies its documentation
+        self._wrapped_obj.alter(**kwargs)
+        self._logical_plan = self.schema.model.make_extant_symbol(self.schema.name, self.name)
+        return self
+
+    alter.__doc__ = _erm.Table.alter.__doc__
 
     def clone(self):
         """Clone this table.
@@ -333,6 +355,14 @@ class Table (model.Table):
         :return: computed relation
         """
         return ComputedRelation(self.schema, symbols.ReifySub(self._logical_plan, self._columns_to_symbols(*columns)))
+
+    def associate(self, *fk_columns):
+        """Forms a new 'child' relation from a subset of foreign key columns within this relation.
+
+        :param fk_columns: positional arguments of columns or column names belonging to a foreign key
+        :return: computed relation
+        """
+        return ComputedRelation(self.schema, symbols.Associate(self._logical_plan, self._columns_to_symbols(*fk_columns)))
 
     def reify(self, unique_columns, *columns):
         """Forms a new relation from the specified columns.

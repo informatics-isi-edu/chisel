@@ -288,26 +288,6 @@ class TestMMOxSMOProject (BaseMMOTestCase):
         self.assertTrue(len(matches) > 0)
         self.assertTrue(all([m.anchor == temp for m in matches]))
 
-    def test_union(self):
-        src_key_name = ['test', 'person_dept_fkey']
-        new_key_name = ['test', f'{self.unittest_tname}_dept_fkey']
-
-        # verify found in source model
-        matches = mmo.find(self.model, src_key_name)
-        self.assertTrue(len(matches) > 0)
-
-        # projecting the 'RID' should also carry forward and rename the key name in the mappings
-        temp = self.model.schemas['test'].create_table_as(
-            self.unittest_tname,
-            self.model.schemas['test'].tables['person'].select('name', 'dept').union(
-                self.model.schemas['test'].tables['person'].select('name', 'dept')
-            )
-        )
-
-        matches = mmo.find(self.model, new_key_name)
-        self.assertTrue(len(matches) > 0)
-        self.assertTrue(all([m.anchor == temp for m in matches]))
-
     def test_atomize(self):
         # though the operation will rename the column and therefore the key, the new key will get dropped and pruned
         # from the model due to the unnest involved in the atomize operation
@@ -358,3 +338,17 @@ class TestMMOxSMOProject (BaseMMOTestCase):
             self.model.schemas['test'].tables['person'].reify([cname], 'last_name')
         )
         self.assertTrue(any([key_name in key.names for key in temp.keys]))
+
+    def test_associate(self):
+        person = self.model.schemas['test'].tables['person']
+
+        # join will invalidate all key columns from the original relations and rename conflicting columns
+        temp = self.model.schemas['test'].create_table_as(
+            self.unittest_tname,
+            person.associate(person.columns['dept'])
+        )
+
+        # minimal test, should be improved
+        _ = self.model.catalog.getPathBuilder()
+        path = _.schemas['test'].tables[self.unittest_tname]
+        self.assertGreater(len(list(path.entities())), 0, 'expected non-empty results')
