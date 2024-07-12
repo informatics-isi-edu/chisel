@@ -25,6 +25,9 @@ class Model (object):
         self.annotations = self._wrapped_model.annotations
         self.apply = self._wrapped_model.apply
         self.prejson = self._wrapped_model.prejson
+        self.configure_baseline_ermrest_client = self._wrapped_model.configure_baseline_ermrest_client
+        self.configure_baseline_ermrest_group = self._wrapped_model.configure_baseline_ermrest_group
+        self.configure_baseline_catalog = self._wrapped_model.configure_baseline_catalog
 
     @classmethod
     def from_catalog(cls, catalog):
@@ -66,6 +69,7 @@ class Schema (ModelObjectWrapper):
     """
 
     define = _erm.Schema.define
+    define_www = _erm.Schema.define_www
 
     def __init__(self, parent, schema):
         """Initializes the schema.
@@ -179,6 +183,7 @@ class Table (ModelObjectWrapper):
     define = _erm.Table.define
     define_vocabulary = _erm.Table.define_vocabulary
     define_asset = _erm.Table.define_asset
+    define_page = _erm.Table.define_page
 
     def __init__(self, parent, table):
         """Initializes the table.
