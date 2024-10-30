@@ -34,7 +34,7 @@ setup(
     package_data={},
     test_suite='tests',
     install_requires=[
-        'deriva>=1.5.0',
+        'deriva>=1.5.0,<=1.7.3',
         'graphviz',
         'nltk',
         'pyfpm',

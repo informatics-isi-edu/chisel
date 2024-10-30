@@ -2,6 +2,9 @@
 
 CHiSEL is a high-level, user-oriented framework for schema evolution and model management in the [DERIVA](http://docs.derivacloud.org) platform.
 
+**NOTE**: CHiSEL is currently frozen and its core features have been merged upstream to the [deriva-py](https://github.com/informatics-isi-edu/deriva-py) API.
+Current users of DERIVA should migrate their clients to use the `deriva` package.
+
 Features:
   * Compatible with [DERIVA](http://docs.derivacloud.org)'s [deriva-py catalog model management API](http://docs.derivacloud.org/users-guide/project-tutorial.html#your-first-catalog);
   * Support for SQL-like `CREATE TABLE AS` schema evolution expressions;
@@ -9,10 +12,10 @@ Features:
   * Ability to view the output of expressions before materializing;
   * Schema evolution expressions that update schema annotations too;
   * Bulk operation execution to increase efficiency;
-  * (_NEW_) Model management operations to `find`, `prune`, and `replace` column, key, and foreign key symbols in DERIVA schema annotations;
-  * (_NEW_) Integrated schema modification and model management operations for column, key, and foreign key symbols operations for `alter` (rename) and `drop`;
-  * (_NEW_) Convenient `cascade`ing `drop` operations on schema, table, column, key, and foreign key symbols model element.
-  * (_NEW_) Associate operation the converts a 1:N relationship into an M:N association table (a.k.a., join table).
+  * Model management operations to `find`, `prune`, and `replace` column, key, and foreign key symbols in DERIVA schema annotations;
+  * Integrated schema modification and model management operations for column, key, and foreign key symbols operations for `alter` (rename) and `drop`;
+  * Convenient `cascade`ing `drop` operations on schema, table, column, key, and foreign key symbols model element.
+  * Associate operation the converts a 1:N relationship into an M:N association table (a.k.a., join table).
 
 A brief example:
 
